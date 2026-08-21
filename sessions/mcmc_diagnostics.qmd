@@ -424,6 +424,13 @@ if haskey(chain_good.info, :divergent_transitions)
 end
 ```
 
+::: {.callout-note collapse="true"}
+## Watching inference live
+
+The divergence check above runs once the fit has finished.
+[Watching a fit unfold](../reference/live_monitoring.qmd) shows an optional dashboard for watching inference in progress and reviewing the results, worth reaching for when a model is slow enough that you want to catch problems before the run ends.
+:::
+
 ## Problem 3: Multi-modal posteriors
 
 Some posteriors have multiple peaks, and a single chain can settle into one and never see the others. The standard responses are:
