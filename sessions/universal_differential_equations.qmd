@@ -176,6 +176,10 @@ scatter!(flu_tdc.time, flu_tdc.obs, label="Observed",
 We'll use a small network - remember, we only have 60 data points!
 
 ```{julia}
+# The time normalisation used by the network's second input. It is a constant of
+# the problem, so it is defined here rather than carried in the parameter vector.
+const TMAX = maximum(times)
+
 # Network architecture: 2 inputs → 8 hidden → 1 output
 # Total parameters: ~33 (keeps training fast)
 
@@ -184,7 +188,7 @@ Random.seed!(rng, 1234)
 
 # Define network structure - small for fast ForwardDiff autodiff
 nn_architecture = Chain(
-    Dense(2 => 8, tanh),       # Input: [I/N, t/tmax]
+    Dense(2 => 8, tanh),       # Input: [I/N, t/TMAX]
     Dense(8 => 1, softplus)     # Output: β > 0 (softplus ensures positivity)
 )
 
@@ -213,7 +217,7 @@ A few things to note about this architecture (expand the code explainer above fo
 
 - **Why softplus output?** It ensures β is always positive — transmission rates can't be negative.
 
-- **Why 2 inputs?** We feed the network both prevalence (I/N) and normalised time (t/tmax). This lets β depend on both "how bad is the epidemic right now" and "what day is it" — capturing both behavioural responses to prevalence and time-dependent changes like weekends or policy changes.
+- **Why 2 inputs?** We feed the network both prevalence (I/N) and normalised time (t/TMAX). This lets β depend on both "how bad is the epidemic right now" and "what day is it" — capturing both behavioural responses to prevalence and time-dependent changes like weekends or policy changes.
 
 - **Parameter count**: The first layer has 2×8 weights + 8 biases = 24 parameters. The second has 8×1 weights + 1 bias = 9 parameters. Total: 33 parameters for 60 data points — roughly 2 data points per parameter. In a standard neural network, this would be a recipe for overfitting, but in a UDE the network output has to flow through an ODE solver and produce a physically plausible epidemic trajectory. The network can't just memorise noise because arbitrary weight values would produce nonsensical dynamics (Rackauckas et al. 2020).
 
@@ -222,17 +226,19 @@ A few things to note about this architecture (expand the code explainer above fo
 ```{julia}
 """
 SIR model where β is learned by neural network.
-β = NN([I/N, t/tmax]) predicts transmission rate.
+β = NN([I/N, t/TMAX]) predicts transmission rate.
 """
 function sir_ude!(du, u, p, t)
     S, I, R = u
     N = S + I + R
-    γ = p.γ  # Fixed here for simplicity; in practice you'd estimate γ jointly
+    γ = γ_guess  # Fixed here for simplicity; in practice you'd estimate γ jointly
 
     # Neural network predicts β(t, I)
-    # Inputs: prevalence (I/N) and normalized time (t/tmax)
-    tmax = p.tmax
-    nn_input = [I/N, t/tmax]
+    # Inputs: prevalence (I/N) and normalised time (t/TMAX). Both γ and TMAX are
+    # constants of the problem rather than things to be learned, so they are
+    # closed over here rather than carried in the parameter vector, which would
+    # hand them to the optimiser.
+    nn_input = [I/N, t/TMAX]
 
     # Evaluate neural network
     β_learned, _ = nn_architecture(nn_input, p.nn_params, st_nn)
@@ -261,7 +267,10 @@ function predict_ude(p_all)
     prob_ude = ODEProblem(sir_ude!, u0_promoted, tspan, p_all)
     sol_ude = solve(prob_ude, Tsit5(), saveat=times, dense=false)
 
-    if sol_ude.retcode != :Success
+    # `retcode` is a SciMLBase enum, not a Symbol: comparing it against
+    # `:Success` is true even for a successful solve, which would send every
+    # prediction to NaN and flatten the loss.
+    if !SciMLBase.successful_retcode(sol_ude)
         return fill(T(NaN), length(times))
     end
 
@@ -311,12 +320,10 @@ If training produces NaN values, reduce the learning rate. If the loss doesn't d
 Training means finding network weights that minimise the loss function. This requires computing gradients of the loss with respect to all 33 parameters - a task handled by automatic differentiation (autodiff).
 
 ```{julia}
-# Combine all parameters into a single object for optimisation
-p_all = ComponentArray(
-    nn_params = p_nn,
-    γ = γ_guess,
-    tmax = maximum(times)
-)
+# The network weights are the only things being optimised. Lux initialises them
+# in Float32; the ODE state is Float64, so promote them to match and avoid a
+# mixed-precision solve.
+p_all = ComponentArray{Float64}(nn_params = p_nn)
 
 println("Starting UDE training...")
 println("="^60)
@@ -358,7 +365,11 @@ println("Final loss: ", round(result.objective, digits=2))
 p_trained = result.u
 ```
 
-Always check that the loss has converged — if it's still decreasing at the end, run more iterations:
+Always check the loss curve, and be honest with yourself about what it shows.
+
+Ours drops steeply over the first ten iterations, rebounds, then descends slowly and unevenly for the rest of the run. It is *still falling* at iteration 500, by about 0.09 per iteration over the last twenty. By the advice in this section that means the fit has not converged and more iterations are warranted; we stop at 500 because this is a teaching example and the shape of the answer is already visible, which is a trade you should make deliberately rather than by not looking.
+
+The middle of the curve is worth a second glance too. Progress slows enough around iterations 50 to 200 to look like a plateau, and stopping there would have given a much worse fit while appearing converged.
 
 ```{julia}
 plot(loss_history, xlabel="Iteration", ylabel="Loss",
@@ -372,7 +383,7 @@ Automatic differentiation computes exact gradients of the loss with respect to p
 
 **The Adam optimiser** is a gradient descent variant that adapts learning rates for each parameter and uses momentum to smooth updates. The learning rate (0.01) controls step size: too large and training becomes unstable; too small and convergence is slow. Adam is widely used for neural network training because it works well across many problems without much tuning.
 
-**What to expect**: The loss should decrease substantially (often by orders of magnitude). If it doesn't, something is wrong - perhaps the learning rate is too high (NaN errors) or too low (no progress), or the model structure can't fit the data.
+**What to expect**: the loss should fall steadily and substantially. Do not expect it to fall by orders of magnitude here, and do not use that as your check: a Poisson negative log-likelihood is not bounded below by zero, and ours goes from about +356 to about -340, so ratios of it mean nothing. Watch the shape instead. A loss that sits exactly flat means no gradient is reaching the parameters, which is a bug rather than a converged fit; `NaN` usually means the learning rate is too high; and a curve still falling steeply at the end means run for longer.
 
 ## Step 5: Compare results
 
@@ -389,9 +400,30 @@ scatter!(flu_tdc.time, flu_tdc.obs, label="Observed",
          markersize=4, color=:red)
 ```
 
-**Key question**: Does the UDE capture the second wave? Look at the fit around days 25-35.
+**Key question**: what did the UDE buy, and what did it pay?
 
-You should see the UDE trajectory (orange/green line) tracking the first-wave peak noticeably better than the constant-β baseline. Whether the second wave (days 25-35) is captured depends on the training run: the UDE may show a small uptick there, but with only 60 data points it is unlikely to reproduce the second wave precisely. If the two curves look almost identical, the network may not have learned anything useful — try increasing the number of iterations or using a different random seed.
+The answer is not the one you might expect. The constant-β baseline nearly matches
+the height of the first peak, about 41 against an observed 47, and then collapses
+to nothing by day 15. The UDE does the opposite: it peaks at about 11, missing the
+first wave badly, and in exchange keeps a low tail running through days 20 to 50
+where the data really do have cases and the baseline has none.
+
+That trade is a direct consequence of the loss we chose, though not for the reason
+usually given. Day by day, a Poisson negative log-likelihood still charges more for
+a large absolute miss than a small one: missing by thirty on a day expecting forty
+costs several times what missing by five on a day expecting two does.
+
+What decides the outcome is arithmetic across the series. Predicting *nothing* on a
+day when cases occurred is close to unbounded under a log-likelihood, and the
+constant-β baseline predicts essentially nothing for the whole of days 20 to 50.
+Adding those forty days up outweighs everything the UDE gives away at the peak, so
+the optimiser buys the tail and sells the peak. Swap in sum of squared errors and
+the incentive reverses: an empty tail is cheap, a peak missed by thirty is not, and
+the fit would go the other way.
+
+So the network did learn something, and it is not what a glance at the peak would
+suggest. Neither curve reproduces both waves, which is the point the next section
+takes up.
 
 ## Step 6: Visualise learned β(t)
 
@@ -423,19 +455,37 @@ hline!([β_guess], label="Constant β baseline", linestyle=:dash)
 vspan!([25, 35], alpha=0.2, color=:blue, label="Second wave period")
 ```
 
-In a typical run you should see β(t) starting high (above the constant-β baseline), dropping during the trough around days 12-20, and then rising again around days 20-25 as the network tries to reignite transmission for the second wave. The exact shape varies between runs (see [Uncertainty quantification](#uncertainty-quantification-in-the-main-analysis) below).
+The curve above starts at about 1.0, a little *below* the constant-β baseline,
+falls to a minimum near 0.7 around day 8, and then climbs steadily for the rest of
+the outbreak, crossing the baseline around day 24 and reaching roughly 2.5 by day
+59.
+
+Read alongside the fit, that shape says what the network was doing. It suppresses
+transmission through the first wave, which is how the trajectory stays down at 11
+cases instead of overshooting to 40, and then raises transmission continuously to
+keep generating the small numbers of cases in the tail. It is propping up a long
+low tail rather than producing a second wave, and it needs an ever-larger β to do
+so because the susceptible pool is draining the whole time.
+
+The exact shape varies between runs (see [Uncertainty quantification](#uncertainty-quantification-in-the-main-analysis) below), so treat these numbers as this run's, not the model's.
 
 Before interpreting this curve, look back at Step 5. How well does the UDE actually fit the data? The fit may be imperfect. An imperfect fit tells us either that the network needs more capacity, or that the SIR structure itself can't capture the dynamics. We'll explore this in the next section.
 
-Interpreting the learned β(t):
+Interpreting a learned β(t), in general:
 
-If β(t) shows a dip followed by recovery around days 15-25, this suggests the network learned that transmission must vary to explain both waves. This is consistent with behavioural relaxation - initial caution followed by return to normal contact patterns.
+A dip followed by a recovery suggests the network found that transmission has to
+vary to explain the shape of the data, which is consistent with behavioural
+relaxation: initial caution, then a return to normal contact patterns.
 
-If β(t) is roughly constant, the network didn't find time-varying transmission useful. This might mean:
+A β(t) that rises without ever coming back down, as ours does, is a different
+signal. It says the network is compensating for something the *structure* cannot
+do, rather than describing a behaviour. Here it is compensating for a susceptible
+pool that only ever shrinks.
 
-- The network is too small (try more hidden units)
-- More training iterations are needed
-- Or genuinely: time-varying β isn't the right mechanism for this data
+A roughly constant β(t) would say the network did not find time-varying
+transmission useful, which might mean the network is too small, that more
+iterations are needed, or genuinely that time-varying β is not the right mechanism
+for these data.
 
 ## Uncertainty quantification in the main analysis {#uncertainty-quantification-in-the-main-analysis}
 
@@ -505,11 +555,8 @@ for seed in [1234, 5678, 9012]
     p_nn_test, _ = Lux.setup(rng_test, nn_architecture)
     p_nn_test = ComponentArray(p_nn_test)
 
-    p_test = ComponentArray(
-        nn_params = p_nn_test,
-        γ = γ_guess,
-        tmax = maximum(times)
-    )
+    # Only the network weights are optimised, as above
+    p_test = ComponentArray{Float64}(nn_params = p_nn_test)
 
     opt_func_test = OptimizationFunction(loss_ude, Optimization.AutoForwardDiff())
     opt_prob_test = OptimizationProblem(opt_func_test, p_test, nothing)
