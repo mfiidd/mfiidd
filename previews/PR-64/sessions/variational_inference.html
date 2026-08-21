@@ -797,7 +797,7 @@ window.Quarto = {
 <pre>Running MCMC with NUTS...
 <span class="ansi-cyan-fg ansi-bold">┌ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>Found initial step size
 <span class="ansi-cyan-fg ansi-bold">└ </span>  ϵ = 0.2
-MCMC time: 22.5 seconds
+MCMC time: 22.7 seconds
 </pre>
 </div>
 </div>
@@ -903,7 +903,7 @@ MCMC time: 22.5 seconds
 <div class="ansi-escaped-output">
 <pre>Running Mean-Field VI...
 <span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>The capability of the supplied target `LogDensityProblem` LogDensityProblems.LogDensityOrder{1}() is &gt;= `LogDensityProblems.LogDensityOrder{1}()`. To make use of this, the `adtype` argument for AdvancedVI must be one of `AutoReverseDiff`, `AutoZygote`, `AutoMooncake`, or `AutoEnzyme` in reverse mode.
-Mean-field VI time: 10.1 seconds
+Mean-field VI time: 10.3 seconds
 Final ELBO: -379.49
 </pre>
 </div>
@@ -1031,7 +1031,7 @@ VI mean-field correlation (R_0, D_inf): -0.016</code></pre>
 <div class="ansi-escaped-output">
 <pre>Running Full-Rank VI...
 <span class="ansi-cyan-fg ansi-bold">[ </span><span class="ansi-cyan-fg ansi-bold">Info: </span>The capability of the supplied target `LogDensityProblem` LogDensityProblems.LogDensityOrder{1}() is &gt;= `LogDensityProblems.LogDensityOrder{1}()`. To make use of this, the `adtype` argument for AdvancedVI must be one of `AutoReverseDiff`, `AutoZygote`, `AutoMooncake`, or `AutoEnzyme` in reverse mode.
-Full-rank VI time: 7.2 seconds
+Full-rank VI time: 8.6 seconds
 Final ELBO: -381.16
 </pre>
 </div>
@@ -1160,12 +1160,12 @@ Full-Rank VI Summary:
 <div class="cell-output cell-output-stdout">
 <pre><code>Speed comparison (from runs above):
 ==================================================
-MCMC (500 samples):      22.5 seconds
-Mean-field VI (500 iter): 10.1 seconds
-Full-rank VI (500 iter):  7.2 seconds
+MCMC (500 samples):      22.7 seconds
+Mean-field VI (500 iter): 10.3 seconds
+Full-rank VI (500 iter):  8.6 seconds
 ==================================================
 Mean-field speedup: 2.2×
-Full-rank speedup:  3.1×</code></pre>
+Full-rank speedup:  2.6×</code></pre>
 </div>
 </div>
 <p>The speedup becomes even more dramatic with larger models or more samples.</p>
