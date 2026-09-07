@@ -113,7 +113,9 @@ function simulate_sir(R_0, D_inf, init_state, times)
     inc_cumulative = sol[4, :]
     inc_daily = diff(inc_cumulative)
 
-    return inc_daily
+    # S is returned alongside incidence so the model can expose latent
+    # quantities built from it. S has one value per time point, inc one fewer.
+    return (inc=inc_daily, S=sol[1, :])
 end
 ```
 
@@ -127,11 +129,16 @@ Now let's define a model with priors and sample from the prior predictive distri
     ρ ~ Uniform(0.0, 1.0)  # Reporting rate
 
     # Simulate.
-    inc = simulate_sir(R_0, D_inf, init_state, times)
+    traj = simulate_sir(R_0, D_inf, init_state, times)
 
     # Likelihood
-    lambdas = [max(ρ * inc[i], 1e-10) for i in 1:n_obs]
+    lambdas = [max(ρ * traj.inc[i], 1e-10) for i in 1:n_obs]
     obs ~ arraydist(Poisson.(lambdas))
+
+    # Latent quantities. Nothing is fitted to these; returning them makes them
+    # available afterwards through returned().
+    N = init_state[:S] + init_state[:I] + init_state[:R]
+    return (S=traj.S, R_t=R_0 .* traj.S ./ N)
 end
 ```
 
@@ -178,7 +185,7 @@ for i in 1:100
     D_inf = prior_samples[:D_inf][i]
     ρ = prior_samples[:ρ][i]
 
-    inc = simulate_sir(R_0, D_inf, init_state, times)
+    inc = simulate_sir(R_0, D_inf, init_state, times).inc
     obs_expected = ρ .* inc
     plot!(p_prior, collect(times)[2:end], obs_expected, alpha=0.2, color=:blue)
 end
@@ -289,6 +296,59 @@ plot!(p_ppc, legend=:topright)
 - Does the model capture the variability in the data?
 
 For the Tristan da Cunha data with a simple SIR model, you'll likely see the model fails to capture the **second wave**. This is expected - SIR doesn't have temporary immunity. This motivates the SEITL/SEIT4L models in later sessions.
+
+## Latent quantities
+
+Everything so far pushes the posterior draws through to replicated *observations*, because those are what we can hold against data.
+The same draws also give the *latent* quantities, which the model never reports: the S, I and R trajectories, and anything derived from them.
+The obvious one here is the effective reproduction number, $R_t = R_0 \, S(t) / N$.
+
+Nothing observes these, so they cannot be checked against data.
+That sounds like a limitation and is exactly why they are worth plotting.
+They are easier to reason about than raw counts, which is the argument the [introduction](introduction.qmd) makes for prior predictive checks: a prior on $R_0$ is hard to judge and an epidemic curve is not.
+$R_t$ goes a step further along the same line.
+A reader who cannot say whether a prior on $R_0$ is sensible can say at once that $R_t$ still sitting at 4 in week six is not.
+
+```{julia}
+# Push the posterior draws through the model's return statement
+latent = vec(returned(model, chain))
+rt_samples = [l.R_t for l in latent[1:100]]
+```
+
+::: {.callout-tip collapse="true"}
+## Code explainer: `returned(model, chain)`
+A Turing model's `return` value plays no part in fitting. It is ignored while
+sampling, so you can return whatever the model happens to know.
+
+`returned(model, chain)` runs the model once per posterior draw and collects
+those return values, giving an iterations-by-chains array of whatever the
+`return` produced. Our `sir_model` returns a named tuple of `S` and `R_t`, so
+`latent[i].R_t` is one posterior draw's whole $R_t$ trajectory.
+
+This is the same operation as `predict(decondition(model), chain)` above,
+pointed at a different part of the model. `predict` gives replicated
+observations; `returned` gives whatever the model returns. Both push the same
+posterior draws forward.
+
+A model with no `return` gives you nothing here, which is why `sir_model` grew
+one.
+:::
+
+```{julia}
+#| code-fold: true
+#| code-summary: "Plotting code"
+p_rt = plot(title="Posterior R_t", xlabel="Time (days)", ylabel="R_t")
+
+for rt in rt_samples
+    plot!(p_rt, collect(times), rt, alpha=0.1, color=:lightblue, label="")
+end
+
+hline!(p_rt, [1.0], color=:red, linestyle=:dash, label="R_t = 1")
+plot!(p_rt, legend=:topright)
+```
+
+$R_t$ starts at the posterior for $R_0$ and falls as susceptibles are depleted, crossing 1 where the fitted epidemic turns over.
+The spread across draws is the same posterior uncertainty the predictive check shows, read on a scale you have intuition for.
 
 # Quantifying posterior predictive fit
 
@@ -404,7 +464,7 @@ mean_ρ = mean(chain[:ρ])
 # Simulate on the same grid the model was fitted on, so predictions line up with
 # the observations they are being compared against
 obs_times = flu_tdc.time
-mean_inc = simulate_sir(mean_R_0, mean_D_inf, init_state, times)
+mean_inc = simulate_sir(mean_R_0, mean_D_inf, init_state, times).inc
 mean_pred = mean_ρ .* mean_inc
 
 resid = flu_tdc.obs .- mean_pred
@@ -553,7 +613,7 @@ function run_sbc(n_sbc=20)
         ρ_true = rand(Uniform(0.0, 1.0))
 
         # 2. Simulate data
-        inc = simulate_sir(R_0_true, D_inf_true, init_state, times)
+        inc = simulate_sir(R_0_true, D_inf_true, init_state, times).inc
         obs_sim = rand.(Poisson.(max.(ρ_true .* inc, 1e-10)))
 
         # 3. Fit model (short chain for speed)
