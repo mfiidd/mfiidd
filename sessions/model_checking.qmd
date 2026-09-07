@@ -329,7 +329,6 @@ pointed at a different part of the model. `predict` gives replicated
 observations; `returned` gives whatever the model returns. Both push the same
 posterior draws forward.
 
-A model with no `return` gives you nothing here, which is why `sir_model` grew
 one.
 :::
 
