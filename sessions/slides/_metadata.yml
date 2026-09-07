@@ -7,6 +7,10 @@ suppress-bibliography: true
 
 format:
   revealjs:
+    # Repeated from _quarto.yml: a project-level `format: html` block does
+    # not reach a revealjs document, and without this the deck quietly falls
+    # back to loading MathJax from a CDN.
+    html-math-method: mathml
     theme: [default, mfiidd.scss]
     slide-number: true
     chalkboard: false

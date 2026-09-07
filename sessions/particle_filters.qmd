@@ -402,7 +402,7 @@ This ties everything together: the initial state, Gillespie dynamics, and Poisso
 ## Code explainer
 
 - `StateSpaceModel(initial, dynamics, observation)` is a constructor from `SSMProblems.jl` that bundles the three SSM components into a single object. Constructors in Julia look like function calls with the type's name — there's no explicit `new` keyword as in Python or Java.
-- `BF(n_particles)` constructs a *Bootstrap Filter* object from `GeneralisedFilters.jl`. The bootstrap filter is the simplest particle filter variant: it propagates particles using the model's own dynamics, weights them by the observation likelihood, and resamples. Other variants (e.g. `APF` for auxiliary particle filter, `GPF` for guided) would plug in here without any changes to the model — that's the point of the SSM interface.
+- `BF(n_particles)` constructs a *Bootstrap Filter* object from `GeneralisedFilters.jl`. The bootstrap filter is the simplest particle filter variant: it propagates particles using the model's own dynamics, weights them by the observation likelihood, and resamples. Other filters (`ParticleFilter` with a proposal of your own, `AuxiliaryParticleFilter`, `KalmanFilter`) would plug in here without any changes to the model, which is the point of the SSM interface.
 - `GeneralisedFilters.filter(rng, model, algo, obs)` returns a tuple of `(particles_at_final_time, log_likelihood)`. We ignore the particles with `_` and keep only the log-likelihood estimate, which is what MCMC will eventually need.
 - `Random.default_rng()` returns Julia's shared global RNG. If you seed it with `Random.seed!(n)` at the start of the session, every call that uses this RNG becomes reproducible.
 :::
@@ -583,6 +583,28 @@ over and look at the spread.
 - **Next step**: The noisy likelihood estimate slots directly into the Metropolis-Hastings acceptance ratio — wherever we previously computed `log_likelihood(θ)`, we now use `run_particle_filter(θ, data, n_particles)` instead
 
 :::
+
+# Going further
+
+The bootstrap filter is one member of a family, and `GeneralisedFilters.jl` provides the others behind the same interface.
+Each is a different algorithm argument to `GeneralisedFilters.filter`, so the model defined above carries over unchanged.
+
+**Better proposals.**
+`BF` is not a separate algorithm from the general particle filter `PF`.
+It is `PF` with the proposal set to the model's own dynamics, so the proposal and the dynamics cancel out of the importance weight and the weights reduce to the observation density alone.
+Give `PF` a proposal that looks at the observation before propagating, or use `AuxiliaryParticleFilter` to reweight particles by a look-ahead score first, and the weights vary less between particles.
+That variance is what the calibration section measured, so a better proposal reaches the same standard deviation with fewer particles.
+
+**Exploiting structure.**
+`KalmanFilter` computes the likelihood exactly for linear Gaussian models, with no particles and no Monte Carlo noise.
+`RBPF` marginalises out whichever part of a model is linear and Gaussian and spends particles only on the part that is not.
+
+**Filters inside other algorithms.**
+The filters accept a reference trajectory to condition on, which is what particle Gibbs needs.
+The [next session](pmcmc.qmd) takes the other route, feeding the likelihood estimate to a Metropolis-Hastings sampler.
+
+The resampling scheme is swappable too, through the `resampler` keyword.
+The [GeneralisedFilters.jl documentation](https://turinglang.org/SSMProblems.jl/GeneralisedFilters/dev/) lists what is available.
 
 # References
 

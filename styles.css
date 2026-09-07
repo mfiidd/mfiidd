@@ -19,3 +19,10 @@ table.data-frame {
   background-color: #3a3a3a;
   border-left: 3px solid #666;
 }
+
+/* Math: MathML rendered by the browser. Use locally installed math fonts only —
+   never a webfont, so formulae still render with no network access. */
+math {
+  font-family: "STIX Two Math", "Latin Modern Math", "Cambria Math",
+               "DejaVu Math TeX Gyre", "Noto Sans Math", serif;
+}
