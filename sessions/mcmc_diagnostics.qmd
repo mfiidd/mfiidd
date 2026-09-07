@@ -106,7 +106,7 @@ epi1 = DataFrame(
 
 # Build the problem once and `remake` it per likelihood call, as in the MCMC
 # session
-const sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
+sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
 
 # Define our SIR model in Turing.jl (same as MCMC session)
 @model function sir_model(init_state, times, n_obs)

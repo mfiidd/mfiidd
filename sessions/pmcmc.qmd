@@ -380,7 +380,7 @@ function seit4l_ode!(du, u, p, t)
 end
 
 # Built once and reused; see the note on `remake` in the MCMC session
-const seit4l_prob = ODEProblem(seit4l_ode!, zeros(9), (0.0, 1.0), zeros(5))
+seit4l_prob = ODEProblem(seit4l_ode!, zeros(9), (0.0, 1.0), zeros(5))
 
 @model function seit4l_deterministic_model(init_state, times, n_obs)
     # Weakly informative priors
