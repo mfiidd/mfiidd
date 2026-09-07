@@ -104,6 +104,10 @@ epi1 = DataFrame(
     ]
 )
 
+# Build the problem once and `remake` it per likelihood call, as in the MCMC
+# session
+const sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
+
 # Define our SIR model in Turing.jl (same as MCMC session)
 @model function sir_model(init_state, times, n_obs)
     # Weakly informative priors
@@ -111,7 +115,9 @@ epi1 = DataFrame(
     D_inf ~ truncated(Normal(5.0, 3.0), lower=0.5)
 
     # Simulate ODE
-    prob = ODEProblem(sir_ode!, init_state, (times[1], times[end]), [R_0, D_inf])
+    prob = remake(
+        sir_prob, u0 = init_state, p = [R_0, D_inf], tspan = (times[1], times[end])
+    )
     sol = solve(prob, saveat = times)
 
     # Likelihood
