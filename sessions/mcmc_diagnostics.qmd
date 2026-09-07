@@ -104,14 +104,17 @@ epi1 = DataFrame(
     ]
 )
 
+sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
+
 # Define our SIR model in Turing.jl (same as MCMC session)
 @model function sir_model(init_state, times, n_obs)
     # Weakly informative priors
     R_0 ~ truncated(Normal(2.5, 1.5), lower=1.0)
     D_inf ~ truncated(Normal(5.0, 3.0), lower=0.5)
 
-    # Simulate ODE
-    prob = ODEProblem(sir_ode!, init_state, (times[1], times[end]), [R_0, D_inf])
+    prob = remake(
+        sir_prob, u0 = init_state, p = [R_0, D_inf], tspan = (times[1], times[end])
+    )
     sol = solve(prob, saveat = times)
 
     # Likelihood
@@ -416,7 +419,7 @@ With gradient-based samplers like NUTS, mixing problems are uncommon when the mo
 
 ## Problem 2: Divergent transitions (for HMC/NUTS)
 
-NUTS simulates a ball rolling over the posterior surface. A *divergent transition* occurs when the simulation becomes numerically unstable — the ball "flies off" to implausible values instead of following the contour. This typically happens when the posterior has sharp ridges or funnels: the step size that works in flat regions is too large for the narrow parts, causing numerical errors to explode.
+NUTS simulates a puck sliding over the posterior surface. A *divergent transition* occurs when the simulation becomes numerically unstable — the puck "flies off" to implausible values instead of following the contour. This typically happens when the posterior has sharp ridges or funnels: the step size that works in flat regions is too large for the narrow parts, causing numerical errors to explode.
 
 A small number of divergences (say <1% of samples) may be acceptable, but many divergences indicate biased sampling — the sampler is systematically avoiding regions it can't navigate, so the samples underrepresent those areas.
 
