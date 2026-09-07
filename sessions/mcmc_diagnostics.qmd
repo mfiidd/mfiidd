@@ -577,9 +577,12 @@ Sample until the MCSE is small next to the precision you want to claim.
 Chains get stuck for a few common reasons: a sampler too basic for the geometry, proposal steps that are the wrong size, or correlated parameters and narrow ridges in the posterior.
 Multimodality does it too (see [Problem 4](#problem-4-multi-modal-posteriors)).
 
-The first thing to try is a better algorithm — NUTS handles most well-behaved posteriors — and running longer. If that isn't enough, reparametrise the model to give the posterior a friendlier shape. Against the chains you are already running, a stuck one shows up as an outlier.
+The first two of those are sampler problems and the third is a model problem, and which you are looking at depends on what you are sampling with.
+On basic Metropolis-Hastings, moving to NUTS is usually the fix, and running longer helps.
+On NUTS, poor mixing usually means the model, so reparametrise to give the posterior a friendlier shape.
+Against the chains you are already running, a stuck one shows up as an outlier.
 
-With gradient-based samplers like NUTS, mixing problems are uncommon when the model is specified correctly, the posterior is reasonably well-behaved, and the priors aren't pathological.
+With gradient-based samplers like NUTS, mixing problems are uncommon when the model is specified correctly, the posterior is reasonably well-behaved, and the priors are not pathological.
 
 A chain started where the model cannot be evaluated, or where it raises inference errors, does not move at all, and its trace shows the long flat stretches of a stuck chain.
 Those look exactly like a badly tuned proposal, which is why this failure is usually misdiagnosed.
