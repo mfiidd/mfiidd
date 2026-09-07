@@ -6,10 +6,10 @@ order: 6
 ---
 
 ::: {.callout-note appearance="simple"}
-**Estimated time**: 2-2.5 hours (includes computation time for calibration)
+**Estimated time**: 105 minutes (includes computation time for calibration)
 :::
 
-[Lecture slides](slides/particle_filters.qmd)
+[Slides](slides/particle_filters.qmd)
 
 # Introduction
 
@@ -146,76 +146,21 @@ init_state = Dict(
 From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather than the basic SEITL (exponential temporary immunity). As we saw in the [SEITL session](seitl.qmd), the Erlang distribution gives more realistic timing for immunity loss. The original [Camacho et al. (2011)](https://doi.org/10.1098/rspb.2011.0300) paper found that SEIT4L fits the Tristan da Cunha data better. Everything below works identically with SEITL — just with fewer T sub-compartments.
 :::
 
-The particle filter needs to simulate many stochastic trajectories. We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), adapted here for the SEIT4L model with its four T compartments:
+The particle filter needs to simulate many stochastic trajectories.
+We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), adapted here for the SEIT4L model with its four T compartments.
+The implementation below is shown from the package source rather than repeated by
+hand, so that the page and the code cannot drift apart. This is the function
+`SEIT4LDynamics` calls once per particle per day:
+
+::: {.callout-note collapse="true"}
+## Gillespie step implementation
 
 ```{julia}
-#| eval: false
-#| code-fold: true
-#| code-summary: "Gillespie step implementation (click to expand)"
-# Stoichiometry matrix: how each transition changes [S, E, I, T1, T2, T3, T4, L]
-const STOICH = [
-    [-1,  1,  0,  0,  0,  0,  0,  0],  # S -> E (infection)
-    [ 0, -1,  1,  0,  0,  0,  0,  0],  # E -> I (become infectious)
-    [ 0,  0, -1,  1,  0,  0,  0,  0],  # I -> T1 (recovery starts)
-    [ 0,  0,  0, -1,  1,  0,  0,  0],  # T1 -> T2
-    [ 0,  0,  0,  0, -1,  1,  0,  0],  # T2 -> T3
-    [ 0,  0,  0,  0,  0, -1,  1,  0],  # T3 -> T4
-    [ 0,  0,  0,  0,  0,  0, -1,  1],  # T4 -> L (long-term immunity)
-    [ 1,  0,  0,  0,  0,  0,  0, -1],  # L -> S (waning immunity)
-]
-
-function gillespie_step(rng, state, θ)
-    S, E, I, T1, T2, T3, T4, L = state
-    N = sum(state)
-
-    # Calculate transition rates
-    β = θ[:R_0] / θ[:D_inf]
-    rates = [
-        β * S * I / N,           # S -> E
-        E / θ[:D_lat],           # E -> I
-        (1 - θ[:α]) * I / θ[:D_inf],  # I -> T1 (temporary immunity)
-        θ[:α] * I / θ[:D_inf],   # I -> L (direct to long-term, not shown above)
-        4 * T1 / θ[:D_imm],      # T1 -> T2 (Erlang stages)
-        4 * T2 / θ[:D_imm],      # T2 -> T3
-        4 * T3 / θ[:D_imm],      # T3 -> T4
-        4 * T4 / θ[:D_imm],      # T4 -> L
-    ]
-
-    daily_incidence = 0
-    t = 0.0
-
-    while t < 1.0  # Simulate one day
-        total_rate = sum(rates)
-        if total_rate == 0
-            break
-        end
-
-        # Time to next event
-        dt = randexp(rng) / total_rate
-        if t + dt > 1.0
-            break
-        end
-        t += dt
-
-        # Choose which event occurs
-        event = sample(rng, 1:length(rates), Weights(rates))
-
-        # Update state
-        state = state .+ STOICH[event]
-
-        # Track E -> I transitions as new cases
-        if event == 2
-            daily_incidence += 1
-        end
-
-        # Recalculate rates with new state
-        S, E, I, T1, T2, T3, T4, L = state
-        # ... (rates update)
-    end
-
-    return state, daily_incidence
-end
+#| echo: false
+#| output: asis
+println("```julia\n", source_for(gillespie_step), "\n```")
 ```
+:::
 
 Key aspects:
 
@@ -241,20 +186,22 @@ particles = [Float64[init_state[:S], init_state[:E], init_state[:I],
                      init_state[:T1], init_state[:T2], init_state[:T3],
                      init_state[:T4], init_state[:L]] for _ in 1:n_particles]
 
-# Store trajectories (days 0-5)
-trajectories = [zeros(6) for _ in 1:n_particles]
+# Store the daily incidence for days 1-5 of each particle
+trajectories = [zeros(5) for _ in 1:n_particles]
 
 # Simulate 5 days
 for day in 1:5
     for i in 1:n_particles
         particles[i], inc = gillespie_step(Random.default_rng(), particles[i], θ_example)
-        trajectories[i][day+1] = inc
+        trajectories[i][day] = inc
     end
 end
 
-# For weighting step later
-day_5_predictions = [trajectories[i][6] for i in 1:n_particles]
-day_5_observed = flu_tdc.obs[6]
+# For weighting step later. The particles were stepped five times from the initial
+# state, so `trajectories[i][k]` is each particle's incidence on day k, and the
+# observation to weight against is the one recorded on day 5.
+day_5_predictions = [trajectories[i][5] for i in 1:n_particles]
+day_5_observed = flu_tdc.obs[5]
 
 # Plot
 p = plot(title="Particle Filter: Propagation Step",
@@ -262,22 +209,23 @@ p = plot(title="Particle Filter: Propagation Step",
 
 # Particle trajectories
 for i in 1:n_particles
-    plot!(p, 0:5, trajectories[i], alpha=0.4, color=:steelblue, linewidth=1, label="")
+    plot!(p, 1:5, trajectories[i], alpha=0.4, color=:steelblue, linewidth=1, label="")
 end
 
-# All observations - earlier in gray, previous (day 4) in red, current target (day 5) as open circle
+# Observations up to day 4 in grey, and the day 5 observation the particles are
+# about to be weighted against as an open circle
 scatter!(p, flu_tdc.time[1:4], flu_tdc.obs[1:4],
          label="Earlier observations", markersize=4, color=:gray)
 scatter!(p, [flu_tdc.time[5]], [flu_tdc.obs[5]],
-         label="Previous observation", markersize=7, color=:red)
-scatter!(p, [flu_tdc.time[6]], [flu_tdc.obs[6]],
-         label="Current target", markersize=7, markershape=:circle,
+         label="Current target (day 5)", markersize=7, markershape=:circle,
          markerstrokecolor=:red, markerstrokewidth=2, color=:white)
 
 plot!(p, legend=:topright)
 ```
 
-Each blue line is one particle trajectory. The particles spread out because each follows different random events. The current observation (red, at day 5) will be used to weight the particles.
+Each blue line is one particle trajectory.
+The particles spread out because each follows different random events.
+The open circle is the observation recorded on day 5, and it is the one used to weight the particles below.
 
 ## The weighting step
 
@@ -454,7 +402,7 @@ This ties everything together: the initial state, Gillespie dynamics, and Poisso
 ## Code explainer
 
 - `StateSpaceModel(initial, dynamics, observation)` is a constructor from `SSMProblems.jl` that bundles the three SSM components into a single object. Constructors in Julia look like function calls with the type's name — there's no explicit `new` keyword as in Python or Java.
-- `BF(n_particles)` constructs a *Bootstrap Filter* object from `GeneralisedFilters.jl`. The bootstrap filter is the simplest particle filter variant: it propagates particles using the model's own dynamics, weights them by the observation likelihood, and resamples. Other variants (e.g. `APF` for auxiliary particle filter, `GPF` for guided) would plug in here without any changes to the model — that's the point of the SSM interface.
+- `BF(n_particles)` constructs a *Bootstrap Filter* object from `GeneralisedFilters.jl`. The bootstrap filter is the simplest particle filter variant: it propagates particles using the model's own dynamics, weights them by the observation likelihood, and resamples. Other filters (`ParticleFilter` with a proposal of your own, `AuxiliaryParticleFilter`, `KalmanFilter`) would plug in here without any changes to the model, which is the point of the SSM interface.
 - `GeneralisedFilters.filter(rng, model, algo, obs)` returns a tuple of `(particles_at_final_time, log_likelihood)`. We ignore the particles with `_` and keep only the log-likelihood estimate, which is what MCMC will eventually need.
 - `Random.default_rng()` returns Julia's shared global RNG. If you seed it with `Random.seed!(n)` at the start of the session, every call that uses this RNG becomes reproducible.
 :::
@@ -487,7 +435,7 @@ Calibrating (this takes 1-2 minutes to run all particle counts):
 
 # Test different particle counts
 particle_counts = 2 .^ (2:9)  # 4, 8, 16, ..., 512
-n_reps = 30
+n_reps = 200  ## the spread is itself an estimate, and 30 draws is too few to pin it down
 
 calibration = DataFrame(n_particles=Int[], mean_ll=Float64[],
                         sd_ll=Float64[], time_per_run=Float64[])
@@ -535,18 +483,18 @@ p3 = plot(calibration.n_particles, calibration.time_per_run,
 plot(p1, p2, p3, layout=(1, 3), size=(900, 300))
 ```
 
-Look at the variance plot (middle). We want the SD to be in the range 1-3. Read off which particle count achieves this.
+Look at the variance plot (middle). We want the SD to be in the range 1-3. Read off the smallest particle count that achieves this.
 
 ::: {.callout-note collapse="true"}
-## Typical results (if you can't run the code)
+## Typical results
 In our runs, we typically see:
 
-- **4-16 particles**: SD > 10, far too noisy for reliable inference
-- **32-64 particles**: SD around 3-6, borderline
-- **128 particles**: SD around 1.5-3, in the target range
-- **256-512 particles**: SD < 1.5, diminishing returns for the extra computation
+- **4-16 particles**: SD in the tens or worse, far too noisy for reliable inference
+- **32 particles**: SD around 7, still outside the target range
+- **64 particles**: SD around 2, the first count inside it
+- **128-512 particles**: SD below 1, falling slowly while the cost keeps rising
 
-Your numbers will differ due to stochastic variability, but the pattern should be similar. For the PMCMC session, we'll use around 128-256 particles based on this calibration.
+Your numbers will differ, and at the low counts they differ a lot, which is why the cell above averages over 200 runs rather than a handful.
 :::
 
 ::: {.callout-tip title="Exercise: Choose the number of particles"}
@@ -571,10 +519,9 @@ to aim for a standard deviation somewhere between 1 and 3 on the log scale, whic
 is where the total cost tends to be lowest.
 
 **Why go above the minimum.** The noise depends on where in parameter space you
-are. A count calibrated at the posterior mode will be too few out in the tails,
-which is precisely where a chain gets stuck and stays stuck. Calibrating at a
-reasonable parameter set and then taking some headroom is cheaper than diagnosing
-a chain that will not move.
+are, and a count calibrated at one parameter set will be too few elsewhere.
+Elsewhere is precisely where a chain gets stuck and stays stuck, so taking some
+headroom is cheaper than diagnosing a chain that will not move.
 :::
 
 ::: {.callout-tip title="Exercise: Sensitivity to parameters"}
@@ -624,6 +571,8 @@ If you want to see it plainly, compute the likelihood at a single $R_0$ ten time
 over and look at the spread.
 :::
 
+# Learning points
+
 ::: {.callout-tip title="Learning points"}
 
 - **Stochastic models require particle filters** because the likelihood marginalises over all possible trajectories
@@ -634,6 +583,28 @@ over and look at the spread.
 - **Next step**: The noisy likelihood estimate slots directly into the Metropolis-Hastings acceptance ratio — wherever we previously computed `log_likelihood(θ)`, we now use `run_particle_filter(θ, data, n_particles)` instead
 
 :::
+
+# Going further
+
+The bootstrap filter is one member of a family, and `GeneralisedFilters.jl` provides the others behind the same interface.
+Each is a different algorithm argument to `GeneralisedFilters.filter`, so the model defined above carries over unchanged.
+
+**Better proposals.**
+`BF` is not a separate algorithm from the general particle filter `PF`.
+It is `PF` with the proposal set to the model's own dynamics, so the proposal and the dynamics cancel out of the importance weight and the weights reduce to the observation density alone.
+Give `PF` a proposal that looks at the observation before propagating, or use `AuxiliaryParticleFilter` to reweight particles by a look-ahead score first, and the weights vary less between particles.
+That variance is what the calibration section measured, so a better proposal reaches the same standard deviation with fewer particles.
+
+**Exploiting structure.**
+`KalmanFilter` computes the likelihood exactly for linear Gaussian models, with no particles and no Monte Carlo noise.
+`RBPF` marginalises out whichever part of a model is linear and Gaussian and spends particles only on the part that is not.
+
+**Filters inside other algorithms.**
+The filters accept a reference trajectory to condition on, which is what particle Gibbs needs.
+The [next session](pmcmc.qmd) takes the other route, feeding the likelihood estimate to a Metropolis-Hastings sampler.
+
+The resampling scheme is swappable too, through the `resampler` keyword.
+The [GeneralisedFilters.jl documentation](https://turinglang.org/SSMProblems.jl/GeneralisedFilters/dev/) lists what is available.
 
 # References
 

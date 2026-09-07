@@ -1,0 +1,88 @@
+---
+footer: "Introduction to the course"
+title: "Model fitting and inference for infectious disease dynamics"
+subtitle: "Introduction to the course and the instructors"
+---
+
+## Why this course?
+
+Fitting a mechanistic model to data is a common task in an research on infectious disease dynamics.
+
+::: {.fragment}
+The methods are often buried in the statistical literature, with little guidance on which particularapproach one should use.
+:::
+
+::: {.fragment}
+There was no single place that taught them together.
+:::
+
+## The history
+
+Taught at LSHTM for over a decade, by the Centre for the Mathematical Modelling of Infectious Diseases.
+
+::: {.fragment}
+Written by Anton Camacho and Sebastian Funk, and developed since by [several people](../../authors.qmd).
+:::
+
+::: {.fragment}
+It used R and a course-only package, which we told people never to use for real work.
+:::
+
+::: {.fragment}
+This year it is **Julia** (bear with us), which can express every method we teach.
+:::
+
+## Who are we?
+
+:::: {.columns}
+::: {.column width="25%"}
+![](https://github.com/seabbs.png){width="85%"}
+
+[Sam Abbott](https://github.com/seabbs)
+:::
+::: {.column width="25%"}
+![](https://github.com/nicholasdavies.png){width="85%"}
+
+[Nicholas Davies](https://github.com/nicholasdavies)
+:::
+::: {.column width="25%"}
+![](https://github.com/sbfnk.png){width="85%"}
+
+[Sebastian Funk](https://github.com/sbfnk)
+:::
+::: {.column width="25%"}
+![](https://github.com/slmontes.png){width="85%"}
+
+[Sandra Montes](https://github.com/slmontes)
+:::
+::::
+
+## Who are you?
+
+Around the room:
+
+- your name
+- where you have come from
+- what you would like to fit a model to
+
+## How the course works
+
+Each session opens with a short set of slides and then becomes a practical you work through.
+
+::: {.fragment}
+The practicals are the course. Sit with someone and compare answers, and ask us as soon as you are stuck.
+:::
+
+::: {.fragment}
+Every line of Julia is given complete. The exercises ask you to predict, interpret and choose, never to debug.
+:::
+
+## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
+
+Head to
+
+### [mfiidd.github.io](https://mfiidd.github.io/)
+
+and click **Getting Started** to set your laptop up.
+
+We are coming round, so put your hand up as soon as anything does not work.

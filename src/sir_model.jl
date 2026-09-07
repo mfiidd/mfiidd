@@ -30,25 +30,43 @@ function sir_ode!(du, u, p, t)
 end
 
 """
-    simulate_sir(R_0, D_inf, S0, I0, times)
+    SIR_BASE_PROBLEM
+
+A template `ODEProblem` for `sir_ode!`, built once when the package loads.
+`simulate_sir` calls `remake` on it rather than building a fresh problem on
+every call, which matters because a likelihood asks for tens of thousands of
+simulations. The placeholder state and parameters are never used: `remake`
+replaces `u0`, `p` and `tspan` on every call.
+"""
+const SIR_BASE_PROBLEM = ODEProblem(sir_ode!, zeros(3), (0.0, 1.0), zeros(2))
+
+"""
+    simulate_sir(θ, init_state, times)
 
 Simulate the deterministic SIR model.
 
 # Arguments
-- `R_0`: Basic reproduction number
-- `D_inf`: Infectious period (days)
-- `S0`: Initial susceptible population
-- `I0`: Initial infectious population
+- `θ`: Dict with keys :R_0, :D_inf
+- `init_state`: Dict with keys :S, :I, :R
 - `times`: Time points to return (e.g., 0.0:1.0:30.0)
 
 # Returns
 DataFrame with columns: time, S, I, R, Inc (daily incidence)
+
+`Inc` is the flow out of S, so `Inc[i]` counts the infections between
+`times[i - 1]` and `times[i]`. No such interval precedes the first time point,
+so `Inc[1]` is zero and `times` needs a point before the first observation:
+`Inc[i + 1]` is the incidence over the day the i-th observation counts.
 """
-function simulate_sir(R_0, D_inf, S0, I0, times)
-    times_vec = collect(times)
-    u0 = Float64[S0, I0, 0.0]
-    prob = ODEProblem(sir_ode!, u0, (times_vec[1], times_vec[end]), [R_0, D_inf])
-    sol = solve(prob, Tsit5(), saveat = times_vec)
+function simulate_sir(θ, init_state, times)
+    u0 = [init_state[:S], init_state[:I], init_state[:R]]
+    prob = remake(
+        SIR_BASE_PROBLEM;
+        u0 = u0,
+        p = [θ[:R_0], θ[:D_inf]],
+        tspan = (times[1], times[end]),
+    )
+    sol = solve(prob, Tsit5(), saveat = times)
 
     df = DataFrame(
         time = sol.t,
@@ -57,8 +75,8 @@ function simulate_sir(R_0, D_inf, S0, I0, times)
         R = [u[3] for u in sol.u],
     )
 
-    # Compute daily incidence from change in R
-    df.Inc = [0.0; diff(df.R)]
+    # Daily incidence: new infections, the flow out of S
+    df.Inc = [0.0; -diff(df.S)]
 
     return df
 end

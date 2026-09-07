@@ -17,8 +17,9 @@ website:
   repo-url: https://github.com/mfiidd/mfiidd
   repo-actions: [source, issue]
   description: "Model fitting and inference for infectious disease dynamics"
-  body-footer: '<script data-goatcounter="https://mfidd.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>'
+  body-footer: '<script data-goatcounter="https://mfiidd.goatcounter.com/count" async src="//gc.zgo.at/count.js"></script>'
   open-graph: true
+  favicon: mfiidd-favicon.png
   navbar:
     left:
       - getting-started.qmd
@@ -33,6 +34,7 @@ website:
       title: "Sessions"
       style: "docked"
       contents:
+        - sessions/introduction-and-course-overview.qmd
         - sessions/introduction.qmd
         - sessions/mcmc.qmd
         - sessions/mcmc_diagnostics.qmd
@@ -43,8 +45,10 @@ website:
         - sessions/observation_models.qmd
         - sessions/abc.qmd
         - sessions/variational_inference.qmd
+        - sessions/neural_posterior_estimation.qmd
         - sessions/universal_differential_equations.qmd
         - sessions/julia_ecosystem.qmd
+        - sessions/closing.qmd
     - id: reference
       title: "Reference"
       style: "docked"
@@ -53,9 +57,10 @@ website:
 format:
   html:
     theme:
-      light: brite
-      dark: vapor
+      light: cosmo
+      dark: solar
     css: styles.css
+    html-math-method: mathml
     link-external-icon: true
     link-external-newwindow: true
     toc: true

@@ -23,7 +23,7 @@ Monday 7 September: 09.00-09.30
 
 Monday 7 September: 09.30-09.45
 
--   Welcome and introduction to the course and the instructors (15 mins)
+-   [Introduction and course overview](../sessions/introduction-and-course-overview.qmd): the course, the instructors and the week ahead (15 mins)
 
 ## Getting set up
 
@@ -32,17 +32,17 @@ Monday 7 September: 09.45-10.30
 -   [Getting set up for the course](../getting-started.qmd): installing Julia and the `MFIIDD` package, and checking everyone's environment runs (45 mins)
 
 ::: {.callout-warning}
-Please install everything **before** you arrive. Package installation downloads
-around 1 GB and precompiles it, which takes 15–30 minutes on a good connection
-and considerably longer on a room full of laptops at once. This slot is for
-fixing what has gone wrong, not for starting from scratch.
+If you can, install everything **before** you arrive. The packages come to
+around 1 GB and Julia precompiles them on first use, which takes 15–30 minutes on
+a good connection. If you have not managed it, come anyway and we will get you
+running in this slot.
 :::
 
-## Session 1: Introduction to model fitting
+## Session 1: Bayesian inference with mathematical models
 
 Monday 7 September: 10.30-11.00, 11.30-12.30 and 13.30-14.00
 
--   [Introduction](../sessions/slides/introduction.qmd): what model fitting and inference mean, likelihoods, and Bayes' rule (25 mins)
+-   [Slides](../sessions/slides/introduction.qmd): what model fitting and inference mean, likelihoods, and Bayes' rule (25 mins)
 -   [Practice](../sessions/introduction.qmd):
     - simulating an SIR model and exploring what the priors imply (35 mins)
     - evaluating a Poisson likelihood against observed data (30 mins)
@@ -98,6 +98,10 @@ Tuesday 8 September: 14.30-15.15 and 15.45-17.00
     - simulating it deterministically and stochastically, and comparing (45 mins)
 -   Wrap up (10 mins)
 
+Tuesday 8 September: 19.00
+
+-   Course dinner
+
 # Day 3: Particle-based methods and observation models
 
 **Wednesday 9 September**
@@ -117,7 +121,7 @@ Wednesday 9 September: 09.45-11.00 and 11.30-12.30
     - calibrating the number of particles (35 mins)
 -   Wrap up (10 mins)
 
-## Session 7: Particle MCMC
+## Session 7: Particle MCMC and model comparison
 
 Wednesday 9 September: 13.30-15.15
 
@@ -138,13 +142,6 @@ Wednesday 9 September: 15.45-17.00
     - the negative binomial, and seeing a likelihood as a distance function (25 mins)
 -   Wrap up (5 mins)
 
-The session ends on a question rather than an answer: if a likelihood is a
-distance function, why not choose the distance directly? That is the first thing
-Thursday morning takes up.
-
-Wednesday 9 September: 19.00
-
--   Course dinner
 
 # Day 4: Likelihood-free inference and closing
 
@@ -164,16 +161,13 @@ Thursday 10 September: 09.45-11.00
     - ABC-SMC, and comparing it against rejection ABC (20 mins)
 -   Wrap up (10 mins)
 
-The closing part asks how much a single outlying observation moves each approach,
-which is the sharpest illustration that a likelihood and a distance are the same
-kind of object.
 
-## Session 10: Choosing an inference approach
+## Session 10: Synthesis and next steps
 
 Thursday 10 September: 11.30-12.15
 
--   [Choosing an inference approach](../sessions/slides/choosing_an_approach.qmd): the methods side by side, the two questions that decide between them, and what actually goes wrong (25 mins)
--   Discussion: work through the five worked problems, then place your own on the map, in pairs and then as a group (20 mins)
+-   [Slides](../sessions/slides/choosing_an_approach.qmd): the methods side by side, the two questions that decide between them, and what actually goes wrong (25 mins)
+-   [Discussion](../sessions/closing.qmd): work through the two questions, then place your own problem, in pairs and then as a group (20 mins)
 
 Bring a model you actually want to fit. The discussion works best when people
 argue about real problems rather than the worked examples.
@@ -186,10 +180,11 @@ Thursday 10 September: 12.15-12.30
 
 # Further material
 
-Two sessions are provided for self-study rather than taught in the room. Both
+Four sessions are provided for self-study rather than taught in the room. They
 build on the taught sessions and can be worked through afterwards at your own
 pace.
 
 -   [Variational inference](../sessions/variational_inference.qmd): fast approximate inference for real-time applications
 -   [Universal differential equations](../sessions/universal_differential_equations.qmd): combining mechanistic models with neural networks
 -   [Beyond Turing](../sessions/julia_ecosystem.qmd): the wider Julia ecosystem — alternative samplers, automatic differentiation backends, and what sits underneath
+-   [Neural posterior estimation](../sessions/neural_posterior_estimation.qmd): amortised inference with normalising flows, for models that are simulated many times

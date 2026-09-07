@@ -1,7 +1,7 @@
 ---
-footer: "Introduction"
+footer: "Bayesian inference"
 title: "Model fitting and inference for infectious disease dynamics"
-subtitle: "Introduction"
+subtitle: "Bayesian inference with mathematical models"
 engine: julia
 ---
 
@@ -11,6 +11,15 @@ engine: julia
 
 ENV["GKSwstype"] = "100"
 using Distributions
+using StatsPlots
+using Random
+Random.seed!(20260907)
+
+## The decks are projected, so draw larger than the plotting default.
+default(
+    size = (620, 380), legend = false, guidefontsize = 13, tickfontsize = 11,
+    titlefontsize = 15, linewidth = 2, markersize = 6, grid = true,
+)
 ```
 
 # Introduction
@@ -32,15 +41,16 @@ $$
 :::
 ::::
 
-::: {.fragment}
+. . .
+
 Mechanistic models: **description** vs **mechanism**.
-:::
 
 ## Model *fitting*: parameter estimation
 
 Given a model, what are the parameter combinations that best **fit** the data?
 
-::: {.fragment}
+. . .
+
 ### Why are we doing this?
 
 - **Learn** something about the system
@@ -50,7 +60,6 @@ Given a model, what are the parameter combinations that best **fit** the data?
     Bangladesh are asymptomatic?
   - sometimes in real time
 - **Validate** the model, especially for prediction
-:::
 
 ## What do we mean by "best fit the data"?
 
@@ -73,9 +82,9 @@ Given what we observe, what is the **state** of the system?
 ##  {.center}
 
 ::: {.r-stack}
-![](images/Big_picture_simplest.svg){.step .fragment .fade-out fragment-index=1}
-![](images/Big_picture_empty.svg){.step .fragment .current-visible fragment-index=1}
-![](images/Big_picture_empty_question.svg){.step .fragment fragment-index=2}
+![](images/Big_picture_simplest.svg){.bigpic .step .fragment .fade-out fragment-index=1}
+![](images/Big_picture_empty.svg){.bigpic .step .fragment .current-visible fragment-index=1}
+![](images/Big_picture_empty_question.svg){.bigpic .step .fragment fragment-index=2}
 :::
 
 ## Assessing the "closeness" of model output and data
@@ -99,32 +108,73 @@ Given what we observe, what is the **state** of the system?
 
   $$p(\text{data} \mid \text{model output})$$
 
-## Two things you can do with a distribution {.smaller}
+## Probability distributions: discrete {.smaller}
 
-:::: {.columns}
-::: {.column width="50%"}
-![](images/poisson_likelihood.svg){.mini}
+How many soldiers die of horse kicks, at 0.61 deaths per corps per year?
+Counts of rare, independent events follow a [Poisson]{.alert} distribution.
 
-Discrete, e.g. **Poisson**: how many die of horse kicks at 0.61 kicks per year?
-:::
-::: {.column width="50%"}
-![](images/weather.svg){.mini}
+::::: {.columns}
+:::: {.column width="55%"}
+```{julia}
+#| echo: false
+scatter(
+    0:5, pdf.(Poisson(0.61), 0:5),
+    xlabel = "Deaths per corps-year", ylabel = "Probability",
+)
+```
 
-Continuous, e.g. **normal**: the temperature in London tomorrow.
-:::
+[Bortkiewicz (1898) counted 122 deaths across 10 Prussian corps in 20 years.]{.cite}
 ::::
 
+:::: {.column width="45%"}
 ::: {.fragment}
-:::: {.columns}
-::: {.column width="50%"}
-[**Evaluate**]{.alert} the density of a value
+[**Evaluate**]{.alert} the probability of a value
 
 ```{julia}
 #| echo: true
 pdf(Poisson(0.61), 2)
 ```
 :::
-::: {.column width="50%"}
+
+::: {.fragment}
+[**Sample**]{.alert} a value at random
+
+```{julia}
+#| echo: true
+rand(Poisson(0.61))
+```
+:::
+::::
+:::::
+
+## Probability distributions: continuous {.smaller}
+
+What will the temperature be in London tomorrow?
+A continuous quantity, here a [normal]{.alert} distribution.
+
+::::: {.columns}
+:::: {.column width="55%"}
+```{julia}
+#| echo: false
+plot(
+    15:0.05:31, pdf.(Normal(23, 2), 15:0.05:31),
+    xlabel = "Temperature (°C)", ylabel = "Density",
+)
+```
+
+::::
+
+:::: {.column width="45%"}
+::: {.fragment}
+[**Evaluate**]{.alert} the density at a value
+
+```{julia}
+#| echo: true
+pdf(Normal(23, 2), 30)
+```
+:::
+
+::: {.fragment}
 [**Sample**]{.alert} a value at random
 
 ```{julia}
@@ -133,12 +183,13 @@ rand(Normal(23, 2))
 ```
 :::
 ::::
-:::
+:::::
 
 ## Example: observation uncertainty {.smaller}
 
-SIR model, assuming cases are detected with independent reporting probability
-$\rho = 0.5$.
+SIR model, assuming cases are detected with reporting probability $\rho = 0.5$,
+and that observations are [conditionally independent]{.alert} given the
+trajectory: knowing the model, one day's error tells us nothing about the next.
 
 :::: {.columns}
 ::: {.column width="50%"}
@@ -172,23 +223,23 @@ $p(\text{data point } 10 \mid \theta) = 0.078$
 
 ## From one point to the whole trajectory
 
-::: {.fragment}
+. . .
+
 Multiply across the data to get the probability of the whole trajectory:
 
 $$p(\text{data} \mid \theta) = \prod_{i} p(\text{data point } i \mid \theta)$$
-:::
 
-::: {.fragment}
+. . .
+
 Or sum on the log scale, which is numerically better behaved:
 
 $$\log p(\text{data} \mid \theta) = \sum_{i} \log p(\text{data point } i \mid \theta)$$
-:::
 
 ##  {.center}
 
 ::: {.r-stack}
-![](images/Big_picture_deterministic_models_with_observations_simple.svg){.step .fragment .fade-out fragment-index=1}
-![](images/Big_picture_deterministic_models_with_observations.svg){.step .fragment fragment-index=1}
+![](images/Big_picture_deterministic_models_with_observations_simple.svg){.bigpic .step .fragment .fade-out fragment-index=1}
+![](images/Big_picture_deterministic_models_with_observations.svg){.bigpic .step .fragment fragment-index=1}
 :::
 
 ## The likelihood {.smaller}
@@ -227,13 +278,12 @@ $$\text{(posterior)} \propto \text{(normalised likelihood)} \times \text{(prior)
 
 ## Prior probabilities
 
-$p(\theta)$ quantifies our degree of **belief** via a probability distribution,
-before confronting the model with data — from previous measurements, the
-literature, experts and so on.
-
-Example: $R_0$ of measles
+$p(\theta)$ is our **belief** about the parameters before we see the data, taken
+from previous measurements, the literature, or experts.
 
 ![](images/R0plot.svg){.step}
+
+[A prior for the $R_0$ of measles]{.cite}
 
 ## Example: estimating $R_0$ of measles
 
@@ -247,16 +297,16 @@ Example: $R_0$ of measles
 
 A prior on $R_0$ is hard to have intuition about. An epidemic curve is not.
 
-::: {.fragment}
+. . .
+
 So draw parameters from the prior, run the model, and look at what you get. This
 is a **prior predictive simulation**, and it turns an abstract claim into a
 picture you can judge.
-:::
 
-::: {.fragment}
+. . .
+
 If your prior produces epidemics that infect the whole population in four days,
 you have learned something you could not have seen from the parameter range.
-:::
 
 ## Sampling from the posterior
 
@@ -265,45 +315,46 @@ according to the posterior:
 
 $$p(\theta \mid \text{data}) \propto p(\text{data} \mid \theta)\, p(\theta)$$
 
-::: {.fragment}
+. . .
+
 We want to generate **samples** of $\theta$ from this distribution.
-:::
 
 ##  {.center}
 
-![](images/Big_picture_deterministic_models_no_init.svg)
+![](images/Big_picture_deterministic_models_no_init.svg){.bigpic}
 
 ##  {.center}
 
 ::: {.r-stack}
-![](images/Course_outline_day_12.svg){.step .fragment .fade-out fragment-index=1}
-![](images/Course_outline.svg){.step .fragment fragment-index=1}
+![](images/Course_outline_day_12.svg){.bigpic .step .fragment .fade-out fragment-index=1}
+![](images/Course_outline.svg){.bigpic .step .fragment fragment-index=1}
 :::
 
-## Why we cannot just try everything {.smaller}
+## We cannot just try all parameter combinations {.smaller}
 
 You can explore a two-parameter posterior on a grid. Fifteen values each is 225
 model runs, which is nothing.
 
-::: {.fragment}
+. . .
+
 | Parameters | Grid points at 15 each |
 |---|---|
 | 2 | 225 |
 | 4 | 50,625 |
 | 6 | 11,390,625 |
 | 10 | 576,650,390,625 |
-:::
 
-::: {.fragment}
-Real models have six parameters, or sixty. Grid search is a way of *seeing* a
-posterior, never a way of fitting one — which is what the next session is about.
-:::
+. . .
+
+So a grid is a good way to *look at* a posterior in two dimensions, and no way at
+all to fit a model with six parameters. The next session is about what to do
+instead.
 
 # Practical session
 
-## The same arrows, in Julia
+## The arrows as Julia functions
 
-![](images/big_picture_functions_base.svg)
+![](images/big_picture_functions_base.svg){.bigpic}
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
@@ -312,90 +363,6 @@ posterior, never a way of fitting one — which is what the next session is abou
 - Combine them into a posterior, and explore it by grid search
 
 [mfiidd.github.io/mfiidd](https://mfiidd.github.io/mfiidd/)
-
-# Appendix: held in reserve {visibility="uncounted"}
-
-::: {.callout-note}
-The slides that follow are held in reserve. Skip them if the room is
-comfortable with probability notation, or come back to them if questions come up
-during the practical.
-:::
-
-## Frequentist vs Bayesian inference {.smaller visibility="uncounted"}
-
-### Frequentist inference
-
-- There are *true* parameters in the world; the uncertainty comes from the data
-- Encoded in the **likelihood**: $L(\theta) = p(\text{data} \mid \theta)$
-- Inference tries to estimate these parameters
-- Probabilities express outcomes of repeated experiments
-
-::: {.fragment}
-### Bayesian inference
-
-- There are no true parameters; the *data* are true, and uncertainty is in the
-  parameters and hypotheses
-- Encoded in the **posterior**: $p(\theta \mid \text{data})$
-- Probabilities express belief in a given parameter value
-- The posterior is the *probability distribution* of a *random variable* $\theta$
-:::
-
-## Model *inference*: model selection {visibility="uncounted"}
-
-Given a set of potential models, how do we decide which is the right one?
-
-::: {.r-stack}
-![](images/model_comparison_1.svg){.step .fragment .fade-out fragment-index=1}
-![](images/model_comparison_2.svg){.step .fragment .current-visible fragment-index=1}
-![](images/model_comparison_3.svg){.step .fragment .current-visible fragment-index=2}
-![](images/model_comparison_4.svg){.step .fragment .current-visible fragment-index=3}
-![](images/model_comparison_5.svg){.step .fragment fragment-index=4}
-:::
-
-## Probabilities {.smaller visibility="uncounted"}
-
-- If $A$ is a random variable, we write $p(A = a)$ for the **probability** that
-  $A$ takes value $a$. We often shorten this to $p(a)$.
-
-- Example: the probability that Novak Djokovic wins Wimbledon,
-  $p(\mathrm{W} = \mathrm{Djokovic}) = p(\mathrm{Djokovic})$
-
-- Normalisation: $\sum_{a} p(a) = 1$
-
-## Joint and marginal probabilities {.smaller visibility="uncounted"}
-
-- For two random variables we write $p(A = a, B = b) = p(a, b)$ for the
-  **joint probability** that $A$ takes value $a$ and $B$ takes value $b$.
-
-- Example: the probability that Djokovic wins Wimbledon *and* it is sunny on the
-  final day.
-
-- We obtain a **marginal probability** from joint probabilities by summing:
-
-  $$p(a) = \sum_{b} p(a, b)$$
-
-## Conditional probabilities {.smaller visibility="uncounted"}
-
-- The **conditional probability** of outcome $a$ given that $B$ took value $b$
-  is written $p(a \mid b)$.
-
-- Conditional probabilities relate to joint probabilities as
-
-  $$p(a \mid b) = \frac{p(a, b)}{p(b)}$$
-
-- These combine in the **chain rule**:
-
-  $$p(a, b, c) = p(a \mid b, c)\, p(b \mid c)\, p(c)$$
-
-## Continuous distributions {.smaller visibility="uncounted"}
-
-For continuous variables, sums become integrals:
-
-- Normalisation: $\int p(a)\, da = 1$
-- Marginals: $p(a) = \int p(a, b)\, db$
-
-The two directions are unchanged: `pdf(Normal(23, 2), 30)` evaluates a density,
-`rand(Normal(23, 2))` draws a sample.
 
 #
 

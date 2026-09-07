@@ -9,6 +9,9 @@ $link-color: #2a6fb5;
 $presentation-heading-color: #1a3a5c;
 $presentation-heading-font-weight: 600;
 $presentation-font-size-root: 34px;
+// Quarto's default drops `.smaller` slides to 0.7 of this, a 30% step that
+// reads as a jump between slides and is hard to see from the back. Soften it.
+$presentation-font-smaller: 0.85;
 
 /*-- scss:rules --*/
 
@@ -49,6 +52,22 @@ $presentation-font-size-root: 34px;
   margin: 0 auto;
   display: block;
   object-fit: contain;
+}
+
+// Plots.jl figures rendered with `fmt = :svg` arrive as inline `<svg>` rather
+// than as `<img>`, so none of the `img` rules above or below reach them. Give
+// them the same caps, or a wide figure overflows the slide sideways and a tall
+// one pushes the text off the bottom.
+.reveal .slides section svg {
+  max-height: 58vh;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
+
+.reveal .slides section .columns svg {
+  max-height: 42vh;
 }
 
 // Sequences of near-identical figures (the rejection-sampling and
@@ -109,6 +128,29 @@ $presentation-font-size-root: 34px;
 
 // Portrait figures are squeezed narrow by the default height cap, because
 // their width is limited by their height. Give them the fuller slide.
+// The workflow diagrams are one family and should be one size wherever they
+// appear. Without this they inherit whichever rule the slide happens to match:
+// 72vh on a `.center` slide, 52vh with `.step`, 58vh on a titled slide, so the
+// same diagram changes size as the deck goes on. Declared after those rules so
+// it wins at equal specificity.
+//
+// Sized against the slide rather than the window. Reveal lays slides out in a
+// fixed 1050x700 space and scales the whole thing to fit, but `vh` resolves
+// against the browser window, so a height in `vh` shrinks the figure relative to
+// its own slide as the window gets smaller. These diagrams are landscape, so
+// driving them by width fills the slide at any window size, with a height cap in
+// slide units for the squarer course outline.
+.reveal .slides section img.bigpic {
+  width: 100%;
+  height: auto;
+  max-height: 540px;
+}
+
+// A `.center` slide carries no heading, so the diagram can have the rest of it.
+.reveal .slides section.center img.bigpic {
+  max-height: 620px;
+}
+
 .reveal .slides section img.tall {
   max-height: 76vh;
 }

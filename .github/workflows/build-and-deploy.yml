@@ -68,8 +68,15 @@ jobs:
           retention-days: 5
           path: _site
 
+      # A pull request from a fork runs with a read-only token, whatever this
+      # workflow asks for, so pushing the preview to gh-pages returns 403 and
+      # the job goes red on a build that succeeded. Skip the publish instead.
+      # The artifact above is uploaded either way, so an outside contribution
+      # can still be reviewed by downloading the built site.
       - name: Deploy PR preview 🚀
-        if: github.event_name == 'pull_request'
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
         uses: JamesIves/github-pages-deploy-action@v4.7.3
         with:
           branch: gh-pages
@@ -81,7 +88,9 @@ jobs:
       # and edit that same comment on later pushes, so the thread does not
       # collect one link per commit.
       - name: Comment with the preview link
-        if: github.event_name == 'pull_request'
+        if: >-
+          github.event_name == 'pull_request' &&
+          github.event.pull_request.head.repo.full_name == github.repository
         uses: actions/github-script@v9
         with:
           script: |

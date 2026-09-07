@@ -6,5 +6,5 @@ CurrentModule = MFIIDD
 
 ```@autodocs
 Modules = [MFIIDD]
-Order = [:module, :type, :function, :macro]
+Order = [:module, :type, :function, :macro, :constant]
 ```

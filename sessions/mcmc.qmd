@@ -6,10 +6,10 @@ order: 2
 ---
 
 ::: {.callout-note appearance="simple"}
-**Estimated time**: 2.5-3 hours
+**Estimated time**: 115 minutes
 :::
 
-[Lecture slides](slides/mcmc.qmd)
+[Slides](slides/mcmc.qmd)
 
 # Introduction
 
@@ -58,7 +58,7 @@ using DataFrames ## for data frames
 using Plots ## for plots
 using StatsPlots ## for statistical plots
 using Turing ## for probabilistic programming and MCMC
-using MCMCChains ## for MCMC diagnostics
+using FlexiChains ## chain objects and diagnostics
 using AdvancedMH ## for adaptive MCMC samplers
 ```
 
@@ -86,7 +86,7 @@ using MFIIDD
 Key functions:
 
 - `sir_ode!(du, u, p, t)` - ODE system for S, I, R compartments
-- `simulate_sir(R_0, D_inf, S0, I0, times)` - Returns DataFrame with trajectory
+- `simulate_sir(θ, init_state, times)` - Returns DataFrame with trajectory
 
 ```{julia}
 #| echo: false
@@ -219,6 +219,10 @@ plot(p1, p2, layout = (2, 1), size = (800, 600))
 The trace plot shows the chain rapidly settling into the region around the true mean and then bouncing around it — a well-mixed chain is often described as looking like a fat, [hairy caterpillar](https://en.wikipedia.org/wiki/Pyrrharctia_isabella) that fills the vertical band around its target.
 The histogram of samples closely matches the true density.
 
+Notice the acceptance rate, which is over 80%.
+That is comfortable rather than efficient: the chain accepts nearly everything it proposes because it proposes such small steps.
+Widening the proposal buys bigger steps at the price of more rejections, and the section on proposal distributions below works out where the best trade lies.
+
 ::: {.callout-tip title="Exercise: What is the proposal distribution?"}
 Look back at `metropolis_hastings_1d`.
 Which line draws the proposed new state, and what distribution does it use?
@@ -280,7 +284,7 @@ Many useful probability distributions don't have simple sampling algorithms. Eas
 MCMC solves this by only requiring that we can *evaluate* the log-probability at any point.
 We used a Normal distribution above (even though we could just use `randn()`!) to demonstrate this general principle.
 
-::: {.callout-tip title = "How does randn() actually work?" collapse = "true"}
+::: {.callout-tip title="How does randn() actually work?" collapse="true"}
 
 Even "simple" distributions like the Normal don't have a direct sampling formula.
 When you call `randn()` in Julia or `rnorm()` in R, the computer uses transformation methods:
@@ -335,7 +339,7 @@ for result in results
 end
 
 # Plot trace plots for different proposal stds
-plots = []
+plots = Plots.Plot[]
 for (i, result) in enumerate(results)
     p = plot(
         result.samples,
@@ -350,11 +354,16 @@ end
 plot(plots..., layout = (length(plots), 1), size = (800, 1000))
 ```
 
-::: {.callout-tip title = "Learning points"}
-- **Too small proposals** → High acceptance, but slow exploration
-- **Too large proposals** → Low acceptance, wasted computation
-- **Optimal**: ~23% acceptance rate for random walk Metropolis
+::: {.callout-important}
+## Choosing the proposal width
+
+- **Too small proposals** give high acceptance but slow exploration
+- **Too large proposals** give low acceptance and wasted computation
+- **The best acceptance rate depends on how many parameters you are sampling**: around 44% for a single parameter, falling towards 23% as the number grows
 :::
+
+The runs above show this. The chain mixes best at a proposal standard deviation of 5, which accepts around 43% of what it proposes, while the run at a standard deviation of 10 accepts 24% and wanders visibly more slowly.
+The 23% figure is the limit for a large number of parameters, so it is the wrong target for the single parameter sampled here.
 
 For the normal distribution, sampling was straightforward. But efficient sampling from complex posterior distributions requires a good proposal distribution, which can be difficult to find.
 This is where more sophisticated algorithms that tune the proposal distribution automatically to a given problem really help.
@@ -412,14 +421,15 @@ Now let's run the same Metropolis-Hastings algorithm as before, but with Turing 
 
 ```{julia}
 #| output: false
-# Sample using Metropolis-Hastings (normal proposals with std 10.0)
-chain_normal_mh = sample(normal_model(), MH([10.0;;]), 50000)
+# Sample using Metropolis-Hastings, with the same proposal width and the same
+# number of iterations as the sampler we wrote by hand
+chain_normal_mh = sample(normal_model(), MH([1.0;;]), 5000)
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
 - [`sample(model, sampler, n)`](https://turinglang.org/docs/tutorials/docs-00-getting-started/#inference) - runs the MCMC sampler on the model for `n` iterations, returning a chain of samples.
-- [`MH(proposal)`](https://turinglang.org/docs/tutorials/docs-00-getting-started/#inference) - Metropolis-Hastings sampler. `MH` expects a *matrix* for the proposal covariance. The `[10.0;;]` syntax creates a 1×1 matrix — the double semicolon `;;` tells Julia "this is a matrix, not a vector". Without it, `[10.0]` would be a 1-element vector, which `MH` wouldn't accept. The value 10.0 sets the proposal variance (so the proposal standard deviation is √10 ≈ 3.2).
+- [`MH(proposal)`](https://turinglang.org/docs/tutorials/docs-00-getting-started/#inference) - Metropolis-Hastings sampler. `MH` takes the proposal covariance. The `[1.0;;]` syntax creates a 1×1 matrix, where the double semicolon `;;` tells Julia to build a matrix rather than a vector. The value sets the proposal *variance*, and since the variance is 1.0 here it happens to equal the standard deviation of 1.0 we passed to `metropolis_hastings_1d`. That coincidence is only true at 1.0: a variance of 0.04 is a standard deviation of 0.2.
 :::
 
 ```{julia}
@@ -428,23 +438,23 @@ println("Manual M-H:")
 println("  Mean: $(round(mean(samples_mh), digits = 2))")
 println("  Std: $(round(std(samples_mh), digits = 2))")
 println("\nTuring.jl M-H:")
-describe(chain_normal_mh)
+summarystats(chain_normal_mh)
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- [`describe(chain)`](https://turinglang.org/MCMCChains.jl/stable/getting-started/) - prints summary statistics for all parameters in the chain, including mean, standard deviation, and quantiles.
+- `summarystats(chain)` - returns a table with the mean, the standard deviation, MCSE (Monte Carlo standard error), ESS (effective sample size), R̂ (a convergence diagnostic) and the 5%, 50% and 95% quantiles, for every parameter in the chain. The [MCMC diagnostics session](mcmc_diagnostics.qmd) explains what each of these means and when to worry about it.
 - `chain[:x]` - extracts the samples for parameter `x` from the chain. You can use this to access any parameter defined in your `@model` function.
 :::
 
 ::: {.callout-note collapse="true"}
 ## Coming from Stan?
-If you've used Stan, the workflow is similar: `sample()` runs inference and returns a chain object, `describe()` gives summary statistics, and `chain[:x]` extracts samples for a parameter.
+If you've used Stan, the workflow is similar: `sample()` runs inference and returns a chain object, `summarystats()` gives summary statistics, and `chain[:x]` extracts samples for a parameter.
 
 | Action | rstan | cmdstanr | Turing.jl |
 |--------|-------|----------|-----------|
 | Run sampler | `sampling(model, ...)` | `model$sample(...)` | `sample(model, NUTS(), n)` |
-| Summary | `summary(fit)` | `fit$summary()` | `describe(chain)` |
+| Summary | `summary(fit)` | `fit$summary()` | `summarystats(chain)` |
 | Extract parameter | `as.array(fit, pars="x")` | `fit$draws("x")` | `chain[:x]` |
 :::
 
@@ -463,7 +473,9 @@ p2 = histogram(
 plot(p1, p2, layout = (1, 2), size = (800, 300))
 ```
 
-Turing.jl did exactly what we coded earlier, but in a single call to the `sample()` function.
+Turing.jl ran the same algorithm with the same proposal width, in a single call to the `sample()` function.
+The two chains start from different points, because Turing draws its starting value from the model rather than taking the 0.0 we passed by hand, so the samples are not identical draw for draw.
+The distributions they explore are the same.
 
 ## Applying Turing.jl to the SIR model
 
@@ -471,14 +483,17 @@ Turing.jl uses the `@model` macro to define Bayesian models.
 This is the same structure we've been using manually (priors, simulation, likelihood) but now in a form that Turing can automatically sample from:
 
 ```{julia}
+sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
+
 # Define our SIR model in Turing.jl
 @model function sir_model(init_state, times, n_obs)
     # Weakly informative priors
     R_0 ~ truncated(Normal(2.5, 1.5), lower=1.0)
     D_inf ~ truncated(Normal(5.0, 3.0), lower=0.5)
 
-    # Simulate ODE (same as manual approach)
-    prob = ODEProblem(sir_ode!, init_state, (times[1], times[end]), [R_0, D_inf])
+    prob = remake(
+        sir_prob, u0 = init_state, p = [R_0, D_inf], tspan = (times[1], times[end])
+    )
     sol = solve(prob, saveat = times)
 
     # Likelihood (Poisson observation model of prevalence)
@@ -490,10 +505,20 @@ This is the same structure we've been using manually (priors, simulation, likeli
 end
 
 # Create model instance
-#| output: false
-
-model = sir_model(init_state, epi1.time, length(epi1.obs)) | (; obs = epi1.obs)
+model = sir_model(init_state, epi1.time, length(epi1.obs)) | (; obs = epi1.obs);
 ```
+
+::: {.callout-note collapse="true"}
+## Why `remake` rather than a new `ODEProblem`
+
+`ODEProblem` does more than store the arguments you hand it.
+It wraps the right hand side in an `ODEFunction`, settles the problem type and builds the indexing machinery the solver interface expects.
+For a system this small that setup costs about as much as the solve.
+
+[`remake`](https://docs.sciml.ai/SciMLBase/stable/interfaces/Problems/#SciMLBase.remake) takes an existing problem and returns a copy with some fields replaced.
+It does not modify the one you pass it, so a single base problem is safe to share across threads.
+Declaring it `const` makes no measurable difference: it is read once per call, immediately before a solve that costs several microseconds.
+:::
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer: `arraydist` and `|` conditioning
@@ -519,12 +544,12 @@ chain_mh = sample(model, MH([1.0 0.0; 0.0 1.0]), 5000)
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- `[1.0 0.0; 0.0 1.0]` - a 2×2 matrix in Julia. Spaces separate columns, semicolons separate rows. This is the identity matrix, used here as the proposal covariance for MH. The diagonal values (1.0) set the proposal standard deviation for each parameter; off-diagonal zeros mean proposals are independent.
+- `[1.0 0.0; 0.0 1.0]` - a 2×2 matrix in Julia. Spaces separate columns, semicolons separate rows. This is the identity matrix, used here as the proposal covariance for MH. The diagonal values are *variances*, one per parameter, so 1.0 here is a proposal standard deviation of 1.0; off-diagonal zeros mean proposals are independent.
 :::
 
 ```{julia}
 println("Turing.jl Metropolis-Hastings results:")
-describe(chain_mh)
+summarystats(chain_mh)
 ```
 
 ```{julia}
@@ -566,11 +591,11 @@ Try these experiments (run each for 5000 samples):
 1. Smaller proposals: `MH([0.01 0.0; 0.0 0.01])` — what happens to acceptance rate?
 2. Larger proposals: `MH([5.0 0.0; 0.0 5.0])` — does it explore faster or slower?
 3. Even smaller: `MH([0.001 0.0; 0.0 0.001])` — the posterior turns out to be very concentrated for this dataset.
-4. Add correlation: `MH([0.001 -0.0005; -0.0005 0.001])` — if parameters are correlated in the posterior, correlated proposals may help.
+4. Add correlation: `MH([0.001 0.0009; 0.0009 0.001])` — if parameters are correlated in the posterior, correlated proposals may help.
 
 Questions to answer:
 
-- What acceptance rate gives the best mixing? (Hint: aim for ~23% for random walk MH.)
+- What acceptance rate gives the best mixing? (Hint: with a proposal shaped like the posterior, two parameters do best near 35%; with the diagonal proposals above, nearer 20–25%.)
 - Can you find settings that give a well-mixed trace for *both* parameters simultaneously?
 - How long did tuning take you? Imagine doing this for 10+ parameters.
 
@@ -579,7 +604,8 @@ Acceptance rate too high (>50%)? Your proposals are too small. The chain accepts
 
 Acceptance rate too low (<10%)? Your proposals are too large. Most proposed jumps land in low-probability regions and get rejected; you'll see the trace plot stuck for many iterations.
 
-Sweet spot (~20–30%): a healthy balance of exploration and acceptance.
+Sweet spot: a healthy balance of exploration and acceptance.
+Where it falls depends on the shape of the proposal as well as the number of parameters: around 20–25% for the diagonal proposals above, and nearer 35–45% once the proposal is aligned with the posterior.
 
 Check your acceptance rate with: `mean(diff(vec(chain[:R_0])) .!= 0)`
 :::
@@ -592,11 +618,11 @@ Rule of thumb: proposal std ≈ 0.5–1× posterior std, i.e. proposal variance 
 :::
 
 ::: {.callout-tip title="Hint 3: why correlation might help" collapse="true"}
-Run the chain and look at a scatter plot of R₀ vs D_inf samples. If they're negatively correlated (higher R₀ → lower D_inf), then independent proposals are inefficient.
+Run the chain and look at a scatter plot of R₀ vs D_inf samples. Here they are strongly positively correlated (higher R₀ → higher D_inf, correlation about 0.9), so independent proposals are inefficient.
 
 Imagine the posterior is a narrow diagonal ridge. Independent proposals move horizontally or vertically, often stepping off the ridge. Correlated proposals can move *along* the ridge.
 
-Try a small negative off-diagonal value, e.g. `MH([0.001 -0.0005; -0.0005 0.001])`.
+Try an off-diagonal value of the same sign as the correlation, e.g. `MH([0.001 0.0009; 0.0009 0.001])`.
 :::
 
 :::
@@ -612,14 +638,14 @@ Try a small negative off-diagonal value, e.g. `MH([0.001 -0.0005; -0.0005 0.001]
 After experimentation, a proposal like this works reasonably well:
 
 ```julia
-# Proposal variance ~0.001, with a small negative correlation
-chain_tuned = sample(model, MH([0.001 -0.0005; -0.0005 0.001]), 5000)
+# Proposal variance ~0.001, with a strong positive correlation
+chain_tuned = sample(model, MH([0.001 0.0009; 0.0009 0.001]), 5000)
 ```
 
 Why this works:
 
 1. Small proposals (variance 0.001, std ≈ 0.03): the posterior for both parameters has standard deviation ≈ 0.04 for this dataset — much narrower than the priors suggest. Any proposal much wider than that gets rejected almost every time.
-2. Negative correlation: higher R₀ values are consistent with lower D_inf values (both increase transmission rate). Correlated proposals explore this diagonal ridge more efficiently.
+2. Positive correlation: the data pin down the epidemic's early growth rate, roughly $(R_0 - 1) / D_{inf}$, so a longer infectious period needs a larger R₀ to produce the same epidemic. The posterior is therefore a ridge running along the positive diagonal, with a correlation of about 0.9, and a proposal aligned with it moves along the ridge instead of stepping off it. On this dataset that is worth about seven times the effective sample size of the negatively correlated proposal, and about three times that of the plain diagonal one.
 
 :::
 
@@ -640,23 +666,24 @@ Let's run it on our SIR model:
 using LinearAlgebra
 # Adaptive MCMC - learns proposal covariance automatically.
 # Seed the adaptation with a reasonable initial scale so it doesn't spend
-# thousands of steps trying to find the posterior region, and discard the
-# first 5000 samples as warmup while the covariance is still adapting.
+# thousands of steps trying to find the posterior region, and give it 5000
+# warmup iterations to adapt in. Those are discarded, so the returned chain is
+# the 5000 iterations that follow, sampled with the adapted proposal.
 initial_scale = 0.05 .* Matrix{Float64}(I, 2, 2)
 chain_ram = sample(
     model,
     externalsampler(AdvancedMH.RobustAdaptiveMetropolis(S = initial_scale)),
     5000;
-    discard_initial = 5000,
+    num_warmup = 5000,
     check_model = false
 )
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- [`RobustAdaptiveMetropolis(S = ...)`](https://turinglang.org/AdvancedMH.jl/dev/) - from AdvancedMH.jl. `S` is a lower-triangular Cholesky factor of the initial proposal covariance; the sampler updates it as it goes, growing or shrinking to hit a target acceptance rate.
-- `externalsampler()` - wraps an external sampler (from AdvancedMH.jl) for use with Turing models.
-- `discard_initial = 5000` - drops the first 5000 samples as warmup, so the returned chain is only from after adaptation has settled.
+- [`RobustAdaptiveMetropolis(S = ...)`](https://turinglang.org/AdvancedMH.jl/dev/) - from AdvancedMH.jl. `S` is a lower-triangular Cholesky factor of the initial proposal covariance; the sampler updates it during warmup, growing or shrinking it to hit a target acceptance rate, and then holds it fixed for the sampling that follows.
+- `externalsampler()` - wraps an AdvancedMH.jl sampler for use with Turing models, passing the warmup phase through so that RAM has iterations to adapt in.
+- `num_warmup = 5000` - 5000 adaptation iterations. They are discarded, so the returned chain is the 5000 that follow, drawn with the adapted proposal.
 - `check_model = false` - skips model validation (needed for some external samplers).
 :::
 
@@ -694,12 +721,12 @@ chain_nuts = sample(model, NUTS(), 2000)
 ## Code explainer
 - [`NUTS()`](https://turinglang.org/docs/tutorials/docs-00-getting-started/#inference) - the No U-Turn Sampler, a gradient-based MCMC algorithm that automatically tunes its step size and trajectory length. Much more efficient than Metropolis-Hastings for continuous parameters. The algorithm uses [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation) to compute gradients of the log-posterior.
 
-**How do gradients help with sampling?** Metropolis-Hastings proposes random steps and hopes for the best — like exploring a dark room by stumbling around. NUTS computes the gradient (slope) of the log-posterior, which tells it *which direction* leads to higher probability. It then simulates a ball rolling along this surface, following the natural contours of the posterior. This lets it take large, efficient steps along ridges and valleys instead of the small, random steps of MH. The "No U-Turn" part automatically decides when to stop rolling, so you don't need to tune a trajectory length.
+**How do gradients help with sampling?** Metropolis-Hastings proposes random steps and hopes for the best — like exploring a dark room by stumbling around. NUTS computes the gradient (slope) of the log-posterior, which tells it *which direction* leads to higher probability. It then simulates a puck sliding along this surface, following the natural contours of the posterior. This lets it take large, efficient steps along ridges and valleys instead of the small, random steps of MH. The "No U-Turn" part automatically decides when to stop sliding, so you don't need to tune a trajectory length.
 :::
 
 ```{julia}
 println("NUTS results:")
-describe(chain_nuts)
+summarystats(chain_nuts)
 ```
 
 ```{julia}
@@ -747,17 +774,6 @@ What NUTS gives you automatically:
 3. Automatic warmup: built-in adaptation period, no manual burn-in decisions.
 4. Better convergence: typically needs far fewer samples than Metropolis-Hastings.
 
-```{julia}
-# Built-in convergence diagnostics
-using MCMCChains
-summarystats(chain_nuts)
-```
-
-::: {.callout-tip collapse="true"}
-## Code explainer
-- [`summarystats(chain)`](https://turinglang.org/MCMCChains.jl/stable/getting-started/#Summarize-results) - returns a table with mean, std, MCSE (Monte Carlo Standard Error), ESS (Effective Sample Size), and R̂ (convergence diagnostic). We'll learn what these mean in the next session.
-:::
-
 ::: {.callout-tip}
 ## Which sampler should I use?
 
@@ -772,7 +788,7 @@ summarystats(chain_nuts)
 
 ::: {.callout-tip collapse="true"}
 ## Going further: sampling without Turing
-Turing's `@model` macro is convenient syntax, but it isn't the only way to do MCMC in Julia. In the [Introduction](introduction.qmd) you built a log-posterior function by hand; that same function can be plugged into standalone samplers like [DynamicHMC.jl](https://github.com/tpapp/DynamicHMC.jl) via the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface, giving you access to samplers beyond what Turing offers, with fewer dependencies. See the optional session [Beyond Turing](julia_ecosystem.qmd) for a worked example.
+Turing's `@model` macro is convenient syntax, but it isn't the only way to do MCMC in Julia. In [the first session](introduction.qmd) you built a log-posterior function by hand; that same function can be plugged into standalone samplers like [DynamicHMC.jl](https://github.com/tpapp/DynamicHMC.jl) via the [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl) interface, giving you access to samplers beyond what Turing offers, with fewer dependencies. See the optional session [Beyond Turing](julia_ecosystem.qmd) for a worked example.
 :::
 
 # Posterior analysis with Turing.jl
@@ -781,22 +797,25 @@ Now we can analyse the posterior distribution:
 
 ```{julia}
 # Parameter correlations
-corner_plot = corner(chain_nuts, [:R_0, :D_inf])
+corner_plot = marginalkde(vec(chain_nuts[:R_0]), vec(chain_nuts[:D_inf]),
+                          xlabel = "R_0", ylabel = "D_inf")
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- [`corner(chain, params)`](https://turinglang.org/MCMCChains.jl/stable/statsplots/) - creates a "corner plot" showing the marginal distributions (diagonal) and pairwise joint distributions (off-diagonal) for the selected parameters. This visualises parameter correlations.
+- [`marginalkde(x, y)`](https://docs.juliaplots.org/latest/generated/statsplots/) - draws the joint density of two parameters with each marginal along its own axis, which is what a "corner plot" shows for a pair. It is how you see a correlation between parameters rather than just their separate spreads.
 :::
 
 ```{julia}
 # Credible intervals
-quantile(chain_nuts[:R_0], [0.025, 0.25, 0.5, 0.75, 0.975])
+quantile(vec(chain_nuts[:R_0]), [0.025, 0.25, 0.5, 0.75, 0.975])
 ```
 
 These summaries give us point estimates and uncertainty, but should we trust these results? The next session (MCMC Diagnostics) teaches you how to check whether your chains converged and whether your model makes sense.
 
-::: {.callout-tip title = "Learning points"}
+# Learning points
+
+::: {.callout-tip title="Learning points"}
 
 - **MCMC is a universal sampler**: It works for any distribution where you can evaluate density
 - **Metropolis-Hastings** is simple and robust but requires tuning of proposal distributions
@@ -816,3 +835,7 @@ These summaries give us point estimates and uncertainty, but should we trust the
 - [MCMCChains.jl](https://turinglang.org/MCMCChains.jl/stable/) - Chain analysis and diagnostics
 
 **Next session**: [MCMC diagnostics](mcmc_diagnostics.qmd), how to tell if your chains have converged and your results are trustworthy.
+
+**Going further** (optional): MCMC is exact but slow.
+[Variational inference](variational_inference.qmd) is an advanced session that replaces the sampling with an optimisation.
+It needs only this session as background, so you can take it at any point.

@@ -47,6 +47,15 @@ function seitl_ode!(du, u, p, t)
 end
 
 """
+    SEITL_BASE_PROBLEM
+
+A template `ODEProblem` for `seitl_ode!`, built once when the package loads.
+`simulate_seitl_deterministic` calls `remake` on it rather than building a fresh
+problem on every call. See `SIR_BASE_PROBLEM` for why.
+"""
+const SEITL_BASE_PROBLEM = ODEProblem(seitl_ode!, zeros(6), (0.0, 1.0), zeros(5))
+
+"""
     simulate_seitl_deterministic(θ, init_state, times)
 
 Simulate the deterministic SEITL model.
@@ -71,7 +80,7 @@ function simulate_seitl_deterministic(θ, init_state, times)
         0.0,
     ]
 
-    prob = ODEProblem(seitl_ode!, u0, (times[1], times[end]), params)
+    prob = remake(SEITL_BASE_PROBLEM; u0 = u0, p = params, tspan = (times[1], times[end]))
     sol = solve(prob, Tsit5(), saveat = times)
 
     state_names = [:S, :E, :I, :T, :L, :Inc_cumulative]
@@ -86,25 +95,29 @@ function simulate_seitl_deterministic(θ, init_state, times)
 end
 
 """
-    simulate_seitl_stochastic(θ, init_state, times)
+    simulate_seitl_stochastic(θ, init_state, times; rng = Random.default_rng())
 
 Simulate the stochastic SEITL model using the Gillespie algorithm.
+
+Each day is advanced by `gillespie_step_seitl!`, the same stepper the particle
+filter uses, so the simulator and the filter share one description of the
+dynamics.
 
 # Arguments
 - `θ`: Dict with keys :R_0, :D_lat, :D_inf, :α, :D_imm
 - `init_state`: Dict with keys :S, :E, :I, :T, :L
 - `times`: Time points (assumed daily: 0, 1, 2, ...)
+- `rng`: Random number generator, for a reproducible trajectory
 
 # Returns
 DataFrame with columns: time, S, E, I, T, L, Inc (daily incidence)
 """
-function simulate_seitl_stochastic(θ, init_state, times)
-    R_0, D_lat, D_inf, α, D_imm = θ[:R_0], θ[:D_lat], θ[:D_inf], θ[:α], θ[:D_imm]
-    β = R_0 / D_inf
-    ϵ = 1.0 / D_lat
-    ν = 1.0 / D_inf
-    τ = 1.0 / D_imm
-
+function simulate_seitl_stochastic(
+    θ,
+    init_state,
+    times;
+    rng::AbstractRNG = Random.default_rng(),
+)
     # State: [S, E, I, T, L]
     state = Float64[
         init_state[:S],
@@ -113,50 +126,6 @@ function simulate_seitl_stochastic(θ, init_state, times)
         init_state[:T],
         init_state[:L],
     ]
-
-    # Stoichiometry: how each transition changes [S, E, I, T, L]
-    stoich = [
-        [-1, 1, 0, 0, 0],   # S → E
-        [0, -1, 1, 0, 0],   # E → I
-        [0, 0, -1, 1, 0],   # I → T
-        [1, 0, 0, -1, 0],   # T → S
-        [0, 0, 0, -1, 1],    # T → L
-    ]
-
-    function rates(s)
-        S, E, I, T, L = s
-        N = S + E + I + T + L
-        [β*S*I/N, ϵ*E, ν*I, (1-α)*τ*T, α*τ*T]
-    end
-
-    # Gillespie step: simulate one time unit, return daily incidence
-    function gillespie_step!(s, dt)
-        t, daily_inc = 0.0, 0
-        while t < dt
-            r = rates(s)
-            total_rate = sum(r)
-            total_rate ≤ 0 && break
-            τ_wait = randexp() / total_rate
-            t + τ_wait > dt && break
-            t += τ_wait
-            # Select event
-            cum, rnd, event = 0.0, rand() * total_rate, 0
-            for i in 1:5
-                cum += r[i]
-                if rnd ≤ cum
-                    event = i
-                    break
-                end
-            end
-            # Apply transition
-            for j in 1:5
-                s[j] += stoich[event][j]
-            end
-            # Track E→I transitions as new cases
-            event == 2 && (daily_inc += 1)
-        end
-        daily_inc
-    end
 
     # Simulate day-by-day
     n_days = length(times)
@@ -174,7 +143,8 @@ function simulate_seitl_stochastic(θ, init_state, times)
         results.S[i], results.E[i], results.I[i] = state[1], state[2], state[3]
         results.T[i], results.L[i] = state[4], state[5]
         if i < n_days
-            results.Inc[i + 1] = gillespie_step!(state, times[i + 1] - t)
+            dt = Float64(times[i + 1] - t)
+            results.Inc[i + 1] = gillespie_step_seitl!(rng, state, θ, dt)
         end
     end
 
@@ -219,6 +189,15 @@ function seit4l_ode!(du, u, p, t)
 end
 
 """
+    SEIT4L_BASE_PROBLEM
+
+A template `ODEProblem` for `seit4l_ode!`, built once when the package loads.
+`simulate_seit4l_deterministic` calls `remake` on it rather than building a
+fresh problem on every call. See `SIR_BASE_PROBLEM` for why.
+"""
+const SEIT4L_BASE_PROBLEM = ODEProblem(seit4l_ode!, zeros(9), (0.0, 1.0), zeros(5))
+
+"""
     simulate_seit4l_deterministic(θ, init_state, times)
 
 Simulate the deterministic SEIT4L model.
@@ -246,7 +225,7 @@ function simulate_seit4l_deterministic(θ, init_state, times)
         0.0,
     ]
 
-    prob = ODEProblem(seit4l_ode!, u0, (times[1], times[end]), params)
+    prob = remake(SEIT4L_BASE_PROBLEM; u0 = u0, p = params, tspan = (times[1], times[end]))
     sol = solve(prob, Tsit5(), saveat = times)
 
     state_names = [:S, :E, :I, :T1, :T2, :T3, :T4, :L, :Inc_cumulative]

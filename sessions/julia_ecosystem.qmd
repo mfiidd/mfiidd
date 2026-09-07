@@ -2,7 +2,7 @@
 title: "Beyond Turing: the wider Julia ecosystem"
 format: html
 engine: julia
-order: 11
+order: 14
 ---
 
 ::: {.callout-note appearance="simple"}
@@ -55,13 +55,14 @@ using Random ## for random numbers
 using Plots ## for plots
 using StatsPlots ## for statistical plots
 using DrWatson ## for datadir()
+using MFIIDD ## the course package, which holds the SIR implementation
 ```
 
 # The log-density is all you need
 
 Turing's `@model` macro and `~` syntax make Bayesian models concise and readable.
 Underneath, though, all Turing does is evaluate a log-density function: the same
-log-posterior you built by hand in the [Introduction](introduction.qmd).
+log-posterior you built by hand in [the first session](introduction.qmd).
 
 The Julia ecosystem has a standard interface for such functions,
 [LogDensityProblems.jl](https://github.com/tpapp/LogDensityProblems.jl). Any
@@ -91,20 +92,12 @@ they do the second.
 # From manual log-posterior to standard interface
 
 In the introduction, we wrote a function that simulates the SIR model and returns
-the log-likelihood:
+the log-likelihood.
+The equations themselves are `sir_ode!` from [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl), which arrived with `using MFIIDD` above:
 
 ```{julia}
-function sir_ode!(du, u, p, t)
-    R_0, D_inf = p
-    β = R_0 / D_inf
-    γ = 1.0 / D_inf
-    S, I, R = u
-    N = S + I + R
-
-    du[1] = -β * S * I / N
-    du[2] = β * S * I / N - γ * I
-    du[3] = γ * I
-end
+# The synthetic epidemic from the introduction session
+epi1 = CSV.read(datadir("epi1_synthetic.csv"), DataFrame)
 
 function simulate_and_loglik(R_0, D_inf, data; init_state = [999.0, 1.0, 0.0], tspan = (0.0, 30.0))
     prob = ODEProblem(sir_ode!, init_state, tspan, [R_0, D_inf])
@@ -153,8 +146,8 @@ provides the `LogDensityProblems` interface that DynamicHMC expects.
 ::: {.callout-tip title="Exercise: check the log-posterior by hand"}
 Before sampling anything, convince yourself the posterior does what you expect.
 
-1. Create `posterior = SIRPosterior(epi1)` (the data are loaded in the next
-   section) and evaluate it at `(R_0 = 2.5, D_inf = 2.0)`.
+1. Create `posterior = SIRPosterior(epi1)` and evaluate it at
+   `(R_0 = 2.5, D_inf = 2.0)`.
 2. Evaluate it again at `(R_0 = 15.0, D_inf = 2.0)`. Which is larger, and does
    that match the data?
 3. Now try `(R_0 = 0.5, D_inf = 2.0)`, which is outside the prior. What comes
@@ -181,9 +174,6 @@ implementation. It uses
 constrained parameters to unconstrained space, which NUTS requires:
 
 ```{julia}
-# Load data
-epi1 = CSV.read(datadir("epi1_synthetic.csv"), DataFrame)
-
 # Create the posterior
 posterior = SIRPosterior(epi1)
 
@@ -286,12 +276,16 @@ sample(model, NUTS(; adtype = AutoZygote()), 1000)        # reverse mode
 ```
 
 ::: {.callout-warning}
-This is not hypothetical. The [universal differential
-equations](universal_differential_equations.qmd) session in this course had to
-switch from ForwardDiff to Zygote, because a neural network inside an ODE has too
-many parameters for forward mode and the combination failed outright. If a
-gradient-based sampler suddenly stops working after you change your model, the AD
-backend is one of the first things to suspect.
+This is not hypothetical. The
+[universal differential equations](universal_differential_equations.qmd) session
+trains a neural network inside an ODE with ForwardDiff, and gets away with it
+only because the network is deliberately tiny: 33 parameters, chosen partly so
+that forward mode stays affordable. Widen the network and forward mode becomes
+the bottleneck, because each parameter costs another pass through the model.
+
+If a gradient-based sampler or optimiser slows to a crawl, or stops working
+altogether, after you change your model, the AD backend is one of the first
+things to suspect.
 :::
 
 ::: {.callout-tip title="Exercise: which backend would you pick?"}
@@ -312,8 +306,11 @@ is simple and fast, and this is why it is Turing's default.
 starting to cost; reverse mode is likely faster. This is the region where it is
 worth measuring rather than guessing.
 
-4 needs reverse mode. Forward mode would require hundreds of evaluations per
-gradient, which is exactly the failure the UDE session ran into.
+4 needs reverse mode. Forward mode costs roughly one extra pass through the model
+per parameter, so a few hundred parameters means a few hundred passes for every
+gradient, where reverse mode needs a constant number. The UDE session stays on the
+forward side of that line by keeping its network to 33 parameters, which is the
+same trade-off seen from the other direction.
 :::
 
 # Other samplers
@@ -329,15 +326,18 @@ becomes available:
 | [Pathfinder.jl](https://github.com/mlcolab/Pathfinder.jl) | fast variational approximation, useful for initialising MCMC |
 | [MicroCanonicalHMC.jl](https://github.com/JaimeRZP/MicroCanonicalHMC.jl) | microcanonical Langevin sampler |
 
-You do not have to leave Turing to use several of these. `externalsampler` wraps
-a compatible sampler for use with a Turing model, which is how the
+You do not have to leave Turing to use several of these. A compatible sampler can
+be wrapped for use with a Turing model, which is how the
 [PMCMC session](pmcmc.qmd) uses robust adaptive Metropolis:
 
 ```julia
 using AdvancedMH
 sample(model, externalsampler(AdvancedMH.RobustAdaptiveMetropolis()), 5000;
-       check_model = false)
+       num_warmup = 5000, check_model = false)
 ```
+
+`num_warmup` matters here: an adaptive sampler needs warmup iterations to adapt
+in, and `externalsampler` passes them through to the wrapped sampler.
 
 ::: {.callout-note collapse="true"}
 ## Pathfinder, and why initialisation matters
@@ -387,9 +387,11 @@ standardises the model, and it does not standardise the sampler.
 
 Whatever produced your samples, you still have to check and summarise them.
 
-- [MCMCChains.jl](https://turinglang.org/MCMCChains.jl/) is what this course uses:
-  R̂, effective sample size, MCSE and trace plots, as in the
-  [diagnostics session](mcmc_diagnostics.qmd).
+- [FlexiChains.jl](https://juliabayes.org/FlexiChains.jl/stable/) is what Turing
+  returns by default, and what this course uses: R̂, effective sample size, MCSE
+  and trace plots, as in the [diagnostics session](mcmc_diagnostics.qmd). It
+  keeps a vector-valued variable whole instead of flattening it into one column
+  per element.
 - [ArviZ.jl](https://julia.arviz.org/) is a Julia interface to the ArviZ
   ecosystem, and is worth knowing if you also work in Python or want its
   diagnostic plots.
@@ -424,6 +426,8 @@ away everything that might be causing it, which often tells you where the fault
 actually lies. If you want a sampler Turing does not implement, LogDensityProblems
 is the way in. And if you are deploying something, a minimal stack of your model
 plus an AD backend plus a sampler is less to maintain than the whole framework.
+
+# Learning points
 
 ::: {.callout-tip title="Learning points"}
 

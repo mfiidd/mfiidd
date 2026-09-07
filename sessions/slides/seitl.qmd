@@ -15,15 +15,35 @@ We want to find out **two** things:
 
 We want to do this on the basis of **observations** (data), $y$.
 
+## Why the state needs its own layer
+
+In a [deterministic]{.alert} model the state is a *function* of the parameters:
+one $\theta$, one trajectory, and $x$ is not something to be inferred.
+
+. . .
+
+In a [stochastic]{.alert} model the same $\theta$ gives a different trajectory
+every time, so the state has a *distribution*, $p(x \mid \theta)$.
+
+. . .
+
+That extra layer, between the parameters and the data, is what the rest of this
+session is about.
+
 ## Hierarchical model
 
 ![](images/bhm.png){.step .tall}
 
-This kind of model is sometimes called a **Bayesian hierarchical model**.
+Parameters, then states, then observations: each layer depends on the one above.
+Such a model is called a **Bayesian hierarchical model**, or, when the states
+form a time series, a **state-space model**.
 
-## Example: influenza in the UK
+## The same three layers, on a real problem {.smaller}
 
 ![](images/DAG.png){.step .tall}
+
+Influenza transmission in the UK: parameters at the top, a stochastic epidemic in
+the middle, several data streams at the bottom. Larger than ours, same structure.
 
 ::: {.cite}
 Baguelin et al. (2013)
@@ -45,37 +65,29 @@ Baguelin et al. (2013)
 :::
 ::::
 
-::: {.fragment}
-Applying the chain rule gives the **joint probability**
+## The joint probability
+
+Applying the chain rule to those three pieces gives
 
 $$p(y, x, \theta) = p(y \mid x, \theta)\, p(x \mid \theta)\, p(\theta)$$
-:::
 
 # Fitting a state-space model
 
 ## Doing inference {.smaller}
 
-The joint probability
-
-$$p(y, x, \theta) = p(y \mid x, \theta)\, p(x \mid \theta)\, p(\theta)$$
-
-encodes everything about our **model**.
-
-::: {.fragment}
-To do model fitting and inference, set $y$ to the data we observe and calculate
-the *posterior*
+Set $y$ to the data we observe, and the joint probability gives the *posterior*
 
 $$p(x, \theta \mid y) = \frac{p(y, x, \theta)}{p(y)}$$
-:::
 
-::: {.fragment}
-We can rewrite this as
+. . .
+
+which factorises as
 
 $$p(x, \theta \mid y) = p(\theta \mid y)\, p(x \mid \theta, y)$$
 
-- the first factor is what we need for **parameter fitting**
-- the second factor is what we need for **state estimation**
-:::
+. . .
+
+The first factor gives us **parameter fitting**, the second **state estimation**.
 
 ## Parameter estimation
 
@@ -109,93 +121,93 @@ months.
 An influenza-like illness arrived with a visiting ship and infected most of the
 island over eight weeks.
 
-::: {.fragment}
+. . .
+
 Two features make it the standard teaching example:
 
 - **Closed** — nobody arrived or left, so there is no importation to explain
   anything away
 - **Two waves** — the epidemic subsided and then came back, in a population with
   no new susceptibles
-:::
 
-::: {.fragment}
+. . .
+
 That second wave is the whole problem. A simple SIR model cannot produce it.
-:::
 
 ## SEITL
 
 ![](images/SEITL.jpg){.step}
 
-::: {.fragment}
+. . .
+
 **T** is temporary immunity, and only a fraction $\alpha$ goes on to **L**,
 long-term immunity. The rest return to susceptible — and can drive a second wave.
-:::
 
 ## Two independent choices {.smaller}
 
-::: {.fragment}
-**Model structure** — how many compartments, and what flows between them.
-:::
+. . .
 
-::: {.fragment}
+**Model structure** — how many compartments, and what flows between them.
+
+. . .
+
 **Deterministic or stochastic** — whether transitions are continuous flows or
 discrete random events.
-:::
 
-::: {.fragment}
+. . .
+
 These are separate decisions. You can simulate SEITL either way, and the
 practical does both so you can see the difference.
-:::
 
 ## Why stochastic, here
 
 With 284 people, chance is not a rounding error.
 
-::: {.fragment}
+. . .
+
 - Individual runs peak days apart
 - Some fade out entirely; the deterministic model never does
 - The deterministic trajectory is **not** the average of the stochastic ones
-:::
 
-::: {.fragment}
+. . .
+
 Demographic noise scales roughly as $1/\sqrt{N}$. On an island of 284 it is a
 first-order effect, and it is why the rest of the course needs heavier machinery.
-:::
 
 ## Simulating it: Gillespie {.smaller}
 
 The deterministic version solves an ODE. The stochastic version simulates events
 one at a time.
 
-::: {.fragment}
+. . .
+
 1. Given the current state, compute the rate of every possible transition
 2. Draw the time to the next event from an exponential distribution
 3. Pick which event happens, with probability proportional to its rate
 4. Update the state, and repeat
-:::
 
-::: {.fragment}
+. . .
+
 Exact, and slow. Every infection and recovery is an individual event.
-:::
 
 ## SEIT4L: why four compartments {.smaller}
 
 A single **T** compartment means the waiting time in it is [exponential]{.alert},
 so the most likely thing is to leave immediately.
 
-::: {.fragment}
-That is a strange claim about immunity.
-:::
+. . .
 
-::: {.fragment}
+That is a strange claim about immunity.
+
+. . .
+
 Chaining four compartments, each at four times the rate, gives an **Erlang**
 waiting time: same mean, but a peak away from zero. Most people stay immune for
 roughly the average duration.
-:::
 
-::: {.fragment}
+. . .
+
 ![](images/SEIT4L.jpg){.mini}
-:::
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
