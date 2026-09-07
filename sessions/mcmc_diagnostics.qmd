@@ -606,8 +606,8 @@ A small number of divergences (say <1% of samples) may be acceptable, but many d
 n_divergent = sum(skipmissing(vec(chain_good[:numerical_error])))
 println("Divergent transitions: $(Int(n_divergent)) / $(niters(chain_good))")
 if n_divergent > 0
-    println("Consider raising the target acceptance rate, e.g. NUTS(0.95),")
-    println("or reparametrising the model")
+    println("Consider reparametrising the model or tightening a prior,")
+    println("then raising the target acceptance rate, e.g. NUTS(0.95)")
 else
     println("No divergent transitions")
 end
@@ -1001,8 +1001,9 @@ After three sessions, you now have a complete workflow for Bayesian inference wi
 - **Ideally R̂ < 1.01 and ESS > several hundred.**
 - **NUTS is usually better** than basic Metropolis-Hastings
 - **When in doubt, run longer** and use more chains
+- **Reach for the model before the sampler** — most of what looks like a sampler problem is a model or prior problem
 
-MCMC only works if you use it correctly. Diagnostics aren't optional.
+MCMC only works if you use it correctly. Diagnostics are not optional.
 
 :::
 

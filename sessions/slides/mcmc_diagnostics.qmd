@@ -12,6 +12,7 @@ fig-format: svg
 
 ENV["GKSwstype"] = "100"
 using StatsPlots
+using Statistics
 using Random
 Random.seed!(20260908)
 
@@ -76,11 +77,16 @@ function tau_and_cut(x; maxlag = 60)
 end
 
 ## Same number of draws in both, so only the correlation differs.
-acf_mix, cut_mix, _ = tau_and_cut(walk(2.5, 0.6, 4050)[51:end])
-acf_sticky, cut_sticky, _ = tau_and_cut(walk(2.5, 0.9, 4050)[51:end])
+n_acf = 4000
+acf_mix, cut_mix, tau_mix = tau_and_cut(walk(2.5, 0.6, n_acf + 50)[51:end])
+acf_sticky, cut_sticky, tau_sticky = tau_and_cut(walk(2.5, 0.9, n_acf + 50)[51:end])
+ess_mix, ess_sticky = round(Int, n_acf / tau_mix), round(Int, n_acf / tau_sticky)
 
-## MCSE: where the posterior mean lands over repeated independent runs.
-run_means = [sum(walk(2.5, 0.6, 800)[51:end]) / 750 for _ in 1:400]
+## MCSE: the posterior, and where the mean of one run of n_run draws lands.
+n_run = 750
+posterior = walk(2.5, 0.6, 40_050)[51:end]
+run_means = [sum(walk(2.5, 0.6, n_run + 50)[51:end]) / n_run for _ in 1:400]
+post_sd, mcse_emp = std(posterior), std(run_means)
 ```
 
 # Recap
@@ -273,6 +279,10 @@ Summed, it gives the [integrated autocorrelation time]{.alert}
 
 $$\tau = 1 + 2\sum_{k=1}^{\infty} \rho_k$$
 
+The 1 is each draw with itself; the 2 counts every other lag in both directions.
+
+. . .
+
 roughly the iterations needed for one draw's worth of new information.
 
 ## R̂: the Gelman-Rubin diagnostic {.smaller}
@@ -281,6 +291,9 @@ Compare the variance **within** each chain to the variance **between** chains.
 
 $$\hat{R} = \sqrt{\frac{\hat{V}}{W}},
 \qquad \hat{V} = \frac{n-1}{n}\,W + \frac{1}{n}\,B$$
+
+$n$ draws per chain. $W$ is the mean within-chain variance. $B$ is $n$ times the
+variance of the chain means, so $B/n$ is that variance. $\hat{V}$ adds the two.
 
 ```{julia}
 #| echo: false
@@ -300,9 +313,7 @@ plot(
 )
 ```
 
-The same two runs as the traces earlier, now as one number. The vertical scales
-differ: the left panel settles below the dashed 1.01 line, the right never
-approaches it.
+The same two runs as the traces earlier, now as one number.
 
 ## What R̂ is telling you {.smaller}
 
@@ -324,7 +335,6 @@ Rule of thumb: $\hat{R} < 1.1$ as a minimum, ideally $\hat{R} < 1.01$.
 
 ::: {.fragment}
 `rhat()` prints a refined version of this, so the two will not match by hand.
-The practical's advanced section says how.
 :::
 
 ::: {.cite}
@@ -351,16 +361,15 @@ function acf_panel(r, cut, ttl)
     return p
 end
 plot(
-    acf_panel(acf_mix, cut_mix, "Well mixed"),
-    acf_panel(acf_sticky, cut_sticky, "Sticky"),
+    acf_panel(acf_mix, cut_mix, "Well mixed: ESS $ess_mix"),
+    acf_panel(acf_sticky, cut_sticky, "Sticky: ESS $ess_sticky"),
     layout = (1, 2), size = (1100, 400), bottom_margin = 10Plots.mm,
     left_margin = 8Plots.mm
 )
 ```
 
-The sum is [truncated]{.alert} where the estimates go to noise, in grey. Same
-number of draws in both: correlation gone within a dozen lags on the left, still
-there beyond forty on the right, so far fewer independent draws for the same run.
+The sum is [truncated]{.alert} where the estimates go to noise, in grey. Both
+panels are 4000 draws.
 
 ::: {.cite}
 @geyer1992
@@ -379,28 +388,42 @@ $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{\text{ESS}}}$$
 
 . . .
 
-Report $R_0 = 2.31$ with an MCSE of $0.05$ and the second decimal is sampler
-noise. A different seed changes it.
+It is in the [units of the parameter]{.alert}, the same units as the posterior
+SD, so it says directly which decimal place the seed is moving.
 
 . . .
+
+Report $R_0 = 2.31$ with an MCSE of $0.05$ and a different seed moves the
+estimate by about that much. Report $R_0 = 2.3$; the second decimal needs an
+MCSE nearer $0.005$.
+
+## How well determined is the mean? {.smaller}
 
 ```{julia}
 #| echo: false
-p = density(
-    walk(2.5, 0.6, 40_000)[51:end], xlabel = "θ", ylabel = "Density",
-    fillrange = 0, fillalpha = 0.15, size = (1100, 380), bottom_margin = 10Plots.mm,
-    left_margin = 8Plots.mm, xlims = (1.2, 3.8)
+p1 = density(
+    posterior, title = "Posterior (SD $(round(post_sd, digits = 2)))",
+    xlabel = "θ", ylabel = "Density", fillrange = 0, fillalpha = 0.15,
+    xlims = (1.2, 3.8)
 )
-scatter!(p, run_means, fill(0.06, length(run_means)), markersize = 3, alpha = 0.35)
-plot!(p)
+p2 = density(
+    run_means, title = "Mean of a run (SD $(round(mcse_emp, digits = 3)))",
+    xlabel = "θ", ylabel = "Density", fillrange = 0, fillalpha = 0.15, color = 2,
+    xlims = (2.4, 2.6)
+)
+plot(
+    p1, p2, layout = (1, 2), size = (1100, 400),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
+)
 ```
 
-The shaded posterior is what you are reporting. The dots are where the mean landed
-on 400 repeated runs, and their spread is the MCSE.
+Note the two x-ranges. The posterior on the left is what you report. On the
+right, the mean of a 750-draw run over 400 repeats: that spread is the MCSE,
+narrower by $\sqrt{\text{ESS}}$.
 
 . . .
 
-It shrinks as $\sqrt{\text{ESS}}$, so ESS is the only lever.
+So ESS is the only lever.
 
 # Common failure modes
 
@@ -456,7 +479,7 @@ posterior.
 
 . . .
 
-Reach for the model before reaching for `NUTS(0.95)`.
+Reach for the model before reaching for `NUTS(0.95)` or a new sampler.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
