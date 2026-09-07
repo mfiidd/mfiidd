@@ -94,12 +94,6 @@ covers the two checking steps, and what to do when they fail.
 
 . . .
 
-A missing mechanism often leaves a ridge or a funnel that the diagnostics flag.
-A Poisson likelihood on overdispersed data does not: the chain is healthy and the
-posterior is overconfident.
-
-. . .
-
 The aim is not to prove the model is *correct*. Every model is wrong. The aim is
 to find the ways in which it is wrong that **matter for the question you are
 asking**.
