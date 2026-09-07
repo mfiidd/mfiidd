@@ -3,6 +3,7 @@ footer: "MCMC diagnostics"
 title: "MCMC diagnostics"
 subtitle: "Model fitting and inference for infectious disease dynamics"
 engine: julia
+fig-format: svg
 ---
 
 ```{julia}
@@ -11,12 +12,15 @@ engine: julia
 
 ENV["GKSwstype"] = "100"
 using StatsPlots
+using Statistics
 using Random
 Random.seed!(20260908)
 
+## Vector output: the decks are projected and these are line drawings.
 default(
-    size = (560, 330), legend = false, guidefontsize = 12, tickfontsize = 10,
-    titlefontsize = 14, linewidth = 2, grid = true,
+    size = (900, 460), legend = false, guidefontsize = 16, tickfontsize = 14,
+    titlefontsize = 18, linewidth = 2, grid = true, fmt = :svg,
+    bottom_margin = 8Plots.mm, left_margin = 6Plots.mm,
 )
 
 ## A correlated chain standing in for MCMC output: an AR(1) walk started
@@ -34,44 +38,102 @@ function acf(x, lags)
     d = sum(abs2, xc)
     [sum(xc[1:(end - k)] .* xc[(1 + k):end]) / d for k in lags]
 end
+
+## Four chains from different starts, once mixing well and once far too slowly.
+function walk(start, rho, steps)
+    x = zeros(steps)
+    x[1] = start
+    for i in 2:steps
+        x[i] = rho * x[i - 1] + (1 - rho) * 2.5 + sqrt(1 - rho^2) * 0.35 * randn()
+    end
+    return x
+end
+
+starts = [1.0, 2.2, 3.4, 5.5]
+agree = [walk(s, 0.6, 800) for s in starts]
+disagree = [walk(s, 0.9995, 800) for s in starts]
+
+## Basic R-hat, exactly the formula on the R-hat slide, over growing prefixes.
+function rhat_basic(cs)
+    m, n = length(cs), length(cs[1])
+    mus = [sum(c) / n for c in cs]
+    W = sum(sum(abs2, c .- mu) / (n - 1) for (c, mu) in zip(cs, mus)) / m
+    grand = sum(mus) / m
+    B = n * sum(abs2, mus .- grand) / (m - 1)
+    return sqrt(((n - 1) / n * W + B / n) / W)
+end
+
+## 50 draws is the shortest prefix worth plotting; below that R-hat is noise.
+prefixes = 50:25:800
+rhat_agree = [rhat_basic([c[1:k] for c in agree]) for k in prefixes]
+rhat_disagree = [rhat_basic([c[1:k] for c in disagree]) for k in prefixes]
+
+## Autocorrelation summed to tau, cut where the estimates first go negative.
+function tau_and_cut(x; maxlag = 60)
+    r = acf(x, 0:maxlag)
+    k = findfirst(<(0), r[2:end])
+    cut = k === nothing ? maxlag : k - 1        # last lag still positive
+    return r, cut, 1 + 2 * sum(r[2:(cut + 1)])
+end
+
+## Same number of draws in both, so only the correlation differs.
+n_acf = 4000
+acf_mix, cut_mix, tau_mix = tau_and_cut(walk(2.5, 0.6, n_acf + 50)[51:end])
+acf_sticky, cut_sticky, tau_sticky = tau_and_cut(walk(2.5, 0.9, n_acf + 50)[51:end])
+ess_mix, ess_sticky = round(Int, n_acf / tau_mix), round(Int, n_acf / tau_sticky)
+
+## MCSE: the posterior, and where the mean of one run of n_run draws lands.
+n_run = 750
+posterior = walk(2.5, 0.6, 40_050)[51:end]
+run_means = [sum(walk(2.5, 0.6, n_run + 50)[51:end]) / n_run for _ in 1:400]
+post_sd, mcse_emp = std(posterior), std(run_means)
 ```
 
 # Recap
 
-## Review
+## Where we are
 
-In the previous session you used [Metropolis-Hastings]{.alert} with a [Gaussian]{.alert}
-proposal distribution to infer a single parameter, $R_0$.
+Yesterday you sampled a posterior: Metropolis-Hastings by hand, then
+[NUTS]{.alert} doing the same job with gradients.
 
-In this session we will
+. . .
 
-- extend to multivariate inference
-- learn about MCMC diagnostics
-- think about accuracy and efficiency
+Today's question is narrower. The sampler returned numbers. Are they
+[samples from the posterior]{.alert}?
 
-## Interlude: the multivariate Gaussian {.smaller}
+. . .
 
-To infer several parameters at once we can use a multivariate Gaussian.
+MCMC always returns something. Nothing forces it to be right.
 
-:::: {.columns}
-::: {.column width="50%"}
-$\mu = \begin{bmatrix} 3 & 2 \end{bmatrix}$,
-$\Sigma = \begin{bmatrix} 25 & 0 \\ 0 & 9 \end{bmatrix}$
+## Convergence is asymptotic
 
-![](images/MVN1.jpg){.step}
-:::
-::: {.column width="50%"}
-$\mu = \begin{bmatrix} 3 & 2 \end{bmatrix}$,
-$\Sigma = \begin{bmatrix} 10 & 5 \\ 5 & 5 \end{bmatrix}$
+A chain has converged when its draws are distributed as the posterior, and stay
+that way however long you run.
 
-![](images/MVN2.jpg){.step}
-:::
-::::
+. . .
 
-For accurate and efficient MCMC we tune the variance *and* the covariance of the
-proposal distribution.
+That is a statement about the limit. No finite run establishes it.
+
+. . .
+
+So everything today is a [check]{.alert}. Each one can show you a
+problem. None can show you there is not one.
 
 # Visual diagnostics
+
+## The trace plot
+
+```{julia}
+#| echo: false
+## agree[1] is a well-mixing chain; `chain` is the deliberately sticky one
+plot(
+    agree[1][51:end], xlabel = "Iteration", ylabel = "θ", size = (1100, 400),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
+)
+```
+
+The parameter against iteration: where the chain has been. For [NUTS]{.alert},
+where the puck has been.
 
 ## Why we like hairy caterpillars
 
@@ -80,58 +142,11 @@ proposal distribution.
 ![](images/hairy_caterpillar.jpg)
 :::
 ::: {.column width="45%"}
-Key characteristics:
-
-- Straight
-- Plump head, plump rear
-- Multiple colours
+- [Straight]{.alert} — no trend across the run
+- [Plump head, plump rear]{.alert} — the same spread at the start as at the end
+- [Multiple colours]{.alert} — several chains on top of each other
 :::
 ::::
-
-## Choosing a proposal: too small
-
-If the [variance is too small]{.alert}, the chain will be slow to reach the
-target distribution.
-
-:::: {.columns}
-::: {.column width="50%"}
-![](images/Var1.png){.step}
-:::
-::: {.column width="50%"}
-![](images/Trace1.png){.step}
-:::
-::::
-
-## Choosing a proposal: too large
-
-If the [variance is too high]{.alert}, many proposed values will be rejected and
-the chain will *stick* in one place for many steps.
-
-:::: {.columns}
-::: {.column width="50%"}
-![](images/Var2.png){.step}
-:::
-::: {.column width="50%"}
-![](images/Trace2.png){.step}
-:::
-::::
-
-## Choosing a proposal: about right
-
-If the [variance is just right]{.alert}, the chain efficiently explores the full
-shape of the target distribution.
-
-:::: {.columns}
-::: {.column width="50%"}
-![](images/Var3.png){.step}
-:::
-::: {.column width="50%"}
-![](images/Trace3.png){.step}
-:::
-::::
-
-Try several proposal distributions ([pilot runs]{.alert}), aiming for an
-acceptance rate between 24% and 40%.
 
 ## Two more plots worth making
 
@@ -164,6 +179,41 @@ Still drifting, or still correlated at lag 100, and your effective sample size i
 a small fraction of the iterations you ran.
 :::
 
+## One chain cannot tell you it is wrong
+
+Every plot so far looked at [one chain]{.alert}.
+
+. . .
+
+A chain that settles in part of the posterior and explores it thoroughly looks
+healthy on all three.
+
+. . .
+
+It has never been anywhere else, so it cannot tell you what it missed.
+
+## Chains started apart
+
+```{julia}
+#| echo: false
+## Drop the transient from the converged panel: warmup is discarded.
+p1 = plot(title = "Converged", xlabel = "Iteration", ylabel = "θ")
+for c in agree
+    plot!(p1, c[51:end], linewidth = 1)
+end
+p2 = plot(title = "Not converged", xlabel = "Iteration", ylabel = "θ")
+for c in disagree
+    plot!(p2, c, linewidth = 1)
+end
+plot(
+    p1, p2, layout = (1, 2), size = (1100, 460),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
+)
+```
+
+Chains that started apart and ended up in the same place have found the same
+distribution. Chains that did not have not.
+
 ## Burn-in
 
 :::: {.columns}
@@ -174,19 +224,34 @@ a small fraction of the iterations you ran.
 
 - Throw away the early samples: the [burn-in]{.alert} phase.
 
-- How much to discard?
+- NUTS adapts during warmup and discards it for you.
 :::
 ::: {.column width="45%"}
 ![](images/burn.png)
 :::
 ::::
 
+## How long to warm up?
+
+NUTS adapts for `min(1000, N ÷ 2)` iterations by default, so 2000 draws gives
+1000 of warmup. It is the first argument: `NUTS(2000, 0.65)`.
+
+. . .
+
+Longer warmup buys a better step size and mass matrix. For most models the
+default is enough.
+
+. . .
+
+Less is often safe, and worth having when a model is expensive. Check R̂ and the
+traces are no worse before relying on it.
+
 ## MCMC sample size
 
 - In MCMC each sample depends on the one before: [auto-correlation]{.alert}.
 
 - Reduce auto-correlation by [thinning]{.alert}, retaining only every $n$-th
-  sample.
+  sample. Rarely needed for NUTS; useful for random-walk samplers.
 
 - The information content of a set of MCMC samples is given by the
   [effective sample size (ESS)]{.alert}.
@@ -204,19 +269,21 @@ How does each of these influence accuracy and efficiency?
 
 # Quantitative diagnostics
 
-## Running several chains
+## Autocorrelation as a number {.smaller}
 
-A single chain can look perfectly healthy and still be stuck in the wrong place.
-
-. . .
-
-Run several chains from **different starting points**. If they agree, that is
-evidence they have found the same distribution. If they disagree, at least one
-of them is wrong.
+$\rho_k$ is the correlation between the chain and itself $k$ steps later.
 
 . . .
 
-Four chains is a reasonable default.
+Summed, it gives the [integrated autocorrelation time]{.alert}
+
+$$\tau = 1 + 2\sum_{k=1}^{\infty} \rho_k$$
+
+The 1 is each draw with itself; the 2 counts every other lag in both directions.
+
+. . .
+
+roughly the iterations needed for one draw's worth of new information.
 
 ## R̂: the Gelman-Rubin diagnostic {.smaller}
 
@@ -225,50 +292,146 @@ Compare the variance **within** each chain to the variance **between** chains.
 $$\hat{R} = \sqrt{\frac{\hat{V}}{W}},
 \qquad \hat{V} = \frac{n-1}{n}\,W + \frac{1}{n}\,B$$
 
-$W$ averages the variance within a chain; $B$ is $n$ times the variance of the
-chain means, for chains of length $n$.
+$n$ draws per chain. $W$ is the mean within-chain variance. $B$ is $n$ times the
+variance of the chain means, so $B/n$ is that variance. $\hat{V}$ adds the two.
 
-::: {.fragment}
-Once the chains agree, each chain mean varies by about $W/n$, so $B \approx W$
-and $\hat{R} \to 1$. Chains sitting in different places inflate $B$ and push it up.
-:::
+```{julia}
+#| echo: false
+pa = plot(
+    prefixes, rhat_agree, title = "Chains that agree", xlabel = "Draws per chain",
+    ylabel = "R-hat"
+)
+hline!(pa, [1.01], color = :red, linestyle = :dash)
+pd = plot(
+    prefixes, rhat_disagree, title = "Chains that do not", xlabel = "Draws per chain",
+    ylabel = "R-hat", color = 2
+)
+hline!(pd, [1.01], color = :red, linestyle = :dash)
+plot(
+    pa, pd, layout = (1, 2), size = (1100, 380),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
+)
+```
 
-::: {.fragment}
-Rule of thumb: $\hat{R} < 1.01$. Above 1.1 is a red flag.
-:::
+The same two runs as the traces earlier, now as one number.
 
-::: {.cite}
-Modern rank-normalised R̂ and ESS: @vehtari2021.
-:::
+## What R̂ is telling you {.smaller}
 
-## Effective sample size, and what it costs you {.smaller}
-
-MCMC samples are correlated, so $N$ of them are worth fewer than $N$ independent
-draws. [ESS]{.alert} estimates how many you actually have.
+Chains sitting in different places inflate $B$, and R̂ goes up with it.
 
 . . .
 
-[MCSE]{.alert} turns that into the uncertainty on your estimate:
+Chains that agree still do not reach exactly 1, because the draws inside each
+chain are correlated. A chain mean varies by about $\sqrt{W\tau/n}$, so
+$B \approx \tau W$ and
+
+$$\hat{R}^2 \approx 1 + \frac{\tau - 1}{n}$$
+
+near 1 when the chain is long compared with $\tau$.
+
+. . .
+
+Rule of thumb: $\hat{R} < 1.1$ as a minimum, ideally $\hat{R} < 1.01$.
+
+::: {.fragment}
+`rhat()` prints a refined version of this, so the two will not match by hand.
+:::
+
+::: {.cite}
+Rank-normalised R̂ and ESS: @vehtari2021
+:::
+
+## Effective sample size {.smaller}
+
+Correlated draws provide less information than independent ones.
+
+$$N_{\text{eff}} = \frac{N}{1 + 2\sum_{k=1}^{K} \rho_k} = \frac{N}{\tau}$$
+
+. . .
+
+```{julia}
+#| echo: false
+function acf_panel(r, cut, ttl)
+    lags = 0:(length(r) - 1)
+    p = bar(
+        lags[1:(cut + 1)], r[1:(cut + 1)], title = ttl, xlabel = "Lag",
+        ylabel = "Correlation", color = 1, linecolor = 1
+    )
+    bar!(p, lags[(cut + 2):end], r[(cut + 2):end], color = :grey85, linecolor = :grey85)
+    return p
+end
+plot(
+    acf_panel(acf_mix, cut_mix, "Well mixed: ESS $ess_mix"),
+    acf_panel(acf_sticky, cut_sticky, "Sticky: ESS $ess_sticky"),
+    layout = (1, 2), size = (1100, 400), bottom_margin = 10Plots.mm,
+    left_margin = 8Plots.mm
+)
+```
+
+The sum is [truncated]{.alert} where the estimates go to noise, in grey. Both
+panels are 4000 draws.
+
+::: {.cite}
+@geyer1992
+:::
+
+## How accurate is the reported estimate? {.smaller}
+
+When reporting a posterior it matters how accurate the estimate is: how many of
+the digits are real, and how many would change with a different seed.
+
+. . .
+
+[Monte Carlo standard error]{.alert} aims to help answer that:
 
 $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{\text{ESS}}}$$
 
 . . .
 
-Report $R_0 = 2.31$ with an MCSE of $0.05$ and the second decimal is sampler
-noise: a different seed changes it. Sample until the MCSE is small next to the
-precision you want to claim.
+It is in the [units of the parameter]{.alert}, the same units as the posterior
+SD, so it says directly which decimal place the seed is moving.
 
-::: {.fragment}
-Bulk ESS describes the centre of the distribution, tail ESS the extremes, which
-is what credible interval endpoints depend on.
-:::
+. . .
+
+Report $R_0 = 2.31$ with an MCSE of $0.05$ and a different seed moves the
+estimate by about that much. Report $R_0 = 2.3$; the second decimal needs an
+MCSE nearer $0.005$.
+
+## How well determined is the mean? {.smaller}
+
+```{julia}
+#| echo: false
+p1 = density(
+    posterior, title = "Posterior (SD $(round(post_sd, digits = 2)))",
+    xlabel = "θ", ylabel = "Density", fillrange = 0, fillalpha = 0.15,
+    xlims = (1.2, 3.8)
+)
+p2 = density(
+    run_means, title = "Mean of a run (SD $(round(mcse_emp, digits = 3)))",
+    xlabel = "θ", ylabel = "Density", fillrange = 0, fillalpha = 0.15, color = 2,
+    xlims = (2.4, 2.6)
+)
+plot(
+    p1, p2, layout = (1, 2), size = (1100, 400),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
+)
+```
+
+Note the two x-ranges. The posterior on the left is what you report. On the
+right, the mean of a 750-draw run over 400 repeats: that spread is the MCSE,
+narrower by $\sqrt{\text{ESS}}$.
+
+. . .
+
+So ESS is the only lever.
 
 # Common failure modes
 
 ## Divergent transitions
 
-Specific to HMC and NUTS. The sampler simulates a trajectory; a **divergence**
-means that simulation became numerically unstable and flew off.
+Specific to HMC and NUTS. The sampler slides a puck along a trajectory; a
+**divergence** means that simulation became numerically unstable and the puck
+flew off.
 
 . . .
 
@@ -288,20 +451,43 @@ never see the others.
 
 . . .
 
-Multiple chains from different starting points are the standard detection: if
-they land in different modes, R̂ will be large.
+Chains landing in different modes make R̂ large. So do chains that have simply
+not converged yet.
 
 . . .
 
-Fixes are harder than detection. Reparameterisation sometimes helps; otherwise
-you need samplers designed to cross between modes.
+Usually a property of the [model and the data]{.alert}, not the sampler, so the
+first question is which mode you believe and why.
+
+. . .
+
+Fixes, in the order to try them:
+
+- a prior that rules out an implausible mode, if it is defensible on its own terms
+- a mixture model, if the modes are genuinely different explanations
+- a sampler designed to cross between modes
+
+## It is almost never the sampler
+
+R̂, ESS and MCSE tell you the [algorithm]{.alert} struggled.
+
+. . .
+
+Usually the cause is the [model]{.alert}: correlated or non-identified
+parameters, a prior with mass where the solver fails, a badly conditioned
+posterior.
+
+. . .
+
+Reach for the model before reaching for `NUTS(0.95)` or a new sampler.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
 In the practical you will
 
-- generate good and bad chains and compare their trace plots
-- compute R̂, ESS and MCSE with `MCMCChains`
+- read trace, running mean and autocorrelation plots on a fitted SIR model
+- watch four chains agree, and four chains fail to
+- compute R̂, ESS and MCSE, and see R̂ catch the chains that disagree
 - diagnose a deliberately badly specified model and try to fix it
 
 
