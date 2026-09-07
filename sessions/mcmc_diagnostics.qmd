@@ -416,7 +416,7 @@ With gradient-based samplers like NUTS, mixing problems are uncommon when the mo
 
 ## Problem 2: Divergent transitions (for HMC/NUTS)
 
-NUTS simulates a ball rolling over the posterior surface. A *divergent transition* occurs when the simulation becomes numerically unstable — the ball "flies off" to implausible values instead of following the contour. This typically happens when the posterior has sharp ridges or funnels: the step size that works in flat regions is too large for the narrow parts, causing numerical errors to explode.
+NUTS simulates a puck sliding over the posterior surface. A *divergent transition* occurs when the simulation becomes numerically unstable — the puck "flies off" to implausible values instead of following the contour. This typically happens when the posterior has sharp ridges or funnels: the step size that works in flat regions is too large for the narrow parts, causing numerical errors to explode.
 
 A small number of divergences (say <1% of samples) may be acceptable, but many divergences indicate biased sampling — the sampler is systematically avoiding regions it can't navigate, so the samples underrepresent those areas.
 
