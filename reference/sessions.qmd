@@ -66,7 +66,7 @@ Monday 7 September: 14.00-15.15 and 15.45-17.00
 
 Tuesday 8 September: 09.30-09.45
 
--   [Day 1 review](../sessions/slides/day1_review.qmd): the likelihood, Bayes' rule and how we sample from the posterior (15 mins)
+-   [Day 1 review](../sessions/slides/day1_review.qmd) (15 mins)
 
 ## Session 3: MCMC diagnostics
 
