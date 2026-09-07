@@ -239,7 +239,7 @@ function simulate_seit4l_deterministic(θ, init_state, times)
 end
 
 """
-    simulate_seit4l_stochastic(θ, init_state, times)
+    simulate_seit4l_stochastic(θ, init_state, times; rng = Random.default_rng())
 
 Simulate the stochastic SEIT4L model using the Gillespie algorithm.
 
@@ -251,11 +251,17 @@ inside the filter are the same code.
 - `θ`: Dict with keys :R_0, :D_lat, :D_inf, :α, :D_imm
 - `init_state`: Dict with keys :S, :E, :I, :T1, :T2, :T3, :T4, :L
 - `times`: Time points (assumed daily: 0, 1, 2, ...)
+- `rng`: Random number generator, for a reproducible trajectory
 
 # Returns
 DataFrame with columns: time, S, E, I, T1, T2, T3, T4, L, Inc (daily incidence)
 """
-function simulate_seit4l_stochastic(θ, init_state, times)
+function simulate_seit4l_stochastic(
+    θ,
+    init_state,
+    times;
+    rng::AbstractRNG = Random.default_rng(),
+)
     ## State: [S, E, I, T1, T2, T3, T4, L]
     state = Float64[
         init_state[:S],
@@ -288,7 +294,8 @@ function simulate_seit4l_stochastic(θ, init_state, times)
         results.T3[i], results.T4[i] = state[6], state[7]
         results.L[i] = state[8]
         if i < n_days
-            results.Inc[i + 1] = gillespie_step_seit4l!(state, θ, times[i + 1] - t)
+            dt = Float64(times[i + 1] - t)
+            results.Inc[i + 1] = gillespie_step_seit4l!(rng, state, θ, dt)
         end
     end
 

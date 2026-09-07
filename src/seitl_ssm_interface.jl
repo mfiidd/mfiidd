@@ -26,8 +26,22 @@ loop.
 `k` must agree with the compartment count of the initial state the filter is
 given, which is `k + 4`. `run_particle_filter` derives one from the other so
 they cannot disagree; construct the two by hand and it is on you to match them.
+
+Only `k = 1` and `k = 4` have steppers, so any other `k` is rejected here
+rather than at the first step of the filter.
 """
-SEITLDynamics(θ::Dict{Symbol, Float64}, k::Integer) = SEITLDynamics{Int(k)}(θ)
+function SEITLDynamics(θ::Dict{Symbol, Float64}, k::Integer)
+    ## Reject an unsupported k where the mistake is, which is the length of the
+    ## initial state, and not deep inside the filter
+    k in (1, 4) || throw(
+        ArgumentError(
+            "SEITLDynamics supports k = 1 (SEITL) and k = 4 (SEIT4L); got k = $k. " *
+            "k is the number of temporary immunity stages, so the initial state " *
+            "must be [S, E, I, T_1 ... T_k, L] and have k + 4 compartments.",
+        ),
+    )
+    return SEITLDynamics{Int(k)}(θ)
+end
 
 """
     seitl_stepper(dyn)
