@@ -59,6 +59,7 @@ using Random
 using LinearAlgebra
 using DrWatson
 using Statistics: mean, std, cor
+using MFIIDD ## the course package, which holds the SIR implementation
 
 Random.seed!(1234)
 ```
@@ -84,44 +85,18 @@ scatter(
 
 # Simple SIR model
 
-For clarity, we'll use a simple SIR model:
+For clarity, we'll use a simple SIR model.
+
+These two functions live in [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl) and arrived with `using MFIIDD` above.
+They are shown from that source rather than repeated here, so the page and the code the session runs cannot drift apart.
 
 ```{julia}
-function sir_ode!(du, u, p, t)
-    S, I, R = u
-    β, γ = p
-    N = S + I + R
+#| echo: false
+#| output: asis
+println("```julia\n", source_for(sir_ode!), "\n\n", source_for(simulate_sir), "\n```")
+```
 
-    du[1] = -β * S * I / N
-    du[2] = β * S * I / N - γ * I
-    du[3] = γ * I
-end
-
-sir_prob = ODEProblem(sir_ode!, zeros(3), (0.0, 1.0), [1.0, 0.5])
-
-"""
-SIR model for variational inference demonstrations.
-"""
-function simulate_sir(θ, init_state, times)
-    R_0, D_inf = θ[:R_0], θ[:D_inf]
-
-    β = R_0 / D_inf
-    γ = 1.0 / D_inf
-    u0 = [init_state[:S], init_state[:I], init_state[:R]]
-    prob = remake(sir_prob, u0 = u0, p = [β, γ], tspan = (times[1], times[end]))
-    sol = solve(prob, Tsit5(), saveat=times)
-
-    # Extract incidence
-    S_values = sol[1, :]
-    incidence = [0.0; -diff(S_values)]
-
-    return DataFrame(time=times, S=S_values,
-                     I=sol[2, :],
-                     R=sol[3, :],
-                     Inc=incidence)
-end
-
-# Test
+```{julia}
 ## `times` starts at 0.0, the left edge of the first observation day, because the
 ## incidence over that day is S(0) - S(1) and there is no way to form it without a
 ## point at 0. `traj.Inc[i + 1]` is then the incidence over the day the i-th
