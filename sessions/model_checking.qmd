@@ -657,9 +657,11 @@ If the posteriors are too narrow, the truth falls outside their bulk more often 
 If they are too wide, the truth sits near the middle too often, giving a ∩ shape.
 If they are biased in one direction, the ranks slope.
 
-You may meet this histogram again under another name.
+::: {.callout-note collapse="true"}
+## PIT histograms in forecasting
 A probability integral transform (PIT) histogram asks whether a *forecast* is calibrated, by evaluating the predictive CDF at the observed value, where SBC asks whether the *inference procedure* is calibrated, by ranking a known truth among posterior draws.
 [Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/nfidd/) uses PIT histograms throughout.
+:::
 
 ::: {.callout-note}
 ## SBC in practice

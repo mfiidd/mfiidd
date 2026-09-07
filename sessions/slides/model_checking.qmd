@@ -258,17 +258,11 @@ it: SBC tests the **inference**, not the model.
 
 ![](images/model_checking_sbc_shapes.svg)
 
-Illustrative: a conjugate Normal stands in, so each posterior can be spoiled on
-purpose. The grey band is where a uniform histogram should sit.
-
-## The same histogram, in forecasting
-
-The same shapes read the same way in a **PIT** histogram, which checks a
-forecast rather than an inference procedure.
+The grey band is where a uniform histogram should sit.
 
 . . .
 
-SBC itself is expensive: it means fitting the model hundreds of times.
+SBC is expensive: it means fitting the model hundreds of times.
 
 # When checks fail
 
