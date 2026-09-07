@@ -48,7 +48,6 @@ The source file of this session is located at `sessions/observation_models.qmd`.
 ## Load libraries
 
 ```{julia}
-using DifferentialEquations
 using Distributions
 using DataFrames
 using CSV

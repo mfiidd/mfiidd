@@ -45,7 +45,6 @@ ENV["GKSwstype"] = "100"  # Suppress plot windows during render
 ```
 
 ```{julia}
-using DifferentialEquations
 using Distributions
 using DataFrames
 using CSV
