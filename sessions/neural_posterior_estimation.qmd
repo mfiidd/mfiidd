@@ -142,7 +142,7 @@ function simulate_obs(θ)
     state = copy(INIT)
     y = Vector{Float64}(undef, T)
     for t in 1:T
-        inc = gillespie_step_seitl!(state, d, 1.0)
+        inc = gillespie_step!(state, d; k = 1)
         y[t] = rand(Poisson(max(θ[6] * inc, 1e-10)))
     end
     return y
@@ -251,7 +251,7 @@ size(Xva), size(Yva)
 
 - **Columns are examples** — `Θ` is `D × n` and `Y` is `2T × n`, the layout Lux's `Dense` layers expect: one column per training pair.
 - **`log1p`** — compresses the count scale and handles zeros, so a day with 40 cases does not dominate the network's input.
-- **`Random.seed!`** alongside an explicit `rng` — `gillespie_step_seitl!` draws from the global RNG, so we seed both to make the training set reproducible.
+- **`Random.seed!`** alongside an explicit `rng` — `gillespie_step!` draws from the global RNG, so we seed both to make the training set reproducible.
 - **`pack`** returns `2T` numbers: `T` (masked) observations followed by the `T` mask entries.
 :::
 

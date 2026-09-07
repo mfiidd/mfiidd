@@ -8,8 +8,7 @@ SEITL latent dynamics, for any number of temporary immunity stages.
 State vector: [S, E, I, T_1 ... T_k, L, daily_inc]
 
 The last element tracks daily incidence for the observation process. SEITL is
-the k = 1 case and SEIT4L the k = 4 case, so the number of stages is read from
-the state that `SEITLInitial` supplies rather than fixed by the type.
+the k = 1 case and SEIT4L the k = 4 case.
 """
 struct SEITLDynamics{K} <: SSMProblems.LatentDynamics
     θ::Dict{Symbol, Float64}
@@ -19,9 +18,8 @@ end
     SEITLDynamics(θ, k)
 
 Build dynamics with `k` temporary immunity sub-stages. `k` is a type parameter,
-so [`seitl_stepper`](@ref) resolves to the right Gillespie stepper when the
-method is compiled and no test of the state survives into the filter's inner
-loop.
+so [`gillespie_step`](@ref) is given the stage count directly and no test of
+the state survives into the filter's inner loop.
 
 `k` must agree with the compartment count of the initial state the filter is
 given, which is `k + 4`. `run_particle_filter` derives one from the other so
@@ -29,24 +27,17 @@ they cannot disagree; construct the two by hand and it is on you to match them.
 """
 SEITLDynamics(θ::Dict{Symbol, Float64}, k::Integer) = SEITLDynamics{Int(k)}(θ)
 
-"""
-    seitl_stepper(dyn)
-
-The Gillespie stepper for the number of sub-stages `dyn` declares.
-"""
-seitl_stepper(::SEITLDynamics{1}) = gillespie_step_seitl!
-seitl_stepper(::SEITLDynamics{4}) = gillespie_step_seit4l!
-
 function SSMProblems.simulate(
     rng::AbstractRNG,
-    dyn::SEITLDynamics,
+    dyn::SEITLDynamics{K},
     step::Integer,
     prev_state;
     kwargs...,
-)
+) where {K}
     ## Drop the incidence slot, leaving the compartments the stepper works on
     state = collect(prev_state[1:(end - 1)])
-    return vcat(state, seitl_stepper(dyn)(rng, state, dyn.θ))  ## re-append incidence
+    new_state, daily_inc = gillespie_step(rng, state, dyn.θ; k = K)
+    return vcat(new_state, daily_inc)  ## re-append incidence
 end
 
 """

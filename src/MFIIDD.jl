@@ -12,18 +12,17 @@ using StatsBase: Weights, wsample
 
 include("seitl_priors.jl")
 include("sir_model.jl")
+include("gillespie.jl")
 include("seitl_model.jl")
-include("seitl_particle_filter.jl")
 include("seitl_ssm_interface.jl")
 include("seitl_runner.jl")
-include("seit4l_gillespie.jl")
 
 export seitl_priors, seitl_prior_distributions, SEITL_PARAMETERS
 export sir_ode!, simulate_sir
 export seitl_ode!, simulate_seitl_deterministic, simulate_seitl_stochastic
 export seit4l_ode!, simulate_seit4l_deterministic, simulate_seit4l_stochastic
 export generate_observations
-export gillespie_step, gillespie_step_seitl!, gillespie_step_seit4l!
+export gillespie_step, gillespie_step!
 export run_particle_filter, filtered_incidence
 export SEITLDynamics, SEITLInitial, PoissonObservation
 export source_for

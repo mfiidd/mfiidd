@@ -98,12 +98,12 @@ using MFIIDD
 ::: {.callout-note collapse="true"}
 ## SEIT4L Particle Filter Implementation
 
-Gillespie step ([`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl)):
+Gillespie step ([`src/gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/gillespie.jl)):
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_gillespie.jl"), "\n```")
+println("```julia\n", source_for("gillespie.jl"), "\n```")
 ```
 
 SSMProblems interface ([`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl)):
@@ -154,11 +154,11 @@ init_state = Dict(
 
 In the [Particle Filters session](particle_filters.qmd), we:
 
-1. Implemented the SEIT4L Gillespie simulator (`gillespie_step`)
+1. Implemented the Gillespie simulator (`gillespie_step`), run here with four temporary immunity stages
 2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEITLDynamics`, `PoissonObservation`, `SEITLInitial`), which serves the family of SEITL models
 3. Calibrated the particle count against the SD of the log-likelihood estimate, which put the minimum acceptable count at 64
 
-All these components were loaded via `using MFIIDD` in the setup above (defined in [`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl), [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl), and [`src/seitl_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_runner.jl)). Now we'll use them for full Bayesian inference.
+All these components were loaded via `using MFIIDD` in the setup above (defined in [`src/gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/gillespie.jl), [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl), and [`src/seitl_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_runner.jl)). Now we'll use them for full Bayesian inference.
 
 In your own work, you should run [prior and posterior predictive checks](model_checking.qmd) when fitting models. We skip them for now to focus on the PMMH algorithm.
 
@@ -703,7 +703,7 @@ function predict_seit4l(row)
     θ = Dict(:R_0 => row.R_0, :D_lat => row.D_lat, :D_inf => row.D_inf,
              :α => row.α, :D_imm => row.D_imm)
     state = copy(init_4l)
-    [rand(Poisson(max(row.ρ * gillespie_step_seit4l!(state, θ, 1.0), 1e-10)))
+    [rand(Poisson(max(row.ρ * gillespie_step!(state, θ; k = 4), 1e-10)))
      for _ in 1:n_obs]
 end
 

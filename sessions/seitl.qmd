@@ -762,7 +762,7 @@ The package ships this simulator, and the code below is that function rather tha
 println("```julia\n", source_for(simulate_seit4l_stochastic), "\n```")
 ```
 
-The day-by-day loop is the one `simulate_seitl_stochastic` uses, over nine columns instead of seven, and the eight transitions live in `gillespie_step_seit4l!` rather than being written out again.
+The day-by-day loop is the one `simulate_seitl_stochastic` uses, over nine columns instead of seven, and the eight transitions live in `gillespie_step!` at `k = 4` rather than being written out again.
 
 What to notice when you compare the two: splitting T into four sub-stages makes the time an individual spends temporarily immune *less* variable, because an Erlang-4 duration is more tightly concentrated than an exponential one with the same mean. Individuals therefore return to susceptibility in a tighter band, so the second wave is sharper and its timing more repeatable across runs, where SEITL smears it out.
 :::

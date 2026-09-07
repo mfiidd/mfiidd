@@ -282,7 +282,7 @@ end
 
 Simulate the stochastic SEIT4L model using the Gillespie algorithm.
 
-The Erlang-4 transitions are the ones in [`gillespie_step`](@ref), which the
+The transitions are the ones in [`gillespie_step!`](@ref) at `k = 4`, which the
 particle filter also calls, so the simulator on the page and the simulator
 inside the filter are the same code.
 
@@ -327,7 +327,7 @@ function simulate_seit4l_stochastic(θ, init_state, times)
         results.T3[i], results.T4[i] = state[6], state[7]
         results.L[i] = state[8]
         if i < n_days
-            results.Inc[i + 1] = gillespie_step_seit4l!(state, θ, times[i + 1] - t)
+            results.Inc[i + 1] = gillespie_step!(state, θ; k = 4, dt = times[i + 1] - t)
         end
     end
 
