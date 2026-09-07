@@ -1,9 +1,9 @@
 ---
-title: "Choosing an inference approach"
+title: "Synthesis and next steps"
 subtitle: "Closing session"
 format: html
 engine: julia
-order: 10
+order: 15
 ---
 
 ::: {.callout-note appearance="simple"}
@@ -79,19 +79,19 @@ Question 4 is what decides whether any of this is feasible at all. A model that 
 
 # Where to go next
 
-Three optional sessions extend the course, and none of them depends on the others:
+Four optional sessions sit above this one in the sidebar, and each stands on its own:
 
 - [Variational inference](variational_inference.qmd) replaces sampling with an optimisation, for when you need an answer quickly. It needs only the MCMC session as background.
 - [Neural posterior estimation](neural_posterior_estimation.qmd) trains a network to map data straight to a posterior, amortising the cost across many datasets.
 - [Universal differential equations](universal_differential_equations.qmd) put a neural network inside the model, for when part of the mechanism is unknown.
 - [Beyond Turing](julia_ecosystem.qmd) is a tour of the wider Julia ecosystem for anyone who wants to keep working in it.
 
-The [course structure](../reference/structure.qmd) shows how they depend on the sessions you have done.
+The [course structure](../reference/structure.qmd) shows what each of them assumes you have already done.
 
 # Going further
 
 - Everything here stays online, and the material is MIT licensed, so you are free to reuse it with attribution.
-- [Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/) is a companion course on the intricacies of working with epidemiological data and using them to make predictions.
+- [Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/nfidd/) is a companion course on the intricacies of working with epidemiological data and using them to make predictions.
 - The [session timetable](../reference/sessions.qmd) and [course structure](../reference/structure.qmd) are the quickest way back into a specific topic.
 - The [Discussion board](https://github.com/mfiidd/mfiidd/discussions) is the place to ask about anything in the sessions, say how you got on, or show what you have fitted. It is open to everyone using the material, wherever they came across it.
 - For something in the course that is wrong, unclear, or broken, [open an issue](https://github.com/mfiidd/mfiidd/issues). That is genuinely useful to us and to the next cohort.

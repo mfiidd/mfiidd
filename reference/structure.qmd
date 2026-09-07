@@ -49,7 +49,7 @@ Work through them in order, or use this map to plan your time.
 
 **Closing session** (20 minutes):
 
-> **Choosing an inference approach** — requires everything in the core and stochastic tiers, and works best if you bring a model of your own
+> **Synthesis and next steps** — requires everything in the core and stochastic tiers, and works best if you bring a model of your own
 
 **If you only have limited time:**
 

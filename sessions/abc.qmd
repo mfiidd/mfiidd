@@ -993,5 +993,5 @@ A robust distance stops a handful of large daily discrepancies dominating the fi
 # Next session
 
 You have now met every family of method the course covers.
-[Choosing an inference approach](closing.qmd) puts them side by side, asks which
+[Synthesis and next steps](closing.qmd) puts them side by side, asks which
 one your own problem needs, and points at the optional sessions that go further.
