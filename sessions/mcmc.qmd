@@ -284,7 +284,7 @@ Many useful probability distributions don't have simple sampling algorithms. Eas
 MCMC solves this by only requiring that we can *evaluate* the log-probability at any point.
 We used a Normal distribution above (even though we could just use `randn()`!) to demonstrate this general principle.
 
-::: {.callout-tip title = "How does randn() actually work?" collapse = "true"}
+::: {.callout-tip title="How does randn() actually work?" collapse="true"}
 
 Even "simple" distributions like the Normal don't have a direct sampling formula.
 When you call `randn()` in Julia or `rnorm()` in R, the computer uses transformation methods:
