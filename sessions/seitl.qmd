@@ -573,7 +573,13 @@ Each replicate is the mean of the observation process for one stochastic traject
 Adding a Poisson draw on top of each one would widen it further, and the observation process figure above shows by how much.
 
 ::: {.callout-note}
-Just like with the deterministic model, you can use the Turing `@model` for prior predictive checks by sampling parameters from priors (without conditioning on data). The same `@model` definition will be used for inference in the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions — condition with `| (; obs = data)` when fitting, leave unconditioned when simulating. See the [unified approach callout](#sec-unified-approach) at the end of this session for the full pattern.
+Just like with the deterministic model, you can use the Turing `@model` for prior predictive checks by sampling parameters from priors, without conditioning on data.
+Condition with `| (; obs = data)` when fitting, and leave the model unconditioned when simulating.
+The [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions still use Turing, with the same `@model` macro and the same `~` statements for the priors.
+Only the line for the observations changes.
+A deterministic simulator gives one incidence curve per parameter set, so the data can be given a distribution directly, as `obs ~ arraydist(Poisson.(lambdas))` above.
+A stochastic simulator gives a different curve every run, so there is no single curve to put inside `Poisson`, and those sessions estimate the likelihood with a particle filter and add it to the model with `@addlogprob!`.
+See the [unified approach](#sec-unified-approach) section at the end of this session for the full pattern.
 :::
 
 ::: {.callout-tip title="Exercise: Explore stochastic SEITL dynamics"}
@@ -737,8 +743,9 @@ Both encode the same biological hypothesis (temporary immunity followed by poten
 In the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions, we'll fit both models to data and compare them.
 :::
 
-::: {.callout-note}
 ## From simulation to inference: the unified Turing approach {#sec-unified-approach}
+
+::: {.callout-note}
 
 Throughout this session, you've defined models using the `@model` macro with the pattern:
 
