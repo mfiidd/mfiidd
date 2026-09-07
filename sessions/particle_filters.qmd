@@ -586,21 +586,21 @@ over and look at the spread.
 
 # Going further
 
-`GeneralisedFilters.jl` provides a family of algorithms behind the interface used above, and only part of that family applies to a model like this one.
+`GeneralisedFilters.jl` provides a family of algorithms behind the interface used above, and what a model can do decides which of them are open to it.
 A Gillespie simulator can be sampled from, but its transition density cannot be evaluated, and the dynamics defined above implement `simulate` and nothing else.
-That one fact decides which filters are open to you.
 
-**Why the bootstrap filter is the one that works.**
+**Why the bootstrap filter.**
 `BF` is not a separate algorithm from the general particle filter `PF`.
 It is `PF` with the proposal set to the model's own dynamics, so the proposal and the dynamics cancel out of the importance weight and the weights reduce to the observation density alone.
-Substituting `ParticleFilter(n, LatentProposal())` for `BF(n)` gives the same log-likelihood, because it is the same algorithm.
-That cancellation is the point: the bootstrap filter is the member of the family that never has to evaluate the transition density.
+That cancellation is also what makes it the filter available here, because it is the one member of the family that never has to evaluate the transition density.
+A proposal that looks at the observation before propagating would spread the weights less, and `AuxiliaryParticleFilter` would reweight by a look-ahead score, but both need that density and both stop at a `MethodError` on `SSMProblems.distribution`.
 
-**What a simulate-only model gives up.**
-The usual way to make a particle filter cheaper is a proposal that looks at the observation before propagating, which spreads the weights less and so needs fewer particles.
-Forming that weight means evaluating the transition density, and `AuxiliaryParticleFilter` needs the same density for its look-ahead score.
-Both fail here with a `MethodError` on `SSMProblems.distribution` for the dynamics.
-So a better proposal is not available to buy a lower particle count with, which is why the calibration section buys it with particles.
+**What you can vary.**
+Resampling only reweights particles that already exist, so it needs no transition density and this axis stays open.
+`BF` takes a `resampler` and a `threshold`.
+Resampling cures the degeneracy described above, but it is a random step in its own right and adds variance of its own, so doing it at every step is rarely what you want.
+A `threshold` of `0.5` resamples only once the effective sample size falls below half the particles, which is the usual compromise between the two.
+Substituting `BF(n_particles; threshold = 0.5, resampler = Multinomial())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell.
 
 **Exploiting structure.**
 `KalmanFilter` computes the likelihood exactly for linear Gaussian models, returning the same number every run rather than a noisy estimate.
@@ -612,8 +612,7 @@ A filter can be conditioned on a reference trajectory through `ref_state`, which
 Ancestor sampling does not, because it scores the reference path with the transition density that is missing here.
 The [next session](pmcmc.qmd) takes the other route, feeding the likelihood estimate to a Metropolis-Hastings sampler.
 
-The resampling scheme is swappable through the `resampler` keyword.
-The [GeneralisedFilters.jl documentation](https://turinglang.org/SSMProblems.jl/GeneralisedFilters/dev/) lists what is available.
+The [GeneralisedFilters.jl documentation](https://turinglang.org/SSMProblems.jl/GeneralisedFilters/dev/) lists the resamplers and the rest of the family.
 
 # References
 
