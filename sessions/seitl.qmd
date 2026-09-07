@@ -508,7 +508,8 @@ plot!(p)
 ::: {.callout-note}
 Just like with the deterministic model, you can use the Turing `@model` for prior predictive checks by sampling parameters from priors, without conditioning on data.
 Condition with `| (; obs = data)` when fitting, and leave the model unconditioned when simulating.
-The [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions reuse the simulators from this session rather than its `@model` definition, because the likelihood of a stochastic model cannot be written down in closed form and has to be estimated by a particle filter.
+The [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions keep this shape, with priors, a parameter dictionary and a call to a simulator, and change the likelihood.
+With a stochastic model the same parameters produce a different trajectory every run, so there is no single expected incidence to put inside `Poisson`, and those sessions estimate the likelihood with a particle filter instead.
 See the [unified approach](#sec-unified-approach) section at the end of this session for the full pattern.
 :::
 
@@ -670,8 +671,9 @@ Both encode the same biological hypothesis (temporary immunity followed by poten
 In the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions, we'll fit both models to data and compare them.
 :::
 
-::: {.callout-note}
 ## From simulation to inference: the unified Turing approach {#sec-unified-approach}
+
+::: {.callout-note}
 
 Throughout this session, you've defined models using the `@model` macro with the pattern:
 
