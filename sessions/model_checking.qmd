@@ -78,8 +78,6 @@ Model checking isn't a one-time step at the end - it's part of the process. [Gel
 5. **Posterior predictive check** - does the fitted model generate realistic data?
 6. **Iterate** - if checks fail, revise the model
 
-[Abbott et al. (2026)](https://samabbott.co.uk/a-workflow-for-infectious-disease-modelling/) work the same loop through the specifics of infectious disease modelling, where the data are poorly characterised and the question itself often changes mid-outbreak.
-
 So far we've focused on steps 1, 3, and 4. This session covers the checking steps (2 and 5) that tell you whether the model itself makes sense - not just whether the sampler worked.
 
 # Prior predictive checks
@@ -675,6 +673,10 @@ Full SBC requires many simulations (100+) and is computationally expensive. It i
 :::
 
 # Going further
+
+## The workflow in an outbreak
+
+[Abbott et al. (2026)](https://samabbott.co.uk/a-workflow-for-infectious-disease-modelling/) work the same loop through the specifics of infectious disease modelling, where the data are poorly characterised and the question itself often changes mid-outbreak.
 
 ## Prior sensitivity analysis
 
