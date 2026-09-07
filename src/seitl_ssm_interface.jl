@@ -24,6 +24,7 @@ function SSMProblems.simulate(
 )
     ## Drop the incidence slot, leaving the compartments the stepper works on
     state = collect(prev_state[1:(end - 1)])
+    ## Stands in for a single stepper general in the number of T stages
     step! = length(state) == 5 ? gillespie_step_seitl! : gillespie_step_seit4l!
     return vcat(state, step!(rng, state, dyn.θ))  ## re-append daily incidence
 end

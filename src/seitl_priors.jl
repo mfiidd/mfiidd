@@ -4,8 +4,8 @@ using Turing: @model, DynamicPPL
 """
     seitl_priors()
 
-Weakly informative priors on the six SEITL and SEIT4L parameters, as a Turing
-submodel returning them as a named tuple.
+Weakly informative priors on the six SEITL parameters, as a Turing submodel
+returning them as a named tuple. SEIT4L is fitted under the same six.
 
 Each is centred on what the influenza literature reports, and its spread sets
 how far the parameter may travel before the data have to argue for it. The

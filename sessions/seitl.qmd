@@ -598,7 +598,6 @@ println("```julia\n", source_for(seit4l_ode!), "\n\n", source_for(simulate_seit4
 
 The Turing model does not change here either.
 SEIT4L carries nine state variables where SEITL carries six, but the initial state is already an argument, so `seitl_model(times, init_state_4l, n_obs; simulate = simulate_seit4l_deterministic)` fits SEIT4L under the same priors and the same observation process.
-The package provides all four combinations of the two choices, `simulate_seitl_deterministic`, `simulate_seitl_stochastic`, `simulate_seit4l_deterministic` and `simulate_seit4l_stochastic`, and any of them can be passed to `seitl_model` as long as the initial state matches.
 `init_state_4l` is built below.
 
 ::: {.callout-tip title="Exercise: Understand the SEIT4L code"}
