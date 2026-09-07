@@ -139,7 +139,7 @@ init_state = Dict(
 )
 ```
 
-## The Gillespie simulator
+## The jump process
 
 ::: {.callout-note}
 ## Why SEIT4L instead of SEITL?
@@ -147,27 +147,28 @@ From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather t
 :::
 
 The particle filter needs to simulate many stochastic trajectories.
-We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), adapted here for the SEIT4L model with its four T compartments.
-The implementation below is shown from the package source rather than repeated by
-hand, so that the page and the code cannot drift apart. This is the function
-`SEITLDynamics` calls once per particle per day:
+The SEIT4L transitions are the ones introduced in the [SEITL session](seitl.qmd), with the single T compartment replaced by four sub-stages.
+[JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/) simulates them with Gillespie's direct method, the algorithm that session works through by hand.
+The definitions below are shown from the package source rather than repeated by
+hand, so that the page and the code cannot drift apart. This is what
+`SEITLDynamics` steps once per particle per day:
 
 ::: {.callout-note collapse="true"}
-## Gillespie step implementation
+## Jump process implementation
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(gillespie_step), "\n```")
+println("```julia\n", source_for(seitl_stoichiometry), "\n\n", source_for(seitl_rate_constants), "\n```")
 ```
 :::
 
 Key aspects:
 
-- **Stoichiometry matrix**: Defines how each transition changes the state vector
-- **Rates**: Computed from current state and parameters
-- **Event selection**: Exponential waiting time, event chosen proportional to rates
-- **Incidence tracking**: Counts E→I transitions as new cases
+- **Stoichiometry**: `seitl_stoichiometry` gives, for each transition, which compartments it consumes and how it changes the state
+- **Rate constants**: `seitl_rate_constants` turns the parameters into one constant per transition, and every rate is that constant times the compartments the transition consumes
+- **Incidence tracking**: the state carries a slot that the E→I transition increments and no rate reads, so daily incidence is read off the state like a compartment
+- **Any number of stages**: both are written in terms of `k`, so SEITL (`k = 1`) and SEIT4L (`k = 4`) come from the same definitions
 
 # How particle filters work
 
@@ -353,7 +354,7 @@ For production use, we define the model using the [SSMProblems.jl](https://turin
 A state-space model has three components:
 
 1. **Initial state distribution** (`SEITLInitial`) - where does the system start?
-2. **Transition dynamics** (`SEITLDynamics`) - how does the state evolve? (dispatches to the Gillespie stepper matching the number of compartments)
+2. **Transition dynamics** (`SEITLDynamics`) - how does the state evolve? (carries the number of temporary immunity stages, so one type serves SEITL and SEIT4L)
 3. **Observation process** (`PoissonObservation`) - how do observations relate to the state?
 
 Here is the full interface implementation (defined in [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl)). Each type carries a docstring spelling out its state vector and the method it implements — useful for reference once you've read the prose above.
@@ -377,13 +378,13 @@ A few Julia features worth unpacking:
 
 - `kwargs...` at the end of a function signature means "accept any additional keyword arguments". We don't use them here, but `SSMProblems.jl` may pass extra keyword arguments depending on the filter being used, so our methods need to accept them without complaining.
 
-- `vcat(prior.init_state, 0.0)` appends `0.0` to the compartment vector to make it one element longer. We use that last slot to track daily incidence, because the observation process needs to see it. `collect(prev_state[1:(end - 1)])` drops it again and copies the compartments into a plain `Vector` — some inputs arrive as views or other array-like types, and the Gillespie steppers want a concrete vector.
+- `vcat(prior.init_state, 0.0)` appends `0.0` to the compartment vector to make it one element longer. We use that last slot to track daily incidence, because the observation process needs to see it. `collect(prev_state[1:(end - 1)])` drops it again and copies the compartments into a plain `Vector` — some inputs arrive as views or other array-like types, and the simulator wants a concrete vector.
 :::
 
 How the pieces fit together:
 
 - The state vector is [S, E, I, T1, T2, T3, T4, L, daily_inc] - the 9th element tracks daily incidence for the observation process
-- `SEITLDynamics` wraps the Gillespie simulator, calling one step of it each day
+- `SEITLDynamics` builds the jump process and advances it by one day
 - `PoissonObservation` assumes observed cases follow Poisson(ρ × true_incidence)
 
 ## Running the bootstrap particle filter

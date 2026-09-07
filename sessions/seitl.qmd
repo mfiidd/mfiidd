@@ -84,7 +84,7 @@ The source file of this session is located at `sessions/seitl.qmd`.
 using Random ## for random numbers
 using Distributions ## for probability distributions
 using DifferentialEquations ## for differential equations
-# JumpProcesses.jl is an alternative for stochastic simulation - we implement Gillespie manually here
+using JumpProcesses ## for stochastic simulation
 using DataFrames ## for data frames
 using Plots ## for plots
 using StatsPlots ## for statistical plots
@@ -438,7 +438,10 @@ We will now test if this can be better reproduced with a stochastic model which 
 
 ## Stochastic simulations
 
-The stochastic simulation uses the Gillespie algorithm, which simulates individual events (infections, recoveries) as random occurrences. Unlike ODEs which give smooth trajectories, this captures the inherent randomness in small populations. Each event is sampled from the possible transitions weighted by their rates, and waiting times between events follow exponential distributions.
+The stochastic simulation uses the Gillespie algorithm, which simulates individual events (infections, recoveries) as random occurrences.
+Unlike ODEs which give smooth trajectories, this captures the inherent randomness in small populations.
+Each event is sampled from the possible transitions weighted by their rates, and waiting times between events follow exponential distributions.
+We write the transitions down and let [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/) draw the events.
 
 The model has the following transitions:
 
@@ -451,30 +454,32 @@ The model has the following transitions:
 | T → L | $\alpha \tau T$ | T-1, L+1 |
 
 ::: {.callout-note collapse="true"}
-## Implementation: Gillespie algorithm
+## Implementation: the jump process
+
+The transitions in the table above are handed to [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/), which runs Gillespie's direct method over them.
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(simulate_seitl_stochastic), "\n```")
+println("```julia\n", source_for(seitl_stoichiometry), "\n\n", source_for(seitl_rate_constants),
+        "\n\n", source_for(seitl_jump_trajectory), "\n\n", source_for(simulate_seitl_stochastic), "\n```")
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
 
-- **Stoichiometry matrix**: Each row defines how compartments change for one transition type (e.g., `[-1, 1, 0, 0, 0]` means S decreases by 1 and E increases by 1 for infection)
-- **`rates(s)`**: Computes the current rate of each transition based on compartment sizes
-- **`gillespie_step!`**: Simulates one day by repeatedly: (1) drawing an exponential waiting time, (2) selecting which event occurs proportional to rates, (3) applying the state change
-- **`randexp() / total_rate`**: Waiting time to next event follows Exp(total_rate)
-- **Event selection**: Cumulative sum trick to select event with probability proportional to its rate
-- **`event == 2`**: E→I transitions are counted as new cases (daily incidence)
+- **`seitl_stoichiometry`**: For each transition, which compartments it consumes and how it changes the state. `[S => -1, E => 1]` means S decreases by 1 and E increases by 1 for infection
+- **`seitl_rate_constants`**: One constant per transition. Every transition here is mass action, so its rate is that constant times the compartments it consumes. Because every transition conserves the population, the infection rate $\beta S I / N$ is the constant $\beta / N$ times $S$ times $I$
+- **`MassActionJump`**: Pairs the constants with the stoichiometry, and `SSAStepper` draws the waiting times and picks the events
+- **Incidence tracking**: The state carries a slot that the E→I transition increments and no rate reads. It accumulates over the run, so differencing it gives the cases within each day
+- **`k`**: The number of temporary immunity sub-stages. Everything is written in terms of it, so the same definitions serve SEITL and the SEIT4L model below
 :::
 
 :::
 
 ::: {.callout-note collapse="true"}
 ## Coming from R?
-In R, the [`GillespieSSA2`](https://CRAN.R-project.org/package=GillespieSSA2) and [`adaptivetau`](https://CRAN.R-project.org/package=adaptivetau) packages provide Gillespie simulation. The [`odin`](https://mrc-ide.github.io/odin/) and [`dust`](https://mrc-ide.github.io/dust/) packages from the MRC Centre offer a more performant framework for stochastic compartmental models. Here we implement Gillespie manually to show the algorithm clearly, but Julia's [`JumpProcesses.jl`](https://docs.sciml.ai/JumpProcesses/stable/) package provides a production-quality implementation.
+In R, the [`GillespieSSA2`](https://CRAN.R-project.org/package=GillespieSSA2) and [`adaptivetau`](https://CRAN.R-project.org/package=adaptivetau) packages provide Gillespie simulation. The [`odin`](https://mrc-ide.github.io/odin/) and [`dust`](https://mrc-ide.github.io/dust/) packages from the MRC Centre offer a more performant framework for stochastic compartmental models. Julia's [`JumpProcesses.jl`](https://docs.sciml.ai/JumpProcesses/stable/) is the equivalent here, and is what this session uses. Writing the transitions down and handing them to a solver is the common pattern across all of these.
 :::
 
 The Turing model does not change.
@@ -751,7 +756,7 @@ Particle filters solve this by running many stochastic simulations simultaneousl
 # Going further
 
 * Curious about why we use the Poisson likelihood for count data? Have a look at the bottom of page 3 of this [reference](../references/poisson_obs.pdf) from Germán Rodríguez' [lecture notes on generalized linear models](https://grodri.github.io/glms/notes/).
-* **Stochastic SEIT4L**: We simulated SEITL stochastically but reached for the deterministic SEIT4L. Try writing `simulate_seit4l_stochastic` yourself, extending the Gillespie algorithm with the T1→T2→T3→T4 sub-stages. The stoichiometry needs eight transitions where SEITL needs five. Then run it many times beside `simulate_seitl_stochastic` at the same parameters and compare the spread of the second wave.
+* **Stochastic SEIT4L**: We simulated SEITL stochastically but reached for the deterministic SEIT4L. Work out what `seitl_stoichiometry(4)` returns before you run it: which eight transitions it lists, and which compartment indices each one touches. Then run `simulate_seit4l_stochastic` many times beside `simulate_seitl_stochastic` at the same parameters and compare the spread of the second wave.
 
 ::: {.callout-tip title="Solution" collapse="true"}
 The package ships this simulator, and the code below is that function rather than a copy of it, so it cannot drift from what `MFIIDD` actually runs.
@@ -762,7 +767,7 @@ The package ships this simulator, and the code below is that function rather tha
 println("```julia\n", source_for(simulate_seit4l_stochastic), "\n```")
 ```
 
-The day-by-day loop is the one `simulate_seitl_stochastic` uses, over nine columns instead of seven, and the eight transitions live in `gillespie_step_seit4l!` rather than being written out again.
+The eight transitions come from `seitl_stoichiometry(4)`: infection, becoming infectious, recovery into T1, the three steps T1→T2→T3→T4, and then T4→S and T4→L. Only the number of sub-stages differs from SEITL, so the same function gives both.
 
 What to notice when you compare the two: splitting T into four sub-stages makes the time an individual spends temporarily immune *less* variable, because an Erlang-4 duration is more tightly concentrated than an exponential one with the same mean. Individuals therefore return to susceptibility in a tighter band, so the second wave is sharper and its timing more repeatable across runs, where SEITL smears it out.
 :::
