@@ -221,30 +221,6 @@ inflate $B$ and push it up.
 Rule of thumb: $\hat{R} < 1.01$. 1.1 is the older, looser bar.
 :::
 
-## What `rhat` actually reports {.smaller}
-
-Three things happen before that formula runs.
-
-. . .
-
-[Split]{.alert} each chain in half. A chain drifting within itself contributes
-one mean like any other; split it and the drift becomes a disagreement.
-
-. . .
-
-[Rank normalise]{.alert}. Replace draws by normal scores of their ranks, so R̂
-survives a posterior with no finite variance and does not care how you
-parameterised.
-
-. . .
-
-[Fold]{.alert} around the median and do it again, catching chains that agree on
-the centre but not the spread. Report the larger.
-
-::: {.cite}
-@vehtari2021
-:::
-
 ## Effective sample size {.smaller}
 
 Correlated draws are worth fewer independent ones.
@@ -326,8 +302,32 @@ Reach for the model before reaching for `NUTS(0.95)`.
 
 ## What the practical files as advanced
 
-The session puts these two behind a heading you may skip on a first pass.
+The session puts these behind a heading you may skip on a first pass.
 They are here so you know they exist, and so you know when to go back for them.
+
+## What `rhat` actually reports {.smaller}
+
+Three things happen before that formula runs.
+
+. . .
+
+[Split]{.alert} each chain in half. A chain drifting within itself contributes
+one mean like any other; split it and the drift becomes a disagreement.
+
+. . .
+
+[Rank normalise]{.alert}. Replace draws by normal scores of their ranks, so R̂
+survives a posterior with no finite variance and does not care how you
+parameterised.
+
+. . .
+
+[Fold]{.alert} around the median and do it again, catching chains that agree on
+the centre but not the spread. Report the larger.
+
+::: {.cite}
+@vehtari2021
+:::
 
 ## Bulk and tail ESS
 

@@ -405,23 +405,7 @@ $$\hat{R}^2 = \frac{n - 1}{n} + \frac{B}{nW} \approx 1 + \frac{\tau - 1}{n}$$
 Independent draws are the special case $\tau = 1$, which is why the older statement that $B \approx W$ once the chains agree looked right.
 
 The statistic is due to [Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136).
-What `rhat` reports is the rank-normalised version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which is the formula above wrapped in three steps.
-
-**Variants `rhat` computes**
-
-**Split.** Each of the $m$ chains is cut in half, and the formula is applied to the $2m$ half-chains of $n/2$ draws. The `## Split-R̂` section below says what this buys.
-
-**Rank normalise.** Pool all $S$ draws across every chain, rank them with ties averaged to give $r_i$, and push the ranks through the normal quantile function:
-
-$$z_i = \Phi^{-1}\!\left(\frac{r_i - 3/8}{S + 1/4}\right)$$
-
-The offsets keep the largest and smallest ranks off $\pm\infty$, which a plain $r_i/S$ would reach. Two things follow. R̂ becomes defined even for a posterior with no finite variance, because $W$ and $B$ are now computed on the $z$. And it stops depending on how you parameterise, since ranks only see order, so fitting a rate or its logarithm gives the same answer.
-
-**Fold, and take the worst.** The formula so far compares where the chains sit, so chains that agree on the centre and disagree on the spread pass it. The draws are therefore also folded around the pooled median, $f_i = \lvert x_i - \operatorname{median}(x) \rvert$, which turns a difference in scale into a difference in location, and the same rank-normalised R̂ is computed on those. What you get back is the larger of the two:
-
-$$\hat{R}_{\text{rank}} = \max\left(\hat{R}_{\text{bulk}},\ \hat{R}_{\text{fold}}\right)$$
-
-In `MCMCDiagnosticTools` the folded one is `kind = :tail`, which is not the same thing as tail ESS; the advanced section sorts the two out.
+What `rhat()` reports is a modified version of it, so a number computed by hand from the formula above will not match what Turing prints; [What `rhat` actually computes](#what-rhat-actually-computes) in the advanced section says what the modifications are.
 :::
 
 ```{julia}
@@ -699,11 +683,21 @@ statistic that notices.
 This section covers refinements to the basic diagnostics above. If you're short on time, you can skip ahead to the [troubleshooting guide](#troubleshooting-guide) — the core diagnostics (R̂, ESS, trace plots) from [Quantitative diagnostics](#quantitative-diagnostics) are sufficient for most analyses, though check tail ESS below before quoting a credible interval.
 :::
 
-## Split-R̂
+## What `rhat` actually computes
 
-Each of the $m$ chains is cut in half, giving $2m$ half-chains of $n/2$ draws, and the ordinary R̂ formula is applied to those.
-Comparing whole chains against each other cannot see a chain that is drifting within itself, because that chain contributes one mean like any other; splitting turns the drift into a disagreement between its own two halves.
-It is also what lets R̂ mean anything at all when you have only one chain.
+The formula in the [R̂ section](#r-statistic-gelman-rubin-diagnostic) is the statistic as Gelman and Rubin defined it.
+[Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full) wrap three transformations around it, and what `rhat()` gives you is the result of all three.
+
+### Split
+
+Each of the $m$ chains is cut in half, giving $2m$ half-chains of $n/2$ draws, and the ordinary formula is applied to those.
+
+Comparing whole chains against each other cannot see a chain that is drifting within itself.
+Such a chain contributes one mean like any other, and a mean is all the comparison looks at, so a chain that spent its first half in one place and its second half somewhere else is indistinguishable from one that sat still.
+Splitting turns that drift into a disagreement between its own two halves, which the formula can see.
+
+It is also what lets R̂ mean anything at all when you have only one chain, since the first half is then compared against the second.
+That is worth remembering when reading a single-chain R̂: it is a within-chain check, and it cannot tell you about a region the chain never visited.
 
 ```{julia}
 rhat_split = DataFrame(rhat(chain_multi))
@@ -712,6 +706,31 @@ for row in eachrow(rhat_split)
     println("  $(row.param): $(round(row.stat, digits = 4))")
 end
 ```
+
+### Rank normalise
+
+Pool all $S$ draws across every chain, rank them with ties averaged to give $r_i$, and push the ranks through the normal quantile function:
+
+$$z_i = \Phi^{-1}\!\left(\frac{r_i - 3/8}{S + 1/4}\right)$$
+
+The offsets keep the largest and smallest ranks off $\pm\infty$: a plain $r_i/S$ would send the top rank to $\Phi^{-1}(1)$.
+
+$W$ and $B$ are then computed on the $z$ rather than on the draws, and two things follow.
+R̂ becomes defined even for a posterior with no finite variance, because the $z$ are normal scores and always have one.
+And it stops depending on how you parameterise, since ranks see only order, so fitting a rate or its logarithm gives the same answer.
+
+### Fold, and take the worst
+
+Everything so far compares where the chains sit, so chains that agree on the centre and disagree on the spread pass it.
+
+The draws are therefore also folded around the pooled median, $f_i = \lvert x_i - \operatorname{median}(x) \rvert$, which turns a difference in scale into a difference in location, and the same rank-normalised R̂ is computed on those.
+What you get back is the larger of the two:
+
+$$\hat{R}_{\text{rank}} = \max\left(\hat{R}_{\text{bulk}},\ \hat{R}_{\text{fold}}\right)$$
+
+Either failure is a failure, which is why it is the maximum rather than an average.
+
+In `MCMCDiagnosticTools` the folded one is `kind = :tail`, which is not the same thing as the tail ESS in the next section.
 
 ## Bulk and tail ESS
 
@@ -767,6 +786,11 @@ The formal version of this comparison is the energy Bayesian fraction of missing
 ## What E-BFMI measures
 
 Each iteration gives the puck a fresh push, and E-BFMI asks whether those pushes are big enough to carry it across the surface rather than around one part of it.
+
+The energy is the Hamiltonian, the negative log posterior at the current parameters plus a kinetic term $\tfrac{1}{2}p^\top M^{-1} p$ from the momentum, and it is what `chain[:hamiltonian_energy]` records.
+Each iteration draws a fresh momentum, and the leapfrog integrator roughly conserves the Hamiltonian within a trajectory, so the change between one iteration and the next comes almost entirely from that refresh.
+The push is that refresh, which is what the comparison below measures.
+
 Writing $E_n$ for the energy at iteration $n$,
 
 $$\widehat{\text{E-BFMI}} = \frac{\sum_{n=2}^{N} (E_n - E_{n-1})^2}{\sum_{n=1}^{N} (E_n - \bar{E})^2}$$
