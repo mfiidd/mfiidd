@@ -117,9 +117,22 @@ $presentation-font-smaller: 0.85;
 // 72vh on a `.center` slide, 52vh with `.step`, 58vh on a titled slide, so the
 // same diagram changes size as the deck goes on. Declared after those rules so
 // it wins at equal specificity.
-.reveal .slides section img.bigpic,
+//
+// Sized against the slide rather than the window. Reveal lays slides out in a
+// fixed 1050x700 space and scales the whole thing to fit, but `vh` resolves
+// against the browser window, so a height in `vh` shrinks the figure relative to
+// its own slide as the window gets smaller. These diagrams are landscape, so
+// driving them by width fills the slide at any window size, with a height cap in
+// slide units for the squarer course outline.
+.reveal .slides section img.bigpic {
+  width: 100%;
+  height: auto;
+  max-height: 540px;
+}
+
+// A `.center` slide carries no heading, so the diagram can have the rest of it.
 .reveal .slides section.center img.bigpic {
-  max-height: 68vh;
+  max-height: 620px;
 }
 
 .reveal .slides section img.tall {

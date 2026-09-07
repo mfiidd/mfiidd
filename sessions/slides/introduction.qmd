@@ -330,7 +330,7 @@ We want to generate **samples** of $\theta$ from this distribution.
 ![](images/Course_outline.svg){.bigpic .step .fragment fragment-index=1}
 :::
 
-## Why we cannot just try sensible parameter combinations {.smaller}
+## We cannot just try all parameter combinations {.smaller}
 
 You can explore a two-parameter posterior on a grid. Fifteen values each is 225
 model runs, which is nothing.
