@@ -502,7 +502,25 @@ A more rigorous check asks: *does my inference procedure recover true parameters
 3. Fit the model to $y^*$ and get posterior samples
 4. Check if $\theta^*$ falls within the posterior as expected
 
-If your inference is correct, the true parameter should be uniformly distributed within the posterior samples (i.e., the 95% credible interval should contain the truth 95% of the time).
+If your inference is correct, the *rank* of $\theta^*$ among the posterior samples is uniformly distributed.
+Coverage follows from that as a consequence: a 95% credible interval contains the truth 95% of the time.
+Rank uniformity is the stronger statement, because it uses the whole posterior rather than one interval.
+
+::: {.callout-note collapse="true"}
+## Why the ranks are uniform
+
+Step 1 draws $\theta^*$ from the prior and step 2 draws $y^*$ from $p(y \mid \theta^*)$, so the pair $(\theta^*, y^*)$ is a draw from the joint distribution $p(\theta, y)$.
+The posterior $p(\theta \mid y^*)$ is, by definition, the conditional distribution of $\theta$ given $y^*$ under that same joint.
+So $\theta^*$ is itself a draw from the posterior it is about to be ranked against.
+
+That makes it statistically indistinguishable from the $L$ posterior samples drawn in step 3.
+All $L + 1$ values are exchangeable draws from the same distribution, so $\theta^*$ is equally likely to hold any position among them and its rank is uniform on $\{0, 1, \ldots, L\}$.
+
+Notice what did not enter that argument: anything about the model being a good description of reality.
+The uniformity follows from the loop being self-consistent, because the data were simulated from the same model that is then fitted to them.
+This is why SBC tests the inference procedure rather than the model, and why it sits apart from the predictive checks above.
+A model can be badly wrong about the world and still pass SBC.
+:::
 
 ```{julia}
 #| output: false
@@ -551,7 +569,18 @@ histogram(sbc_ranks, bins=10,
           legend=false)
 ```
 
-A uniform histogram indicates well-calibrated inference. Peaks at the edges suggest the posterior is too narrow (overconfident) or too wide (underconfident).
+A uniform histogram indicates well-calibrated inference.
+The departures follow from the same argument.
+If the posteriors are too narrow, the truth falls outside their bulk more often than it should and the ranks pile up at both ends, giving a ∪ shape.
+If they are too wide, the truth sits near the middle too often, giving a ∩ shape.
+If they are biased in one direction, the ranks slope.
+
+You will meet this histogram again under another name.
+A probability integral transform (PIT) histogram asks whether a *forecast* is calibrated, by evaluating the predictive CDF at the observed value, where SBC asks whether the *inference procedure* is calibrated, by ranking a known truth among posterior draws.
+The two read identically: ∪-shaped for overconfident, ∩-shaped for underconfident, sloped for biased.
+One caution, because this course fits count data throughout.
+The clean equivalence holds for continuous predictive distributions, and for counts the plain PIT is not uniform even for a perfect forecast, so a randomised or non-randomised variant is needed.
+[Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/nfidd/) uses PIT histograms throughout.
 
 ::: {.callout-note}
 ## SBC in practice

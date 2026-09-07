@@ -244,17 +244,27 @@ across datasets:
 
 If the model and sampler are working, those ranks are **uniformly distributed**.
 
+::: {.fragment}
+$\theta^\text{true}$ is itself a draw from the posterior it is ranked against, so
+its rank is uniform by construction. Nothing about the model being right enters
+it: SBC tests the **inference**, not the model.
+:::
+
 ## Reading an SBC histogram
 
-- **Uniform** — inference is calibrated
-- **∪-shaped** — posteriors too narrow, overconfident
-- **∩-shaped** — posteriors too wide, underconfident
-- **Sloped** — systematic bias in one direction
+- **Uniform** — calibrated
+- **∪-shaped** — the truth falls outside the bulk too often: overconfident
+- **∩-shaped** — the truth sits in the middle too often: underconfident
+- **Sloped** — biased in one direction
 
 . . .
 
-SBC is expensive: it means fitting the model hundreds of times. Reserve it for
-models you intend to rely on repeatedly.
+The same shapes read the same way in a **PIT** histogram, the forecasting
+version of this check.
+
+. . .
+
+SBC is expensive: it means fitting the model hundreds of times.
 
 # When checks fail
 
@@ -271,8 +281,7 @@ Failure is information. In rough order of what to try:
 
 . . .
 
-Resist the temptation to keep adding parameters until the fit looks good. A
-model that fits everything predicts nothing.
+A model that fits everything predicts nothing.
 
 ## When is a model good enough?
 
