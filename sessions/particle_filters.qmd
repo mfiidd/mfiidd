@@ -158,7 +158,7 @@ hand, so that the page and the code cannot drift apart. This is the function
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(gillespie_step), "\n```")
+println("```julia\n", source_for(gillespie_step_seit4l), "\n```")
 ```
 :::
 
@@ -192,7 +192,7 @@ trajectories = [zeros(5) for _ in 1:n_particles]
 # Simulate 5 days
 for day in 1:5
     for i in 1:n_particles
-        particles[i], inc = gillespie_step(Random.default_rng(), particles[i], θ_example)
+        particles[i], inc = gillespie_step_seit4l(Random.default_rng(), particles[i], θ_example)
         trajectories[i][day] = inc
     end
 end

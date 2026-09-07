@@ -1,7 +1,7 @@
 using Random
 
 """
-    gillespie_step(rng, state, θ, dt=1.0)
+    gillespie_step_seit4l(rng, state, θ, dt=1.0)
 
 Simulate SEIT4L for `dt` time units using the Gillespie algorithm.
 
@@ -14,7 +14,7 @@ Simulate SEIT4L for `dt` time units using the Gillespie algorithm.
 # Returns
 - `(new_state, incidence)`: Updated state and number of new cases over `dt`
 """
-function gillespie_step(
+function gillespie_step_seit4l(
     rng::AbstractRNG,
     state::Vector{Float64},
     θ::Dict,
@@ -99,7 +99,7 @@ function gillespie_step_seit4l!(
     θ::Dict,
     dt::Float64 = 1.0,
 )
-    new_state, inc = gillespie_step(rng, state, θ, dt)
+    new_state, inc = gillespie_step_seit4l(rng, state, θ, dt)
     for i in eachindex(state)
         state[i] = new_state[i]
     end

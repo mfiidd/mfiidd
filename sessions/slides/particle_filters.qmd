@@ -137,7 +137,7 @@ function bootstrap_filter(rng, θ, obs, n_particles; init_state)
     for y in obs
         ## propagate: run every particle forward one day
         incidence = map(1:n_particles) do i
-            particles[i], daily = gillespie_step(rng, particles[i], θ)
+            particles[i], daily = gillespie_step_seit4l(rng, particles[i], θ)
             daily
         end
 
