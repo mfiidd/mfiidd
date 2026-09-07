@@ -37,10 +37,11 @@ The aim is to learn how to assess whether your MCMC chains have converged and wh
 In this session, you will:
 
 1. Diagnose chains visually using trace plots and other visualisations
-2. Calculate quantitative diagnostics like R̂ and effective sample size
-3. Identify common failure modes and how to fix them
-4. Use Turing.jl's built-in diagnostics for automated checking
-5. Apply best practices for robust MCMC in practice
+2. Run several chains and say what their agreement does and does not show
+3. Calculate quantitative diagnostics like R̂ and effective sample size
+4. Identify common failure modes and how to fix them
+5. Use Turing.jl's built-in diagnostics for automated checking
+6. Apply best practices for robust MCMC in practice
 
 # Setup
 
@@ -221,12 +222,17 @@ The autocorrelation at lag $k$ is the correlation between the chain and itself $
 $$\rho_k = \frac{\operatorname{Cov}(\theta_t,\ \theta_{t+k})}{\operatorname{Var}(\theta_t)}$$
 
 It is 1 at lag 0 and falls towards 0 as the chain forgets where it was.
-How fast it falls is the whole question, because the sum of the $\rho_k$ is the integrated autocorrelation time
+How fast it falls is key, because the sum of the $\rho_k$ is the integrated autocorrelation time
 
 $$\tau = 1 + 2\sum_{k=1}^{\infty} \rho_k$$
 
-which is roughly how many iterations the chain needs to produce one draw's worth of new information.
-$\tau$ is the quantity behind both of the statistics in the next section: R̂ is near 1 when $\tau$ is short next to the chain length, and the effective sample size is $N/\tau$.
+The 1 is the draw with itself at lag 0, and the 2 is because summing the covariances of every pair of draws counts each later lag in both directions.
+That sum is what correlation does to the precision of a mean,
+
+$$\operatorname{Var}(\bar\theta) \approx \frac{\sigma^2}{N}\Big(1 + 2\sum_{k \ge 1}\rho_k\Big) = \frac{\sigma^2 \tau}{N}$$
+
+so $\tau$ is the factor by which correlation inflates the variance of the mean against independent draws, and roughly how many iterations the chain needs to produce one draw's worth of new information.
+$\tau$ is the quantity behind both of the statistics in the next section: R̂ is near 1 when $\tau$ is short next to the chain length, and the effective sample size is the number of draws divided by $\tau$.
 :::
 
 ```{julia}
@@ -294,7 +300,7 @@ Running several chains is what makes that failure visible.
 Each chain is initialised separately, so they are several pucks released from different places.
 If chains that started apart end up describing the same distribution, that is evidence they have found the posterior.
 If they end up describing different distributions, at least one of them is wrong.
-Four chains is a reasonable default.
+Four chains is a reasonable default, though the code below asks for as many as your machine has threads for, and two are enough to see the effect.
 
 ::: {.callout-note}
 ## Running Julia with multiple threads
@@ -395,7 +401,7 @@ $\hat{V}$ mixes in the spread of the chain means, so while the chains sit apart 
 R̂ is the ratio of the two, and it falls towards 1 as the gap between them closes.
 
 How close to 1 it gets depends on how correlated the draws are.
-The mean of a chain of length $n$ has variance of about $W\tau/n$, where $\tau$ is the integrated autocorrelation time, so $B$ comes out at roughly $\tau W$ rather than at $W$, and
+The mean of a chain of length $n$ has variance of about $W\tau/n$, where $\tau$ is the integrated autocorrelation time from the [autocorrelation callout](#autocorrelation), so $B$ comes out at roughly $\tau W$ rather than at $W$, and
 
 $$\hat{R}^2 = \frac{n - 1}{n} + \frac{B}{nW} \approx 1 + \frac{\tau - 1}{n}$$
 
@@ -421,7 +427,7 @@ The $3/8$ is the Blom offset the implementation cites. Two things follow. R̂ be
 
 $$\hat{R}_{\text{rank}} = \max\left(\hat{R}_{\text{bulk}},\ \hat{R}_{\text{fold}}\right)$$
 
-In `MCMCDiagnosticTools` the folded one is `kind = :tail`. That is unrelated to tail *ESS* in the advanced section below, which is about extreme quantiles rather than folded draws.
+In `MCMCDiagnosticTools` the folded one is `kind = :tail`, which is not the same thing as tail ESS; the advanced section sorts the two out.
 :::
 
 ```{julia}
@@ -474,12 +480,11 @@ The estimator sums the same $\rho_k$ that the plot showed, so the faster that cu
 ::: {.callout-note collapse="true"}
 ## Where ESS comes from
 
-Write $\rho_k$ for the autocorrelation of the chain at lag $k$.
-From $N$ draws,
+Using the $\rho_k$ above, from $N$ draws,
 
 $$N_{\text{eff}} = \frac{N}{1 + 2\sum_{k=1}^{K} \rho_k}$$
 
-The denominator is $\tau$, the integrated autocorrelation time from the R̂ callout above.
+The denominator is $\tau$, the integrated autocorrelation time defined in the [autocorrelation callout](#autocorrelation).
 A chain whose autocorrelations die away quickly has $\tau$ near 1 and loses almost nothing.
 A chain with $\rho_k$ still large at long lags has a large $\tau$ and an ESS far below $N$.
 
@@ -568,7 +573,7 @@ Sample until the MCSE is small next to the precision you want to claim.
 ## Problem 1: Poor mixing (chain gets stuck)
 
 Chains get stuck for a few common reasons: a sampler too basic for the geometry, proposal steps that are the wrong size, or correlated parameters and narrow ridges in the posterior.
-Multimodality does it too (see below).
+Multimodality does it too (see [Problem 4](#problem-4-multi-modal-posteriors)).
 
 The first thing to try is a better algorithm — NUTS handles most well-behaved posteriors — and running longer. If that isn't enough, reparametrise the model to give the posterior a friendlier shape. Against the chains you are already running, a stuck one shows up as an outlier.
 
@@ -593,7 +598,8 @@ A small number of divergences (say <1% of samples) may be acceptable, but many d
 
 ```{julia}
 # Check for divergent transitions. NUTS records one per iteration in the
-# `numerical_error` column of the chain.
+# `numerical_error` column. One chain is enough to demonstrate the check;
+# in practice you would run it over every chain.
 n_divergent = sum(skipmissing(vec(chain_good[:numerical_error])))
 println("Divergent transitions: $(Int(n_divergent)) / $(niters(chain_good))")
 if n_divergent > 0
@@ -618,7 +624,7 @@ It plays the role that `adapt_delta` does in Stan.
 Some posteriors have multiple peaks, and a single chain can settle into one and never see the others. The standard responses are:
 
 - Use more advanced samplers (parallel tempering, etc.)
-- Watch R̂ — it will flag chains that end up in different modes
+- Watch R̂ — chains in different modes push it up, though it cannot tell you that is the reason
 
 ::: {.callout-note title = "Example: Detecting multimodality" collapse = "true"}
 
@@ -691,7 +697,7 @@ statistic that notices.
 # Advanced diagnostics
 
 ::: {.callout-note appearance="simple"}
-This section covers refinements to the basic diagnostics above. If you're short on time, you can skip ahead to the [troubleshooting guide](#troubleshooting-guide) — the core diagnostics (R̂, ESS, trace plots) from [Quantitative diagnostics](#quantitative-diagnostics) are sufficient for most analyses.
+This section covers refinements to the basic diagnostics above. If you're short on time, you can skip ahead to the [troubleshooting guide](#troubleshooting-guide) — the core diagnostics (R̂, ESS, trace plots) from [Quantitative diagnostics](#quantitative-diagnostics) are sufficient for most analyses, though check tail ESS below before quoting a credible interval.
 :::
 
 ## Split-R̂
@@ -774,7 +780,7 @@ See [Betancourt (2017)](https://arxiv.org/abs/1701.02434) for the account this c
 
 ```{julia}
 # Energy diagnostic plot. Like the divergence flag, the Hamiltonian energy is
-# recorded as a column of the chain.
+# recorded as a column, and one chain is enough to show the comparison.
 energy = vec(chain_good[:hamiltonian_energy])
 energy_changes = diff(energy)
 histogram(

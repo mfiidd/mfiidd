@@ -146,24 +146,7 @@ roughly the iterations needed for one draw's worth of new information.
 
 . . .
 
-Hold on to $\tau$. Both statistics this afternoon are built from it.
-
-## Burn-in
-
-:::: {.columns}
-::: {.column width="55%"}
-- We can start our MCMC chain anywhere.
-
-- It can take a while to reach and explore the target density $f(\theta)$.
-
-- Throw away the early samples: the [burn-in]{.alert} phase.
-
-- NUTS adapts during warmup and discards it for you.
-:::
-::: {.column width="45%"}
-![](images/burn.png)
-:::
-::::
+Hold on to $\tau$. Both statistics in the practical are built from it.
 
 ## One chain cannot tell you it is wrong
 
@@ -197,6 +180,23 @@ plot(p1, p2, layout = (1, 2), size = (900, 380), bottom_margin = 5Plots.mm, left
 ::: {.fragment}
 Agreeing is evidence. Disagreeing is proof that at least one is wrong.
 :::
+
+## Burn-in
+
+:::: {.columns}
+::: {.column width="55%"}
+- We can start our MCMC chain anywhere.
+
+- It can take a while to reach and explore the target density $f(\theta)$.
+
+- Throw away the early samples: the [burn-in]{.alert} phase.
+
+- NUTS adapts during warmup and discards it for you.
+:::
+::: {.column width="45%"}
+![](images/burn.png)
+:::
+::::
 
 # Quantitative diagnostics
 
@@ -260,21 +260,6 @@ noise, and adding them makes $\tau$ worse.
 Truncation by the initial positive sequence: @geyer1992
 :::
 
-## Bulk and tail ESS
-
-[Bulk ESS]{.alert} describes the centre of the distribution. It is the number
-behind a posterior mean.
-
-. . .
-
-[Tail ESS]{.alert} describes the extremes, which is what credible interval
-endpoints depend on. Check it before quoting a 95% interval.
-
-. . .
-
-R̂ reports the **larger** of its two, because either failure is a failure. ESS
-reports the **smaller**, because either shortage binds.
-
 ## How many digits may you claim? {.smaller}
 
 [MCSE]{.alert} is what a low ESS costs you:
@@ -308,23 +293,6 @@ A handful of divergences may be tolerable. Many means the sampler is
 systematically avoiding part of the posterior, so your samples are **biased**,
 not merely noisy.
 
-## Energy: enough of a push? {.smaller}
-
-Each iteration gives the puck a fresh push. [E-BFMI]{.alert} asks whether the
-pushes are big enough to carry it across the surface.
-
-$$\widehat{\text{E-BFMI}} =
-\frac{\sum_n (E_n - E_{n-1})^2}{\sum_n (E_n - \bar{E})^2}$$
-
-. . .
-
-Movement in energy over the spread of energy to be covered. Below about 0.3, the
-trajectories are circling one part of the surface.
-
-::: {.cite}
-@betancourt2017
-:::
-
 ## Multimodality
 
 If the posterior has several separated modes, a chain can settle in one and
@@ -353,6 +321,45 @@ posterior.
 . . .
 
 Reach for the model before reaching for `NUTS(0.95)`.
+
+# Refinements
+
+## What the practical files as advanced
+
+The session puts these two behind a heading you may skip on a first pass.
+They are here so you know they exist, and so you know when to go back for them.
+
+## Bulk and tail ESS
+
+[Bulk ESS]{.alert} describes the centre of the distribution. It is the number
+behind a posterior mean.
+
+. . .
+
+[Tail ESS]{.alert} describes the extremes, which is what credible interval
+endpoints depend on. Check it before quoting a 95% interval.
+
+. . .
+
+R̂ reports the **larger** of its two, because either failure is a failure. ESS
+reports the **smaller**, because either shortage binds.
+
+## Energy: enough of a push? {.smaller}
+
+Each iteration gives the puck a fresh push. [E-BFMI]{.alert} asks whether the
+pushes are big enough to carry it across the surface.
+
+$$\widehat{\text{E-BFMI}} =
+\frac{\sum_n (E_n - E_{n-1})^2}{\sum_n (E_n - \bar{E})^2}$$
+
+. . .
+
+Movement in energy over the spread of energy to be covered. Below about 0.3, the
+trajectories are circling one part of the surface.
+
+::: {.cite}
+@betancourt2017
+:::
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
