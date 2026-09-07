@@ -98,10 +98,15 @@ function sir_ode!(du, u, p, t)
     du[4] = β * S * I / N  # Cumulative incidence
 end
 
+sir_prob = ODEProblem(sir_ode!, zeros(4), (0.0, 1.0), [2.5, 5.0])
+
 function simulate_sir(R_0, D_inf, init_state, times)
     times_vec = collect(times)
     u0 = [init_state[:S], init_state[:I], init_state[:R], 0.0]
-    prob = ODEProblem(sir_ode!, u0, (times_vec[1], times_vec[end]), [R_0, D_inf])
+    prob = remake(
+        sir_prob, u0 = u0, p = [R_0, D_inf],
+        tspan = (times_vec[1], times_vec[end])
+    )
     sol = solve(prob, Tsit5(), saveat=times_vec)
 
     # The model tracks cumulative incidence, so daily incidence is the difference

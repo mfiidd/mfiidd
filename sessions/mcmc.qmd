@@ -483,14 +483,17 @@ Turing.jl uses the `@model` macro to define Bayesian models.
 This is the same structure we've been using manually (priors, simulation, likelihood) but now in a form that Turing can automatically sample from:
 
 ```{julia}
+sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
+
 # Define our SIR model in Turing.jl
 @model function sir_model(init_state, times, n_obs)
     # Weakly informative priors
     R_0 ~ truncated(Normal(2.5, 1.5), lower=1.0)
     D_inf ~ truncated(Normal(5.0, 3.0), lower=0.5)
 
-    # Simulate ODE (same as manual approach)
-    prob = ODEProblem(sir_ode!, init_state, (times[1], times[end]), [R_0, D_inf])
+    prob = remake(
+        sir_prob, u0 = init_state, p = [R_0, D_inf], tspan = (times[1], times[end])
+    )
     sol = solve(prob, saveat = times)
 
     # Likelihood (Poisson observation model of prevalence)
@@ -504,6 +507,18 @@ end
 # Create model instance
 model = sir_model(init_state, epi1.time, length(epi1.obs)) | (; obs = epi1.obs);
 ```
+
+::: {.callout-note collapse="true"}
+## Why `remake` rather than a new `ODEProblem`
+
+`ODEProblem` does more than store the arguments you hand it.
+It wraps the right hand side in an `ODEFunction`, settles the problem type and builds the indexing machinery the solver interface expects.
+For a system this small that setup costs about as much as the solve.
+
+[`remake`](https://docs.sciml.ai/SciMLBase/stable/interfaces/Problems/#SciMLBase.remake) takes an existing problem and returns a copy with some fields replaced.
+It does not modify the one you pass it, so a single base problem is safe to share across threads.
+Declaring it `const` makes no measurable difference: it is read once per call, immediately before a solve that costs several microseconds.
+:::
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer: `arraydist` and `|` conditioning
