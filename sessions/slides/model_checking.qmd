@@ -285,14 +285,23 @@ A model that fits everything predicts nothing.
 
 ## When is a model good enough?
 
-There is no threshold. The honest answer is: when it captures the features
-relevant to the question, and you understand the ways it does not.
+There is no threshold.
 
 . . .
 
-Document the checks you ran, including the ones that failed. A reader who knows
-where the model breaks can judge how far to trust it. A reader shown only the
-good plots cannot.
+Good enough means
+
+- it captures the features relevant to **your question**
+- you understand the ways it does not
+
+. . .
+
+Document the checks you ran, including the ones that failed.
+
+. . .
+
+A reader who knows where the model breaks can judge how far to trust it. A
+reader shown only the good plots cannot.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
