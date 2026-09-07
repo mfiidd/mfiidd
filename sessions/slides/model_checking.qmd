@@ -290,7 +290,7 @@ Document the checks you ran, including the ones that failed.
 . . .
 
 A reader who knows where the model breaks can judge how far to trust it. A
-reader shown only the good plots cannot.
+reader shown only the final results cannot.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
