@@ -852,7 +852,7 @@ plot(chain_problematic)
 ```
 
 The first table is the single chain and the second is several chains, on the same model with the same number of draws per chain.
-Only the second is outside the 1.01 threshold.
+The single chain barely moves off 1, reaching 1.0095 at its worst, while several chains reach 1.74.
 The third table shows how little independent information those draws carry.
 Split-R̂ on one chain compares the first half of a chain against its second half, and a chain that never leaves the region it started in has little to disagree with.
 Several chains start from different points, and that is what gives R̂ something to detect.
@@ -909,7 +909,10 @@ ESS is the sharper signal.
 For three of the four parameters it is two orders of magnitude lower for the problematic model than for the fixed one, from the same number of iterations.
 
 R̂ separates them too.
-It cannot on its own tell you that a chain is usable, though: it compares chains against each other, and the single-chain R̂ printed earlier passed this very model while its effective sample size stayed in single figures.
+It cannot on its own tell you that a chain is usable, though.
+It compares chains against each other, and one chain gives it little to compare against.
+The single-chain R̂ printed earlier barely moves off 1, reaching 1.0095, on a model whose effective sample size is about 9.
+Whether that clears the 1.01 bar or just misses it, the effective sample size is the number that settles the question.
 That is the argument for running several chains and reading more than one number, which is what the workflow above asks for.
 :::
 
