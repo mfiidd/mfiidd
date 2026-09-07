@@ -28,7 +28,9 @@ In this session you will:
 
 1. Use prior predictive checks to validate model specification
 2. Use posterior predictive checks to assess model fit
-3. Interpret residual patterns to diagnose model problems
+3. Read a posterior predictive p-value near 0 or 1 as the model missing that feature, rather than as a significant test result
+4. Interpret residual patterns to diagnose model problems
+5. Use simulation-based calibration to check that the inference procedure recovers parameters it was given, and read its rank histogram
 
 # Setup
 
@@ -114,9 +116,12 @@ function simulate_sir(R_0, D_inf, init_state, times)
     inc_cumulative = sol[4, :]
     inc_daily = diff(inc_cumulative)
 
-    return inc_daily
+    return (time=times_vec, S=sol[1, :], I=sol[2, :], R=sol[3, :], inc=inc_daily)
 end
 ```
+
+The compartments are returned alongside incidence.
+Incidence is the difference between consecutive days, so it has one value fewer than the compartments do.
 
 Now let's define a model with priors and sample from the prior predictive distribution:
 
@@ -128,13 +133,18 @@ Now let's define a model with priors and sample from the prior predictive distri
     ρ ~ Uniform(0.0, 1.0)  # Reporting rate
 
     # Simulate.
-    inc = simulate_sir(R_0, D_inf, init_state, times)
+    traj = simulate_sir(R_0, D_inf, init_state, times)
 
     # Likelihood
-    lambdas = [max(ρ * inc[i], 1e-10) for i in 1:n_obs]
+    lambdas = [max(ρ * traj.inc[i], 1e-10) for i in 1:n_obs]
     obs ~ arraydist(Poisson.(lambdas))
+
+    return traj
 end
 ```
+
+The `return` statement plays no part in the fit.
+It hands back the whole trajectory, so every compartment the model simulated is available afterwards through `returned()`, for prior draws and posterior draws alike.
 
 ::: {.callout-tip collapse="true"}
 ## Why `max(..., 1e-10)` everywhere?
@@ -150,17 +160,19 @@ times = 0.0:1.0:59.0
 ## infectious period, so they start recovered; the two who fell ill on landing
 ## start infectious. N = 284, the island population
 init_state = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
+N = init_state[:S] + init_state[:I] + init_state[:R]
 
 # Sample from priors (no data conditioning — obs will be sampled from the model)
-prior_samples = sample(
-    sir_model(times, init_state, length(times) - 1), Prior(), 200, progress=false
-)
+prior_model = sir_model(times, init_state, length(times) - 1)
+prior_samples = sample(prior_model, Prior(), 200, progress=false)
+prior_trajs = vec(returned(prior_model, prior_samples))
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code walkthrough
 - `sir_model(times, init_state, length(times) - 1)` - creates a model instance *without conditioning on data*. Because no observations are provided via `|`, the `obs ~ arraydist(Poisson.(lambdas))` statement acts generatively, i.e. Turing samples new observations rather than computing likelihoods. This is different from `decondition()` (which you'll see below for posterior predictive checks).
 - [`Prior()`](https://turinglang.org/docs/tutorials/docs-00-getting-started/) - a sampler that draws from prior distributions only, ignoring the likelihood. This gives us parameter combinations purely from our prior beliefs.
+- `returned(prior_model, prior_samples)` - runs the model once per draw and collects its `return` value, which here is the whole simulated trajectory. `vec` pools the chains into one list, so `prior_trajs[i]` is the trajectory behind the `i`-th set of prior parameters.
 :::
 
 ::: {.callout-note collapse="true"}
@@ -175,12 +187,7 @@ p_prior = plot(title="Prior Predictive Check",
                legend=false)
 
 for i in 1:100
-    R_0 = prior_samples[:R_0][i]
-    D_inf = prior_samples[:D_inf][i]
-    ρ = prior_samples[:ρ][i]
-
-    inc = simulate_sir(R_0, D_inf, init_state, times)
-    obs_expected = ρ .* inc
+    obs_expected = prior_samples[:ρ][i] .* prior_trajs[i].inc
     plot!(p_prior, collect(times)[2:end], obs_expected, alpha=0.2, color=:blue)
 end
 
@@ -230,6 +237,35 @@ everyone in four days is.
 If your prior predictive check shows wildly varying trajectories - some with 0 cases, others with thousands - your priors may be too vague. Consider using domain knowledge to constrain them. E.g. for influenza, $R_0$ between 1 and 5 might be more realistic than 0.5 to 10.
 :::
 
+## Latent quantities
+
+The plot above shows what the priors imply for the *observations*, because those are what we will later hold against data.
+The same draws also give the *latent* quantities, i.e. S, I and R trajectories, and anything derived from them.
+For example, we can plot $R_t = R_0 \, S(t) / N$.
+
+```{julia}
+reproduction_number(traj, R_0, N) = R_0 .* traj.S ./ N
+
+prior_rt = [
+    reproduction_number(prior_trajs[i], prior_samples[:R_0][i], N) for i in 1:100
+]
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: "Plotting code"
+p_prior_rt = plot(title="Prior R_t", xlabel="Time (days)", ylabel="R_t",
+                  legend=:topright)
+
+for rt in prior_rt
+    plot!(p_prior_rt, collect(times), rt, alpha=0.2, color=:blue, label="")
+end
+
+hline!(p_prior_rt, [1.0], color=:red, linestyle=:dash, label="R_t = 1")
+```
+
+While we don't have any data to compare $R_t$ to, it offers another way to reason about what the priors imply.
+
 # Posterior predictive checks
 
 After fitting the model, posterior predictive checks ask: *can the fitted model generate data that looks like what we observed?*
@@ -252,9 +288,8 @@ chain = sample(model, NUTS(), 1000, progress=false)
 predictions = predict(decondition(model), chain)
 
 # Extract into a list of trajectories for plotting and analysis
-n_sims = min(100, size(predictions, 1))
-n_obs = length(flu_tdc.obs)
-ppc_samples = [predictions[@varname(obs)][i, 1] for i in 1:n_sims]
+ppc = vec(predictions[@varname(obs)])
+ppc_samples = ppc[1:min(100, length(ppc))]
 ```
 
 ::: {.callout-tip collapse="true"}
@@ -264,7 +299,7 @@ This generates posterior predictive samples in two steps:
 1. **`decondition(model)`** — removes the conditioning on observed data. Our `model` was created with `sir_model(...) | (; obs = flu_tdc.obs)`, so `decondition()` reverses this, turning the `obs ~ arraydist(Poisson.(lambdas))` statement from a likelihood computation back into a generative sample.
 2. **`predict(..., chain)`** — for each parameter sample in the chain, runs the model forward and samples new observations from the Poisson distribution.
 
-The result is a chain-like object, and `predictions[@varname(obs)]` gives the whole predicted vector for each posterior sample, so `[i, 1]` picks the `i`-th sample of the first chain and returns all `n_obs` values at once.
+The result is a chain-like object, and `predictions[@varname(obs)]` keeps `obs` whole rather than flattening it into one column per day, so it comes back as an iterations-by-chains array whose elements are entire predicted series. `vec` pools the chains into one list of trajectories, and the range takes the first hundred.
 :::
 
 ```{julia}
@@ -290,6 +325,36 @@ plot!(p_ppc, legend=:topright)
 - Does the model capture the variability in the data?
 
 For the Tristan da Cunha data with a simple SIR model, you'll likely see the model fails to capture the **second wave**. This is expected - SIR doesn't have temporary immunity. This motivates the SEITL/SEIT4L models in later sessions.
+
+## Posterior latent quantities
+
+The same push-forward on the fitted model gives the posterior $R_t$, drawn here over the prior band.
+
+```{julia}
+posterior_trajs = vec(returned(model, chain))
+rt_samples = [
+    reproduction_number(posterior_trajs[i], chain[:R_0][i], N) for i in 1:100
+]
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: "Plotting code"
+p_rt = plot(title="Prior and posterior R_t", xlabel="Time (days)", ylabel="R_t",
+            legend=:topright)
+
+for rt in prior_rt
+    plot!(p_rt, collect(times), rt, alpha=0.15, color=:grey, label="")
+end
+
+for rt in rt_samples
+    plot!(p_rt, collect(times), rt, alpha=0.15, color=:steelblue, label="")
+end
+
+plot!(p_rt, Float64[], Float64[], color=:grey, label="Prior")
+plot!(p_rt, Float64[], Float64[], color=:steelblue, label="Posterior")
+hline!(p_rt, [1.0], color=:red, linestyle=:dash, label="R_t = 1")
+```
 
 # Quantifying posterior predictive fit
 
@@ -398,18 +463,28 @@ Residuals are the difference between observed and predicted values. Patterns in 
 
 ```{julia}
 # Compute posterior mean predictions
-mean_R_0 = mean(chain[:R_0])
-mean_D_inf = mean(chain[:D_inf])
 mean_ρ = mean(chain[:ρ])
+mean_params = (R_0=mean(chain[:R_0]), D_inf=mean(chain[:D_inf]), ρ=mean_ρ)
 
-# Simulate on the same grid the model was fitted on, so predictions line up with
-# the observations they are being compared against
 obs_times = flu_tdc.time
-mean_inc = simulate_sir(mean_R_0, mean_D_inf, init_state, times)
-mean_pred = mean_ρ .* mean_inc
+mean_traj = fix(model, mean_params)()
+mean_pred = mean_ρ .* mean_traj.inc
 
 resid = flu_tdc.obs .- mean_pred
 ```
+
+`fix` pins the three parameters to their posterior means, and calling the fixed model runs it once and hands back its `return` value.
+
+::: {.callout-warning}
+## What the plug-in trajectory misses
+
+One trajectory at the posterior mean is enough to show what residual *patterns* look like, which is what this section is for.
+It is not the full check.
+
+- It discards parameter uncertainty, so a residual cannot tell you whether the model is wrong or whether this one parameter combination is unlucky. The fuller version computes residuals for every draw and reads the spread at each time point.
+- The trajectory at the mean parameters is not the mean of the trajectories, because the model is nonlinear.
+- Averaging each parameter separately ignores the correlation between them. $R_0$ and $D_\text{inf}$ correlate about 0.9 in this posterior, which the [MCMC session](mcmc.qmd) describes as a narrow diagonal ridge, and the mean of a ridge need not lie on the ridge.
+:::
 
 ```{julia}
 # Plot residuals over time
@@ -445,7 +520,10 @@ What should you do when model checks reveal problems?
 
 If prior predictive simulations look unreasonable, start by examining your priors. Priors that are too vague will generate wildly varying trajectories so you should use your knowledge of the system to constrain them. If you see impossible values (negative counts, probabilities outside [0,1]), add appropriate bounds or switch to a distribution family that respects the constraints.
 
-When posterior predictive checks fail, the model itself needs attention. Systematic bias such as predictions consistently too high or too low suggests missing mechanisms. If the model captures the mean but not the variability, your observation model may be wrong; switching from Poisson to Negative Binomial, for instance, allows for overdispersion. When specific features are missed (like a second epidemic wave), consider what biological mechanisms could explain them.
+When posterior predictive checks fail, the model itself needs attention.
+Systematic bias such as predictions consistently too high or too low suggests missing mechanisms, and so does a feature the model never reproduces at any parameter value, like a second epidemic wave.
+Ask what biological mechanism could produce it.
+If the model instead captures the shape of the epidemic but not the spread of the counts around it, the observation model is the thing to change, and switching from Poisson to Negative Binomial allows for overdispersion, which the [observation models session](observation_models.qmd) takes up in full.
 
 Residual patterns point to specific fixes. Temporal trends in residuals suggest time-varying parameters or additional compartments. Autocorrelated residuals indicate the model dynamics are incomplete. And if residual variance grows with predicted values (heteroscedasticity), the observation model's variance structure needs adjustment.
 
@@ -507,7 +585,23 @@ A more rigorous check asks: *does my inference procedure recover true parameters
 3. Fit the model to $y^*$ and get posterior samples
 4. Check if $\theta^*$ falls within the posterior as expected
 
-If your inference is correct, the true parameter should be uniformly distributed within the posterior samples (i.e., the 95% credible interval should contain the truth 95% of the time).
+If your inference is correct, the *rank* of $\theta^*$ among the posterior samples is uniformly distributed.
+Coverage follows from that as a consequence: a 95% credible interval contains the truth 95% of the time.
+Checking the ranks is the stronger check, because a whole histogram of ranks can fail in ways that the coverage of a single interval will not show.
+
+::: {.callout-note collapse="true"}
+## Why the ranks are uniform
+
+Step 1 draws $\theta^*$ from the prior and step 2 draws $y^*$ from $p(y \mid \theta^*)$, so the pair $(\theta^*, y^*)$ is a draw from the joint distribution $p(\theta, y)$.
+The posterior $p(\theta \mid y^*)$ is, by definition, the conditional distribution of $\theta$ given $y^*$ under that same joint.
+So $\theta^*$ is itself a draw from the posterior it is about to be ranked against.
+
+That makes it statistically indistinguishable from the $L$ posterior samples drawn in step 3.
+All $L + 1$ values are exchangeable draws from the same distribution, so $\theta^*$ is equally likely to hold any position among them and its rank is uniform on $\{0, 1, \ldots, L\}$.
+
+Nothing in that argument says the model describes reality.
+The data were simulated from the same model that is then fitted to them, so SBC tests the inference procedure rather than the model, and a model can be badly wrong about the world and still pass.
+:::
 
 ```{julia}
 #| output: false
@@ -522,7 +616,7 @@ function run_sbc(n_sbc=20)
         ρ_true = rand(Uniform(0.0, 1.0))
 
         # 2. Simulate data
-        inc = simulate_sir(R_0_true, D_inf_true, init_state, times)
+        inc = simulate_sir(R_0_true, D_inf_true, init_state, times).inc
         obs_sim = rand.(Poisson.(max.(ρ_true .* inc, 1e-10)))
 
         # 3. Fit model (short chain for speed)
@@ -556,7 +650,17 @@ histogram(sbc_ranks, bins=10,
           legend=false)
 ```
 
-A uniform histogram indicates well-calibrated inference. Peaks at the edges suggest the posterior is too narrow (overconfident) or too wide (underconfident).
+A uniform histogram indicates well-calibrated inference.
+The departures follow from the same argument.
+If the posteriors are too narrow, the truth falls outside their bulk more often than it should and the ranks pile up at both ends, giving a ∪ shape.
+If they are too wide, the truth sits near the middle too often, giving a ∩ shape.
+If they are biased in one direction, the ranks slope.
+
+::: {.callout-note collapse="true"}
+## PIT histograms in forecasting
+A probability integral transform (PIT) histogram asks whether a *forecast* is calibrated, by evaluating the predictive CDF at the observed value, where SBC asks whether the *inference procedure* is calibrated, by ranking a known truth among posterior draws.
+[Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/nfidd/) uses PIT histograms throughout.
+:::
 
 ::: {.callout-note}
 ## SBC in practice
@@ -568,12 +672,17 @@ Full SBC requires many simulations (100+) and is computationally expensive. It i
 ::: {.callout-tip title="Learning points"}
 - **Prior predictive checks** validate that your priors generate plausible data before you see observations
 - **Posterior predictive checks** test whether the fitted model can reproduce key features of the observed data
+- **Posterior predictive p-values** say which summary statistics the model misses, and are descriptive rather than hypothesis tests
 - **Residual patterns** diagnose specific model deficiencies: trends, autocorrelation, heteroscedasticity
 - **Model failure is informative** - it guides model improvement and reveals missing mechanisms
 - **Simulation-based calibration** checks the inference procedure rather than the model, by asking whether parameters drawn from the prior are recovered from data simulated with them
 :::
 
 # Going further
+
+## The workflow in an outbreak
+
+[Abbott et al. (2026)](https://samabbott.co.uk/a-workflow-for-infectious-disease-modelling/) work the same loop through the specifics of infectious disease modelling, where the data are poorly characterised and the question itself often changes mid-outbreak.
 
 ## Prior sensitivity analysis
 
@@ -650,6 +759,7 @@ In the [SEITL session](seitl.qmd), we introduce the Tristan da Cunha dataset and
 # References
 
 - Gelman et al. (2020). [Bayesian Workflow](https://arxiv.org/abs/2011.01808). arXiv. (The definitive guide to iterative model building)
+- Abbott et al. (2026). [A Workflow for Infectious Disease Modelling](https://samabbott.co.uk/a-workflow-for-infectious-disease-modelling/). (The same loop worked through for outbreak models)
 - Gelman et al. (2013). [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/), Chapter 6. (Comprehensive treatment of model checking)
 - Gabry et al. (2019). [Visualization in Bayesian workflow](https://arxiv.org/abs/1709.01449). *JRSS A* 182(2), 389-402.
 - Talts et al. (2018). [Validating Bayesian Inference Algorithms with Simulation-Based Calibration](https://arxiv.org/abs/1804.06788). arXiv.
