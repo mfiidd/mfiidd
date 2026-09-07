@@ -392,20 +392,22 @@ $W$ is too small while any chain is still confined to part of the posterior, and
 $\hat{V}$ is the variance you get by pooling every draw and ignoring which chain it came from, which is what sets those weights.
 $B$ is divided by $n$ because $B/n$ is the variance of the chain means, and that, rather than $n$ times it, is what enters a pooled variance.
 
-How close to 1 it gets depends on how correlated the draws are.
-The mean of a chain of length $n$ has variance of about $W\tau/n$, where $\tau$ is the integrated autocorrelation time from the [autocorrelation callout](#autocorrelation), so $B$ comes out at roughly $\tau W$ rather than at $W$, and
+Chains sitting in different places spread the chain means apart.
+That inflates $B$, and R̂ goes up with it.
+This is the signal the statistic exists for.
+
+Chains that agree do not bring it to exactly 1, though, because the draws within each chain are correlated.
+The mean of a correlated chain of length $n$ has variance of about $W\tau/n$, with $\tau$ the integrated autocorrelation time from the [autocorrelation callout](#autocorrelation).
+So $B$ comes out at roughly $\tau W$, and substituting gives
 
 $$\hat{R}^2 = \frac{n - 1}{n} + \frac{B}{nW} \approx 1 + \frac{\tau - 1}{n}$$
 
-R̂ approaches 1 because $B/n$ stays small next to $W$, which happens whenever the autocorrelation time is short compared with the chain length.
-Independent draws are the special case $\tau = 1$, where $B \approx W$.
-Chains sitting in different places inflate the variance of the chain means, which inflates $B$, and R̂ goes up with it.
-
-$\tau$ is the same quantity that sets the effective sample size in the next section, where $N_{\text{eff}} = mn/\tau$ across all $m$ chains.
-A chain can be perfectly converged and still fail the 1.01 bar if it is short and heavily autocorrelated.
+Independent draws are the special case $\tau = 1$, which is why the older statement that $B \approx W$ once the chains agree looked right.
 
 The statistic is due to [Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136).
 What `rhat` reports is the rank-normalised version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which is the formula above wrapped in three steps.
+
+**Variants `rhat` computes**
 
 **Split.** Each of the $m$ chains is cut in half, and the formula is applied to the $2m$ half-chains of $n/2$ draws. The `## Split-R̂` section below says what this buys.
 
@@ -413,7 +415,7 @@ What `rhat` reports is the rank-normalised version of [Vehtari et al. (2021)](ht
 
 $$z_i = \Phi^{-1}\!\left(\frac{r_i - 3/8}{S + 1/4}\right)$$
 
-The $3/8$ is the Blom offset the implementation cites. Two things follow. R̂ becomes defined even for a posterior with no finite variance, because $W$ and $B$ are now computed on the $z$. And it stops depending on how you parameterise, since ranks only see order, so fitting a rate or its logarithm gives the same answer.
+The offsets keep the largest and smallest ranks off $\pm\infty$, which a plain $r_i/S$ would reach. Two things follow. R̂ becomes defined even for a posterior with no finite variance, because $W$ and $B$ are now computed on the $z$. And it stops depending on how you parameterise, since ranks only see order, so fitting a rate or its logarithm gives the same answer.
 
 **Fold, and take the worst.** The formula so far compares where the chains sit, so chains that agree on the centre and disagree on the spread pass it. The draws are therefore also folded around the pooled median, $f_i = \lvert x_i - \operatorname{median}(x) \rvert$, which turns a difference in scale into a difference in location, and the same rank-normalised R̂ is computed on those. What you get back is the larger of the two:
 
@@ -482,8 +484,8 @@ A chain with $\rho_k$ still large at long lags has a large $\tau$ and an ESS far
 
 The sum runs to $K$ rather than to infinity, and where it is cut matters.
 Estimated autocorrelations at long lags are mostly noise, and adding more of them makes $\tau$ steadily worse rather than steadily better.
-[Geyer (1992)](https://doi.org/10.1214/ss/1177011137) truncates by pairing consecutive lags and stopping at the first pair that sums to something negative, the initial positive sequence rule.
-Turing applies the same rank normalisation described in the R̂ callout, and estimates the variance across chains rather than within one.
+The sum is cut where the estimated autocorrelations become noise, following [Geyer (1992)](https://doi.org/10.1214/ss/1177011137).
+Turing uses the rank-normalised, across-chain version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full).
 :::
 
 ```{julia}
