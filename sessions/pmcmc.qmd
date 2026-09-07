@@ -198,7 +198,7 @@ Uses GeneralisedFilters for likelihood estimation.
     # Order: [S, E, I, T1, T2, T3, T4, L]
     init_state = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
     ssm = StateSpaceModel(SEITLInitial(init_state),
-                          SEITLDynamics(θ),
+                          SEITLDynamics(θ, init_state),
                           PoissonObservation(θ[:ρ]))
 
     # Run particle filter to estimate log-likelihood

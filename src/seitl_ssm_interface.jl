@@ -11,8 +11,21 @@ The last element tracks daily incidence for the observation process. SEITL is
 the k = 1 case and SEIT4L the k = 4 case, so the number of stages is read from
 the state that `SEITLInitial` supplies rather than fixed by the type.
 """
-struct SEITLDynamics <: SSMProblems.LatentDynamics
+struct SEITLDynamics{S} <: SSMProblems.LatentDynamics
     θ::Dict{Symbol, Float64}
+    step!::S
+end
+
+"""
+    SEITLDynamics(θ, init_state)
+
+Pick the Gillespie stepper matching `init_state` and hold it, so the choice is
+made once when the dynamics are built rather than on every particle at every
+step. `S` is the stepper's own type, which keeps the field concrete.
+"""
+function SEITLDynamics(θ::Dict{Symbol, Float64}, init_state::AbstractVector{<:Real})
+    step! = length(init_state) == 5 ? gillespie_step_seitl! : gillespie_step_seit4l!
+    return SEITLDynamics{typeof(step!)}(θ, step!)
 end
 
 function SSMProblems.simulate(
@@ -24,9 +37,7 @@ function SSMProblems.simulate(
 )
     ## Drop the incidence slot, leaving the compartments the stepper works on
     state = collect(prev_state[1:(end - 1)])
-    ## Stands in for a single stepper general in the number of T stages
-    step! = length(state) == 5 ? gillespie_step_seitl! : gillespie_step_seit4l!
-    return vcat(state, step!(rng, state, dyn.θ))  ## re-append daily incidence
+    return vcat(state, dyn.step!(rng, state, dyn.θ))  ## re-append daily incidence
 end
 
 """

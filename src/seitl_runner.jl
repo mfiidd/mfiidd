@@ -18,6 +18,17 @@ components, the filter and the observation process are the same either way.
 - `obs`: Vector of observed daily incidence
 - `n_particles`: Number of particles
 - `init_state`: Initial compartment vector, defaulting to the SEIT4L one
+- `algo`: Filtering algorithm, defaulting to a bootstrap filter with
+  `n_particles`. Passing `algo` makes `n_particles` redundant, and `algo` is
+  what is used.
+
+  The dynamics here are a Gillespie simulator, so the model can be sampled
+  from but its transition density cannot be evaluated. That admits the
+  algorithms which only simulate the dynamics, such as `BF` and
+  `ParticleFilter` with a latent proposal, and rules out any that need the
+  density, including `AuxiliaryParticleFilter`, which asks for
+  `SSMProblems.distribution` and fails with a `MethodError`. The
+  linear-Gaussian filters, `KalmanFilter` among them, do not apply at all
 
 # Returns
 - `log_likelihood`: Estimated log-likelihood
@@ -27,6 +38,7 @@ function run_particle_filter(
     obs,
     n_particles;
     init_state = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0],
+    algo = BF(n_particles),
 )
     # Coerce init_state to Float64 so callers can pass an integer vector
     # (e.g. [279, 0, 2, ...]) without hitting SEITLInitial's Vector{Float64}
@@ -43,15 +55,14 @@ function run_particle_filter(
 
     # Define SSM components
     initial = SEITLInitial(init_state_f64)
-    dynamics = SEITLDynamics(θ_f64)
+    dynamics = SEITLDynamics(θ_f64, init_state_f64)
     observation = PoissonObservation(θ_f64[:ρ])
 
     # Create state-space model
     model = StateSpaceModel(initial, dynamics, observation)
 
-    # Run bootstrap particle filter
+    # Run the particle filter
     rng = default_rng()
-    algo = BF(n_particles)  # Bootstrap Filter
     _, log_lik = GeneralisedFilters.filter(rng, model, algo, obs)
 
     return log_lik
@@ -65,7 +76,8 @@ daily incidence, that is a latent path conditioned on `obs`.
 
 `DenseAncestorCallback` records the particles and their ancestor indices at
 every step, so a particle drawn from the final weights can be traced back to
-give its whole path. The last element of the state is the daily incidence, so
+give its whole path. It works with any algorithm `algo` accepts, which is
+tested for `BF` and for `ParticleFilter` with a latent proposal. The last element of the state is the daily incidence, so
 reading that element off the path gives the trajectory directly.
 
 # Returns
@@ -76,17 +88,17 @@ function filtered_incidence(
     obs,
     n_particles;
     init_state = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0],
+    algo = BF(n_particles),
 )
     θ_f64 = Dict{Symbol, Float64}(k => value(v) for (k, v) in θ)
     model = StateSpaceModel(
         SEITLInitial(collect(Float64.(init_state))),
-        SEITLDynamics(θ_f64),
+        SEITLDynamics(θ_f64, init_state),
         PoissonObservation(θ_f64[:ρ]),
     )
 
     callback = DenseAncestorCallback(nothing)
-    final, _ =
-        GeneralisedFilters.filter(default_rng(), model, BF(n_particles), obs; callback)
+    final, _ = GeneralisedFilters.filter(default_rng(), model, algo, obs; callback)
 
     ## draw one particle in proportion to its final weight, then follow its
     ## ancestry back to the start
