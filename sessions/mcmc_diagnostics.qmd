@@ -384,8 +384,17 @@ $W$ sees only the variation inside a chain, so while any chain is still confined
 $\hat{V}$ mixes in the spread of the chain means, so while the chains sit apart it overestimates it.
 R̂ is the ratio of the two, and it falls towards 1 as the gap between them closes.
 
-Once the chains agree, the mean of a chain of length $n$ has variance of about $W/n$, so $B$ is about $W$, $\hat{V}$ is about $W$, and R̂ tends to 1.
+How close to 1 it gets depends on how correlated the draws are.
+The mean of a chain of length $n$ has variance of about $W\tau/n$, where $\tau$ is the integrated autocorrelation time, so $B$ comes out at roughly $\tau W$ rather than at $W$, and
+
+$$\hat{R}^2 = \frac{n - 1}{n} + \frac{B}{nW} \approx 1 + \frac{\tau - 1}{n}$$
+
+R̂ approaches 1 because $B/n$ stays small next to $W$, which happens whenever the autocorrelation time is short compared with the chain length.
+Independent draws are the special case $\tau = 1$, where $B \approx W$.
 Chains sitting in different places inflate the variance of the chain means, which inflates $B$, and R̂ goes up with it.
+
+$\tau$ is the same quantity that sets the effective sample size in the next section, where ESS is $N/\tau$.
+A chain can be perfectly converged and still fail the 1.01 bar if it is short and heavily autocorrelated.
 
 The statistic is due to [Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136).
 What `rhat` computes is the rank-normalised split version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which splits each chain in half before comparing, so that a chain drifting within itself is caught as well, and works with the ranks of the draws rather than the draws themselves, so that it does not rely on the posterior having a finite variance.
@@ -428,7 +437,27 @@ plot(chain_multi)
 
 ## 2. Effective Sample Size (ESS)
 
-ESS tells you how many independent samples your correlated MCMC samples are equivalent to:
+ESS tells you how many independent samples your correlated MCMC samples are equivalent to.
+It is the autocorrelation function from the [autocorrelation section](#autocorrelation) read as a single number.
+The estimator sums the same $\rho_k$ that the plot showed, so the faster that curve decayed the more each draw is worth.
+
+::: {.callout-note collapse="true"}
+## Where ESS comes from
+
+Write $\rho_k$ for the autocorrelation of the chain at lag $k$, the quantity plotted earlier.
+From $N$ draws,
+
+$$N_{\text{eff}} = \frac{N}{1 + 2\sum_{k=1}^{K} \rho_k}$$
+
+The denominator is the integrated autocorrelation time $\tau$, the same $\tau$ that appeared in the R̂ derivation above.
+A chain whose autocorrelations die away quickly has $\tau$ near 1 and loses almost nothing.
+A chain with $\rho_k$ still large at long lags has a large $\tau$ and an ESS far below $N$.
+
+The sum runs to $K$ rather than to infinity, and where it is cut matters.
+Estimated autocorrelations at long lags are mostly noise, and adding more of them makes $\tau$ steadily worse rather than steadily better.
+[Geyer (1992)](https://doi.org/10.1214/ss/1177011137) truncates by pairing consecutive lags and stopping at the first pair that sums to something negative, the initial positive sequence rule.
+What Turing reports is the rank-normalised version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which applies the same idea to the normalised ranks of the draws rather than to the draws themselves, and estimates the variance across chains rather than within one.
+:::
 
 ```{julia}
 ess_values = DataFrame(ess(chain_multi))
@@ -460,38 +489,96 @@ An ESS close to N means little autocorrelation and efficient sampling. An ESS mu
 ESS can come out slightly *above* N.
 NUTS sometimes produces mildly anti-correlated draws, which carry a little more information than independent ones.
 
+### Bulk and tail ESS
+
+The number above is the bulk ESS, which is what `ess` reports by default.
+Bulk ESS describes the centre of the distribution, which is what sits behind a posterior mean.
+Tail ESS describes the extremes, which is what credible interval endpoints depend on.
+
+```{julia}
+# Different types of ESS
+ess_bulk = DataFrame(ess(chain_multi, kind = :bulk))    # Central part of distribution
+ess_tail = DataFrame(ess(chain_multi, kind = :tail))    # Tails of distribution
+
+println("Bulk ESS (central posterior):")
+for row in eachrow(ess_bulk)
+    println("  $(row.param): $(round(row.stat, digits = 0))")
+end
+
+println("\nTail ESS (posterior tails):")
+for row in eachrow(ess_tail)
+    println("  $(row.param): $(round(row.stat, digits = 0))")
+end
+```
+
+The two need not agree, and it is the smaller of them that limits what you can report.
+They are close here, with the tail slightly ahead.
+A posterior that the sampler crosses easily in the middle but reaches only occasionally at the edges gives the opposite pattern, and an interval quoted from it is less well determined than the posterior mean printed beside it.
+
 ## 3. Monte Carlo Standard Error (MCSE)
 
-MCSE quantifies uncertainty in your posterior estimates due to finite sampling:
+MCSE is the uncertainty in a posterior summary that comes from having sampled for a finite time rather than forever.
+It is what a low ESS costs you, and it is the reason ESS is worth checking at all.
+
+::: {.callout-note collapse="true"}
+## Where MCSE comes from
+
+For a posterior mean,
+
+$$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{N_{\text{eff}}}}$$
+
+The posterior SD is the spread you are trying to report.
+MCSE is how precisely a finite run has located the centre of that spread.
+The effective sample size is the only thing standing between them, so the only way to shrink an MCSE is to raise ESS, by sampling longer or by mixing better.
+Turing computes it with the rank-normalised estimators of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full).
+:::
 
 ```{julia}
 mcse_values = DataFrame(mcse(chain_multi))
 posterior_means = DataFrame(mean(chain_multi))
+posterior_sds = DataFrame(std(chain_multi))
 
-println("Posterior means ± MCSE:")
+println("Posterior mean, its MCSE, and the decimals that survive it:")
 for row in eachrow(mcse_values)
     param = row.param
     mcse_val = row.stat
-    # Get mean for this parameter
+    # Get the mean and the spread for this parameter
     mean_val = posterior_means[posterior_means.param .== Ref(param), :stat][1]
-    rel_error = mcse_val / abs(mean_val) * 100
+    sd_val = posterior_sds[posterior_sds.param .== Ref(param), :stat][1]
+    # Compare MCSE against the posterior SD, which is the spread being reported
+    frac_sd = mcse_val / sd_val * 100
+    decimals = max(0, floor(Int, -log10(mcse_val)))
     println(
         "  $param: $(round(mean_val, digits = 3)) ± ",
         "$(round(mcse_val, digits = 4)) ",
-        "($(round(rel_error, digits = 2))% relative error)"
+        "($(round(frac_sd, digits = 1))% of the posterior SD, ",
+        "$decimals decimal places)"
     )
 end
 ```
+
+Read the MCSE against the posterior SD rather than against the mean, because the mean moves if you shift where the parameter is measured from and the MCSE does not.
+Read it also as a number of digits.
+Report $R_0 = 2.31$ with an MCSE of 0.05 and the second decimal place is sampler noise, because a different seed moves it.
+Sample until the MCSE is small next to the precision you want to claim.
 
 # Common problems and solutions
 
 ## Problem 1: Poor mixing (chain gets stuck)
 
-Chains get stuck for a few common reasons: a sampler too basic for the geometry, proposal steps that are the wrong size, correlated parameters or narrow ridges in the posterior, or multimodality trapping the chain in one mode.
+Chains get stuck for a few common reasons: a sampler too basic for the geometry, proposal steps that are the wrong size, or correlated parameters and narrow ridges in the posterior.
+Multimodality does it too, and has its own entry below.
 
 The first thing to try is a better algorithm — NUTS handles most well-behaved posteriors — and running longer. If that isn't enough, reparametrise the model to give the posterior a friendlier shape, and run multiple chains from different starting points so stuck chains show up as outliers.
 
 With gradient-based samplers like NUTS, mixing problems are uncommon when the model is specified correctly, the posterior is reasonably well-behaved, and the priors aren't pathological.
+
+One pathological prior is worth naming, because it is common in epidemic models and does not look like what it is.
+The flat prior used earlier in the course allows $R_0$ up to 20, and [the introduction session](introduction.qmd) shows what those draws produce, an epidemic that infects almost the whole population within days.
+Start a chain there and the solver struggles or fails on that trajectory, the predicted incidence becomes enormous, and the likelihood comes back as something the sampler cannot use.
+The chain then sits where it started, or the sampler spends its warmup retrying, and the trace looks like poor mixing when the real problem is that the model cannot be evaluated where the sampler began.
+The remedies are priors that do not reach into those regions and initial values chosen rather than drawn.
+The course already carries two guards for this without naming the failure mode, an early return that avoids calling the solver on parameters the prior has ruled out, in [the Julia ecosystem session](julia_ecosystem.qmd), and a floor on the Poisson rate, in [Model checking](model_checking.qmd).
 
 ## Problem 2: Divergent transitions (for HMC/NUTS)
 
@@ -667,26 +754,6 @@ rhat_split = DataFrame(rhat(chain_multi))
 println("Split-R̂ values (recommended):")
 for row in eachrow(rhat_split)
     println("  $(row.param): $(round(row.stat, digits = 4))")
-end
-```
-
-## Bulk and tail ESS
-
-Turing.jl provides different ESS measures:
-
-```{julia}
-# Different types of ESS
-ess_bulk = DataFrame(ess(chain_multi, kind = :bulk))    # Central part of distribution
-ess_tail = DataFrame(ess(chain_multi, kind = :tail))    # Tails of distribution
-
-println("Bulk ESS (central posterior):")
-for row in eachrow(ess_bulk)
-    println("  $(row.param): $(round(row.stat, digits = 0))")
-end
-
-println("\nTail ESS (posterior tails):")
-for row in eachrow(ess_tail)
-    println("  $(row.param): $(round(row.stat, digits = 0))")
 end
 ```
 
@@ -871,6 +938,7 @@ MCMC only works if you use it correctly. Diagnostics aren't optional.
 
 - Vehtari et al. (2021). [Rank-normalization, folding, and localization: An improved R̂ for assessing convergence of MCMC](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full). *Bayesian Analysis* 16(2), 667-718. (Modern R̂ and ESS)
 - Gelman and Rubin (1992). [Inference from iterative simulation using multiple sequences](https://doi.org/10.1214/ss/1177011136). *Statistical Science* 7(4), 457-472. (The original R̂)
+- Geyer (1992). [Practical Markov chain Monte Carlo](https://doi.org/10.1214/ss/1177011137). *Statistical Science* 7(4), 473-483. (The effective sample size estimator and its truncation rule)
 - Gelman et al. (2013). [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/), 3rd ed. Chapman & Hall/CRC. (Chapter 11 covers diagnostics)
 - [MCMCChains.jl documentation](https://turinglang.org/MCMCChains.jl/stable/) - Chain diagnostics in Julia
 - [ArviZ](https://arviz-devs.github.io/arviz/) - Exploratory analysis of Bayesian models (Python, with Julia bindings via ArviZ.jl)

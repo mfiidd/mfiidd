@@ -229,8 +229,10 @@ $W$ averages the variance within a chain; $B$ is $n$ times the variance of the
 chain means, for chains of length $n$.
 
 ::: {.fragment}
-Once the chains agree, each chain mean varies by about $W/n$, so $B \approx W$
-and $\hat{R} \to 1$. Chains sitting in different places inflate $B$ and push it up.
+A chain mean varies by about $\sqrt{W\tau/n}$, where $\tau$ is the autocorrelation
+time, so $B \approx \tau W$ and $\hat{R}^2 \approx 1 + (\tau - 1)/n$. That is near 1
+when the chain is long compared with $\tau$. Chains sitting in different places
+inflate $B$ and push it up.
 :::
 
 ::: {.fragment}
