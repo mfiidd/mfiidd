@@ -435,7 +435,7 @@ scatter!(p, flu_tdc.time, flu_tdc.obs,
 plot!(p)
 ```
 
-The draws all give plausible outbreaks, a wave rising over the first two or three weeks and largely decayed by the end of the two months of data.
+Every draw is a plausible outbreak, rising over the first week or two to a peak of between 10 and 25 reported cases before a long and noisy decline.
 That is what you want to see from a prior predictive draw, and it is the reason for looking before you fit.
 
 Notice how the same `@model` definition can be used for both simulation (here) and inference (in the [Particle MCMC session](pmcmc.qmd)).
