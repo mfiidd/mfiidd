@@ -125,7 +125,7 @@ happen?
 
 . . .
 
-This is the cheapest check in the workflow: it needs no data and no fitting.
+This needs no data and no fitting.
 
 ## A warning about vague priors
 
@@ -133,8 +133,8 @@ This is the cheapest check in the workflow: it needs no data and no fitting.
 
 . . .
 
-You saw this in the first session: `Uniform(1, 20)` on $R_0$ sounds humble, and
-most of its range produces epidemics nobody has seen.
+You saw this in the first session: `Uniform(1, 20)` on $R_0$ sounds reasonable but
+most of its range produces infeasible epidemics.
 
 Vague on the parameter is not vague on the outcome.
 
@@ -151,11 +151,6 @@ $$\theta^{(i)} \sim p(\theta \mid y), \qquad y^{\text{rep},(i)} \sim p(y \mid \t
 
 If the model is adequate, the observed data should look like a typical draw from
 this distribution, not an outlier.
-
-. . .
-
-You ran one of these at the end of the last practical, on data the model itself
-had generated. It passed. This session points one at real data.
 
 ## What to look for
 
