@@ -155,7 +155,7 @@ init_state = Dict(
 In the [Particle Filters session](particle_filters.qmd), we:
 
 1. Implemented the SEIT4L Gillespie simulator (`gillespie_step`)
-2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEITLDynamics`, `PoissonObservation`, `SEITLInitial`), which serves SEITL and SEIT4L alike because the number of compartments comes from the initial state
+2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEITLDynamics`, `PoissonObservation`, `SEITLInitial`), which covers any number of T sub-stages because the compartment count comes from the initial state
 3. Calibrated the particle count against the SD of the log-likelihood estimate, which put the minimum acceptable count at 64
 
 All these components were loaded via `using MFIIDD` in the setup above (defined in [`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl), [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl), and [`src/seitl_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_runner.jl)). Now we'll use them for full Bayesian inference.
