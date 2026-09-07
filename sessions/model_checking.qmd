@@ -266,7 +266,6 @@ hline!(p_prior_rt, [1.0], color=:red, linestyle=:dash, label="R_t = 1")
 
 Nothing observes $R_t$, so it can never be checked against data.
 That is a limitation, but it offers another way to reason about what the priors imply.
-A prior on $R_0$ is hard to judge and an epidemic curve is not, which is the argument this section makes for prior predictive checks, and $R_t$ goes a step further along the same line.
 
 # Posterior predictive checks
 
