@@ -1,0 +1,1199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Particle filters: propagate, weight, resample</title>
+<style>
+  :root{
+    --fc:#4f46e5;     /* the filter and its estimate / primary */
+    --obs:#0891b2;    /* weights and effective sample size */
+    --miss:#f59e0b;   /* particles */
+    --now:#dc2626;    /* the data */
+    --true:#64748b;   /* the true latent path */
+    --ink:#1f2933;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --bg:#fbfbfd;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 22px 120px}
+  header.hero{
+    padding:54px 22px 30px; text-align:center;
+    background:linear-gradient(180deg,#eef2ff 0%, var(--bg) 100%);
+    border-bottom:1px solid var(--line);
+  }
+  header.hero h1{font-size:30px; margin:0 0 8px; letter-spacing:-.4px}
+  header.hero p{max-width:710px; margin:0 auto; color:var(--muted)}
+  nav.toc{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    margin:22px auto 0; max-width:780px;
+  }
+  nav.toc a{
+    text-decoration:none; color:var(--fc); font-weight:600; font-size:14px;
+    border:1px solid #c7d2fe; background:#fff; padding:6px 13px; border-radius:999px;
+  }
+  nav.toc a:hover{background:#eef2ff}
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:26px 28px; margin:30px 0; box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  section > h2{margin:0 0 4px; font-size:23px; letter-spacing:-.3px}
+  .tagline{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{margin:26px 0 8px; font-size:17px}
+  p{margin:10px 0}
+  .fig{
+    border:1px solid var(--line); border-radius:12px; padding:16px 14px 10px;
+    margin:18px 0 6px; background:#fff;
+  }
+  .fig svg{display:block; width:100%; height:auto}
+  .figcap{font-size:13.5px; color:var(--muted); margin:8px 4px 2px}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:16px 26px; align-items:center;
+    margin:8px 4px 2px; padding:12px 14px; background:#f8fafc;
+    border:1px solid var(--line); border-radius:10px; font-size:14px;
+  }
+  .controls label{display:flex; flex-direction:column; gap:2px; min-width:160px}
+  .controls .vlabel{font-weight:600}
+  .controls input[type=range]{width:170px; accent-color:var(--fc)}
+  .readout{
+    display:inline-flex; gap:14px; flex-wrap:wrap; margin:12px 4px 0;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .chip{
+    background:#f1f5f9; border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:14px;
+  }
+  .readout .chip b{font-size:16px}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; margin:14px 4px 0; align-items:center}
+  .presets button{
+    font:600 13px inherit; border:1px solid #c7d2fe; background:#fff; color:var(--fc);
+    padding:6px 13px; border-radius:8px; cursor:pointer;
+  }
+  .presets button:hover{background:#eef2ff}
+  .presets button.active{background:var(--fc); color:#fff; border-color:var(--fc)}
+  .presets .plabel{font-size:13.5px; color:var(--muted); align-self:center}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; margin:4px 4px 8px}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .swbox{width:16px; height:14px; border-radius:3px; display:inline-block; vertical-align:middle}
+  .key{background:#ecfeff; border-left:4px solid var(--obs); padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0}
+  .key.amber{background:#fffbeb; border-color:var(--miss)}
+  .key.blue{background:#eef2ff; border-color:var(--fc)}
+  .key.red{background:#fef2f2; border-color:var(--now)}
+  .formula{
+    background:#0f172a; color:#e2e8f0; border-radius:10px; padding:14px 18px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:15px; overflow-x:auto; margin:14px 0; line-height:2.1;
+  }
+  .formula .obs{color:#5eead4} .formula .miss{color:#fcd34d} .formula .tot{color:#a5b4fc}
+  .frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .25em}
+  .frac > span:first-child{border-bottom:1px solid currentColor; padding:0 .35em}
+  .frac > span:last-child{padding:0 .35em}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+  th{background:#f8fafc}
+  ul{margin:10px 0; padding-left:22px}
+  li{margin:5px 0}
+  code{background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:14px}
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:10px 0; background:#fff}
+  details[open]{background:#fcfdff}
+  summary{font-weight:600; cursor:pointer}
+  details p{margin:8px 0 2px; font-size:15px}
+  footer{text-align:center; color:var(--muted); font-size:13px; margin-top:40px}
+  a{color:var(--fc)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>Particle filters: propagate, weight, resample</h1>
+  <p>A stochastic model does not give one trajectory per parameter set, so its likelihood is an average over every path the epidemic could have taken. A particle filter estimates that average by simulating paths, weighting them by the data, and keeping the ones the data support. This page runs the filter in front of you and shows what the estimate it returns is, and is not, good for.</p>
+  <nav class="toc">
+    <a href="#integral">The likelihood is an average</a>
+    <a href="#filter">The three steps</a>
+    <a href="#degeneracy">Degeneracy and ESS</a>
+    <a href="#likelihood">The estimate and its bias</a>
+    <a href="#paths">Path degeneracy</a>
+    <a href="#faq">Common questions</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+<!-- ============ 1. WHY THE LIKELIHOOD IS AN AVERAGE ============ -->
+<section id="integral">
+  <h2>The likelihood is an average over paths</h2>
+  <p class="tagline">One parameter set, one trajectory, if the model is deterministic</p>
+  <p>Fitting a deterministic model is easy in one specific way. A parameter set <i>&theta;</i> picks out exactly one trajectory, so the likelihood is one calculation: solve the equations, evaluate the observation model, stop.</p>
+  <p>A stochastic model has a latent path <i>x<sub>1:T</sub></i> that <i>&theta;</i> does not determine. Two runs at the same <i>&theta;</i> take different paths, and we never see which path the real epidemic took. The likelihood of <i>&theta;</i> has to average over all of them, weighted by how probable each is under the model:</p>
+
+  <div class="formula">p(<span class="obs">y<sub>1:T</sub></span> | &theta;) = &Sigma;<sub><span class="miss">x<sub>1:T</sub></span></sub> p(<span class="obs">y<sub>1:T</sub></span> | <span class="miss">x<sub>1:T</sub></span>, &theta;) &middot; p(<span class="miss">x<sub>1:T</sub></span> | &theta;)</div>
+
+  <p>For a deterministic model the second factor is one for a single path and zero everywhere else, and the sum collapses to that one term. For a stochastic model nothing collapses. The figure counts what is left to sum over. Even the crudest count, ignoring the order of events within a day and the states behind them, multiplies by a fresh factor every day.</p>
+
+  <div class="fig">
+    <svg id="f1svg" viewBox="0 0 720 340" role="img" aria-label="Left: a branching tree showing one node splitting into several possible daily case counts, repeated for three days. Right: the number of possible sequences of daily case counts against the number of days, on a log scale, with reference lines for the number of particles a filter can afford and for the number of atoms in the observable universe."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Cases possible per day: 0 to <span id="f1mval">30</span></span>
+      <input id="f1m" type="range" min="1" max="40" step="1" value="30"></label>
+    <label><span class="vlabel">Days of data T: <span id="f1tval">25</span></span>
+      <input id="f1t" type="range" min="2" max="60" step="1" value="25"></label>
+  </div>
+  <div class="presets">
+    <span class="plabel">presets:</span>
+    <button data-f1="5,25">few cases per day</button>
+    <button data-f1="30,25" class="active">the Tristan da Cunha series</button>
+    <button data-f1="30,60">a longer outbreak</button>
+  </div>
+  <div class="readout">
+    <span class="chip">possible case sequences = <b id="f1count">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">particles you can afford &asymp; <b>10<sup>2</sup></b> to <b>10<sup>3</sup></b></span>
+  </div>
+  <p class="figcap">The count shown is the number of distinct sequences of daily case counts. The real path space is larger still, because it also holds the order of events within each day and the unobserved compartment states behind them.</p>
+
+  <p>Enumeration is hopeless, so we sample. Write the sum as an expectation over paths drawn from the model, and estimate it by simulating <i>J</i> of them:</p>
+
+  <div class="formula">p(<span class="obs">y<sub>1:T</sub></span> | &theta;) = E<sub><span class="miss">x</span> &sim; model</sub>[ p(<span class="obs">y<sub>1:T</sub></span> | <span class="miss">x</span>, &theta;) ] &nbsp;&asymp;&nbsp; <span class="frac"><span>1</span><span>J</span></span> &Sigma;<sub>j=1</sub><sup>J</sup> p(<span class="obs">y<sub>1:T</sub></span> | <span class="miss">x<sup>(j)</sup></span>, &theta;)</div>
+
+  <p>That estimate is unbiased and it is also useless. Each simulated path is scored against the whole series at once, so one path that happens to track the data collects almost all of the weight and the rest contribute nothing. The variance of the estimator grows exponentially with the number of observations.</p>
+  <div class="key blue">The particle filter is this same estimator taken <b>one observation at a time</b>, with a resampling step in between that throws effort at the paths still in contention. For a model that forgets its own past, which epidemic models do, that single change makes the variance grow roughly linearly in <i>T</i> instead of exponentially.</div>
+</section>
+
+<!-- ============ 2. THE THREE STEPS ============ -->
+<section id="filter">
+  <h2>Propagate, weight, resample</h2>
+  <p class="tagline">Step through the filter one observation at a time and watch the cloud of particles move</p>
+  <p>A particle is one simulated copy of the epidemic: a full state vector, carried forward in time. The filter keeps <i>J</i> of them and repeats three steps for each day of data.</p>
+  <ul>
+    <li><b>Propagate.</b> Run every particle forward one day under the model, from day <i>t</i>&minus;1 to day <i>t</i>. This is a draw from p(<i>x<sub>t</sub></i> | <i>x<sub>t&minus;1</sub></i>, <i>&theta;</i>), and it uses the model alone. The observation is not consulted, which is what makes this the <b>bootstrap</b> filter.</li>
+    <li><b>Weight.</b> Score each particle by the probability it assigns to today's observation, <i>w<sub>t</sub><sup>(j)</sup></i> = p(<i>y<sub>t</sub></i> | <i>x<sub>t</sub><sup>(j)</sup></i>). A particle predicting 20 cases when 21 were reported scores well. One predicting 60 scores close to zero.</li>
+    <li><b>Resample.</b> Draw <i>J</i> particles with replacement in proportion to those weights. Particles with high weight are copied, particles with low weight disappear, and every survivor goes back to weight 1/<i>J</i>.</li>
+  </ul>
+  <p>The running estimate of the likelihood is built from the weights as we go. Writing <i>W<sub>t&minus;1</sub><sup>(j)</sup></i> for the normalised weights carried into day <i>t</i>, the day's contribution is their weighted average of today's scores:</p>
+
+  <div class="formula">p&#770;(<span class="obs">y<sub>1:T</sub></span> | &theta;) = &prod;<sub>t=1</sub><sup>T</sup> [ &Sigma;<sub>j=1</sub><sup>J</sup> <span class="tot">W<sub>t&minus;1</sub><sup>(j)</sup></span> <span class="miss">w<sub>t</sub><sup>(j)</sup></span> ] &nbsp;&nbsp;&nbsp; <span class="tot">W<sub>0</sub><sup>(j)</sup></span> = 1/J</div>
+
+  <p>After a resampling step every particle carries weight 1/<i>J</i>, so the bracket becomes the plain average <span style="white-space:nowrap">(1/<i>J</i>) &Sigma;<sub>j</sub> <i>w<sub>t</sub><sup>(j)</sup></i></span> that the session quotes. That simpler form is only correct if you resample at every step. If you resample on a threshold instead, the carried weights are not equal and the general form above is the one to use.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--now)"></i> reported cases y<sub>t</sub> (the data)</span>
+    <span><i class="swbox" style="background:var(--miss);opacity:.9"></i> particles, sized by weight</span>
+    <span><i class="swatch" style="border-color:var(--true);opacity:.7"></i> the true reported mean, &rho; &times; incidence</span>
+    <span><i class="swbox" style="background:var(--obs)"></i> weights and offspring counts</span>
+  </div>
+
+  <div class="fig">
+    <svg id="f2svg" viewBox="0 0 720 520" role="img" aria-label="Top: reported cases per day with the true reported mean, the particle cloud at the current day drawn as circles sized by weight, and the filtered cloud on earlier days. Bottom: a bar per particle showing its normalised weight, replaced after resampling by the number of copies it produced."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Particles J: <span id="f2jval">60</span></span>
+      <input id="f2j" type="range" min="10" max="120" step="10" value="60"></label>
+    <label><span class="vlabel">Observation dispersion k: <span id="f2kval">&ge; 150 (Poisson)</span></span>
+      <input id="f2k" type="range" min="0" max="100" step="1" value="100"></label>
+  </div>
+  <div class="presets" id="f2pol">
+    <span class="plabel">resample:</span>
+    <button data-pol="never">never</button>
+    <button data-pol="adaptive" class="active">when ESS &lt; J/2</button>
+    <button data-pol="always">every step</button>
+  </div>
+  <div class="presets">
+    <button id="f2step">step &#9656;</button>
+    <button id="f2play">&#9654; play</button>
+    <button id="f2reset">reset</button>
+    <span class="plabel">presets:</span>
+    <button data-preset="tuned" class="f2pre">well tuned</button>
+    <button data-preset="few" class="f2pre">too few particles</button>
+    <button data-preset="nores" class="f2pre">no resampling</button>
+    <button data-preset="loose" class="f2pre">loose observations</button>
+  </div>
+  <div class="readout">
+    <span class="chip">day t = <b id="f2day">0</b> of 25</span>
+    <span class="chip">step: <b id="f2stage">ready</b></span>
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">ESS = <b id="f2ess">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">log L&#770; so far = <b id="f2ll">0.00</b></span>
+    <span class="chip">resampled <b id="f2nres">0</b>&times;</span>
+  </div>
+  <div class="key">Press <b>step</b> three times to see one day: the cloud moves, then the circles resize as the weights land, then the survivors are copied. With <b>too few particles</b> the cloud misses the observation entirely on the steep days and the filter has nothing good to copy. With <b>no resampling</b> the circles shrink to one visible dot within a few days, which is the failure the next section measures.</div>
+  <p class="figcap">The model here is a chain-binomial SIR on the Tristan da Cunha population: N = 284, S = 279, I = 2, R = 3 on day 0, R<sub>0</sub> = 3, infectious period 3 days, reporting probability &rho; = 0.65. The data are simulated from that model with a fixed seed, so the true reported mean is known and drawn. The practical uses the SEIT4L Gillespie simulator instead. The filter is identical either way, and only the propagate step changes.</p>
+  <p>The dispersion slider changes what the filter believes about reporting. The filter scores particles with a negative binomial of mean <i>&rho;x<sub>t</sub></i> and dispersion <i>k</i>, whose variance is <i>&mu;</i> + <i>&mu;</i><sup>2</sup>/<i>k</i>. At the top of the slider the filter uses the Poisson itself, which is the model the data were generated from. Lowering <i>k</i> tells the filter to expect more scatter than there really is, which flattens the weights and keeps more particles alive. Precise observations are harder for a bootstrap filter, because the model proposes without looking at <i>y<sub>t</sub></i> and a sharp likelihood then rejects nearly everything it proposes.</p>
+</section>
+
+<!-- ============ 3. DEGENERACY AND ESS ============ -->
+<section id="degeneracy">
+  <h2>Degeneracy and the effective sample size</h2>
+  <p class="tagline">Weights multiply, so without resampling one particle wins</p>
+  <p>Skip the resampling step and the weights compound. A particle's weight after <i>t</i> days is the product of its daily scores, so a particle that is slightly better on day 1 starts day 2 ahead, and the gap widens every day. Weight ratios are multiplicative and their spread grows without limit.</p>
+  <p>The standard diagnostic is the effective sample size, from Kong, Liu and Wong (1994). For normalised weights <i>W<sup>(j)</sup></i>:</p>
+
+  <div class="formula">ESS = <span class="frac"><span>1</span><span>&Sigma;<sub>j</sub> (<span class="obs">W<sup>(j)</sup></span>)<sup>2</sup></span></span> = <span class="frac"><span>J</span><span>1 + cv<sup>2</sup>(w)</span></span> &nbsp;&nbsp;&nbsp; 1 &le; ESS &le; J</div>
+
+  <p>ESS equals <i>J</i> when the weights are equal and drops to 1 when a single particle holds all of the weight. The second form says what it is measuring: <i>cv</i> is the coefficient of variation of the unnormalised weights, so ESS falls as soon as the weights become uneven. It is a rough diagnostic rather than a real sample size, and it is blind to a particle set that agrees with itself while being wrong.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--now)"></i> never resample</span>
+    <span><i class="swatch" style="border-color:var(--fc)"></i> resample when ESS &lt; J/2</span>
+    <span><i class="swatch" style="border-color:var(--obs)"></i> resample every step</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> the J/2 threshold</span>
+  </div>
+
+  <div class="fig">
+    <svg id="f3svg" viewBox="0 0 720 380" role="img" aria-label="Left: effective sample size against day for three resampling policies, with the J over 2 threshold marked. Right: the normalised weights on the selected day for the run that never resamples, sorted from largest to smallest."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Particles J: <span id="f3jval">100</span></span>
+      <input id="f3j" type="range" min="20" max="200" step="10" value="100"></label>
+    <label><span class="vlabel">Day shown on the right: <span id="f3dval">10</span></span>
+      <input id="f3d" type="range" min="1" max="25" step="1" value="10"></label>
+  </div>
+  <div class="presets">
+    <span class="plabel">presets:</span>
+    <button data-f3="early">day 3, still healthy</button>
+    <button data-f3="mid" class="active">day 10, collapsing</button>
+    <button data-f3="late">day 22, a handful left</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">ESS, never = <b id="f3en">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">ESS, adaptive = <b id="f3ea">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">ESS, every step = <b id="f3ee">&mdash;</b></span>
+    <span class="chip">largest weight, never = <b id="f3max">&mdash;</b></span>
+    <span class="chip">log L&#770;, one run each: <b id="f3ll">&mdash;</b></span>
+  </div>
+  <p class="figcap">All three lines are the same filter on the same data, differing only in when they resample. The ESS plotted for a day is measured after weighting and before any resampling on that day, which is why the adaptive line saws up and down across the threshold. The red line is plain importance sampling from the model, which is what the filter reduces to when resampling is switched off. The three log-likelihood values in the chips come from one run each, so their ordering means nothing. All three are unbiased estimates of the same quantity and they differ in variance, which takes many runs to see.</p>
+  <div class="key amber">Resampling at every step is not free. When the weights are already near-uniform it copies particles for no reason, which adds variance and destroys diversity. Resampling only when ESS falls below <i>J</i>/2 is the usual compromise, and the threshold is a convention rather than a result.</div>
+</section>
+
+<!-- ============ 4. THE LIKELIHOOD ESTIMATE ============ -->
+<section id="likelihood">
+  <h2>The estimate is unbiased, and its logarithm is not</h2>
+  <p class="tagline">The distinction the next session depends on</p>
+  <p>The filter returns a number, and the sampler in <a href="pmcmc.html">the next session</a> consumes it. What it returns is</p>
+
+  <div class="formula">log p&#770;(<span class="obs">y<sub>1:T</sub></span> | &theta;) = &Sigma;<sub>t=1</sub><sup>T</sup> log [ &Sigma;<sub>j=1</sub><sup>J</sup> <span class="tot">W<sub>t&minus;1</sub><sup>(j)</sup></span> <span class="miss">w<sub>t</sub><sup>(j)</sup></span> ]</div>
+
+  <p>The property that matters is exact and it holds for any number of particles, including <i>J</i> = 1:</p>
+
+  <div class="formula">E[ p&#770;(<span class="obs">y<sub>1:T</sub></span> | &theta;) ] = p(<span class="obs">y<sub>1:T</sub></span> | &theta;)</div>
+
+  <p>The expectation is over the filter's own randomness at fixed <i>&theta;</i> and fixed data. This is the result in Del Moral (2004, Proposition 7.4.1), and it is the reason particle marginal Metropolis-Hastings targets the right posterior (Andrieu, Doucet and Holenstein 2010). More particles do not remove a bias in the likelihood estimate, because there is none. They reduce its variance.</p>
+  <p>The logarithm is a different matter. Jensen's inequality applies to the concave function log, so</p>
+
+  <div class="formula">E[ log p&#770;(y | &theta;) ] &le; log E[ p&#770;(y | &theta;) ] = log p(y | &theta;)</div>
+
+  <p>The log-likelihood estimate is biased <b>low</b>, always, and by more when the estimator is noisier. Under the Gaussian approximation to the error, log <i>p&#770;</i> is centred at log <i>p</i> &minus; <i>&sigma;</i><sup>2</sup>/2 with standard deviation <i>&sigma;</i>, which is exactly the offset that keeps <i>p&#770;</i> itself unbiased. Bérard, Del Moral and Doucet (2014) prove this limit under mixing conditions, with <i>T</i> and <i>J</i> growing together.</p>
+  <p>The figure runs the filter 60 times at the same <i>&theta;</i> and shows both quantities. The mean of the log estimates climbs towards the truth as <i>J</i> grows. The log of the mean of the estimates barely moves, because the mean of the estimates is unbiased for the likelihood at any particle count.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--fc);opacity:.75"></i> the 60 log-likelihood estimates</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> mean of log L&#770; (biased low)</span>
+    <span><i class="swatch" style="border-color:var(--true)"></i> log of the mean of L&#770; (unbiased on the natural scale)</span>
+  </div>
+
+  <div class="fig">
+    <svg id="f4svg" viewBox="0 0 720 660" role="img" aria-label="Top: the per-day contributions to the log-likelihood for one run, with the running total. Middle: a histogram of the log-likelihood estimate over sixty repeated runs, with the mean of the logs and the log of the mean marked. Bottom: both of those quantities against the number of particles, with one standard deviation whiskers."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Particles J: <span id="f4jval">32</span></span>
+      <input id="f4j" type="range" min="0" max="6" step="1" value="3"></label>
+  </div>
+  <div class="presets">
+    <span class="plabel">presets:</span>
+    <button data-f4="0">J = 4, runs die</button>
+    <button data-f4="3" class="active">J = 32</button>
+    <button data-f4="6">J = 256, wasteful</button>
+  </div>
+  <div class="readout">
+    <span class="chip">mean of log L&#770; = <b id="f4mean">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">SD of log L&#770; = <b id="f4sd">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--true);padding-left:10px">log of mean L&#770; = <b id="f4logmean">&mdash;</b></span>
+    <span class="chip">gap = <b id="f4gap">&mdash;</b>, SD&sup2;/2 = <b id="f4half">&mdash;</b></span>
+    <span class="chip">runs that died = <b id="f4dead">&mdash;</b></span>
+  </div>
+  <p class="figcap">Sixty runs at each particle count, all at the same parameters and the same data, differing only in the filter's random draws. A run "dies" when every particle is given weight zero on some day, which returns minus infinity. Those runs are left out of the mean and the standard deviation of the logs, and kept in the mean on the natural scale, where a dead run is an estimate of zero like any other. The log of the mean is itself estimated from those sixty runs, so it wanders a little at small J, where a few runs carry most of the mass.</p>
+
+  <p>Two things to read off. The spread shrinks roughly as 1/&radic;<i>J</i>, so halving the standard deviation costs four times the computation. The gap between the two vertical lines tracks SD<sup>2</sup>/2 once the estimator is not too noisy, which is the Jensen bias made concrete.</p>
+  <p>In this small example a standard deviation of 1 to 3 is reached somewhere around <i>J</i> = 8 to 16. The SEIT4L model in the practical needs closer to 64, because the variance grows with the number of observations and with how tightly the model has to track them.</p>
+  <div class="key blue">Where the 1 to 3 target comes from, and what it costs the sampler to sit outside it, is worked through on the <a href="pmcmc.html#tuning">particle MCMC page</a>.</div>
+</section>
+
+<!-- ============ 5. PATH DEGENERACY ============ -->
+<section id="paths">
+  <h2>Path degeneracy: a good present, a poor past</h2>
+  <p class="tagline">Trace the surviving particles backwards and they collapse onto one ancestor</p>
+  <p>Resampling fixes the weights and creates a second problem in their place. Every copy made at day <i>t</i> shares its entire history before <i>t</i> with its parent. Lineages die and are never recreated, so the number of distinct ancestors of the current particle set falls monotonically as you look further back, and eventually reaches one. How far back that takes depends on <i>J</i>. At <i>J</i> = 10 the collapse is complete well inside these 25 days. At <i>J</i> = 80 the count is still above one on day 1, and it is already down to a small fraction of <i>J</i>.</p>
+  <p>The figure runs the filter, keeps the ancestry, and traces the final particles backwards. Slots are drawn in parent order so a family stays together, which is presentation only and does not change the algorithm.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--fc)"></i> lineages that survive to day 25</span>
+    <span><i class="swatch" style="border-color:var(--true);opacity:.35"></i> lineages that died out</span>
+    <span><i class="swatch" style="border-color:var(--now)"></i> distinct ancestors of the final set</span>
+  </div>
+
+  <div class="fig">
+    <svg id="f5svg" viewBox="0 0 720 440" role="img" aria-label="Top: the ancestry of the particle set drawn as a genealogy, with surviving lineages highlighted and extinct ones faded. Bottom: the number of distinct ancestors of the final particle set against day, falling towards one as you look further back."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Particles J: <span id="f5jval">40</span></span>
+      <input id="f5j" type="range" min="10" max="80" step="10" value="40"></label>
+    <label><span class="vlabel">Trace back from day: <span id="f5tval">25</span></span>
+      <input id="f5t" type="range" min="5" max="25" step="1" value="25"></label>
+  </div>
+  <div class="presets">
+    <span class="plabel">presets:</span>
+    <button data-f5="10">J = 10</button>
+    <button data-f5="40" class="active">J = 40</button>
+    <button data-f5="80">J = 80</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">distinct ancestors on day 1 = <b id="f5anc1">&mdash;</b></span>
+    <span class="chip">single common ancestor: <b id="f5mrca">&mdash;</b></span>
+    <span class="chip">distinct ancestors 5 days back = <b id="f5anc5">&mdash;</b></span>
+  </div>
+  <p class="figcap">Raising J pushes the collapse further back but does not prevent it. The whole ancestry is cheap to keep for the same reason: Jacob, Murray and Rubenthaler (2015) show the tree has expected size of order <i>J</i> log <i>J</i> nodes under mixing conditions, because almost all of it is a single trunk.</p>
+
+  <p>The consequence is specific. The filter gives a decent sample of the state <b>now</b>, at the final observation, because those particles were resampled recently and are still distinct. It gives a bad sample of the state <b>early on</b>, because all the surviving particles inherited that part of the path from one ancestor. Anything you compute from the early part of the stored trajectories has an effective sample size close to one, whatever the ESS chip said at the time.</p>
+  <div class="key red">This is why you do not draw many latent paths from one filter run. In particle MCMC the filter is re-run at every iteration, and a single lineage is drawn from each run. The posterior over paths is built up across iterations of the sampler, and each contributing path comes from an independent filter.</div>
+  <p>Smoothing algorithms exist for the cases where the early path is the target. Fixed-lag smoothing accepts a small bias for a large variance reduction, backward simulation resamples the path after the forward pass, and ancestor sampling repairs the same problem inside particle Gibbs (Lindsten, Jordan and Schön 2014). None of them is needed to fit parameters, which is why the course does not reach for them.</p>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <h2>Common questions</h2>
+  <p class="tagline">The ones that come up in the practical</p>
+
+  <details><summary>Why does resampling not throw information away?</summary>
+  <p>The particles it deletes had negligible weight, so they were contributing almost nothing to any average. Their contribution to the likelihood has already been banked in the running product before they are deleted. What resampling costs is diversity in the stored paths, which is the subject of the path degeneracy section.</p></details>
+
+  <details><summary>Why is my log-likelihood estimate different every run?</summary>
+  <p>The estimate is a Monte Carlo average over the particles, and the particles are random. Nothing about the data or the parameters has changed. Set the seed to reproduce a run, and increase <i>J</i> to reduce the spread.</p></details>
+
+  <details><summary>How many particles do I need?</summary>
+  <p>Enough that the standard deviation of the log-likelihood estimate is around 1 to 3 at a parameter set near the posterior mode. Measure it by running the filter 100 or more times at fixed parameters and taking the standard deviation of the results. The number that works at one parameter set will be too small elsewhere, so leave headroom.</p></details>
+
+  <details><summary>Can I average several log-likelihood estimates to reduce the noise?</summary>
+  <p>Averaging the logs keeps the downward bias of a single run while hiding it behind a tighter spread. Average the estimates on the natural scale instead. That average is still unbiased for the likelihood, which is the property particle MCMC needs, and its logarithm carries the same low bias in smaller measure. Averaging R runs costs the same as one filter with R times as many particles, and the single larger filter is the better estimator, so spend the budget there.</p></details>
+
+  <details><summary>Is the bootstrap filter the only option?</summary>
+  <p>No. It proposes from the model alone, which is simple and needs nothing beyond a simulator. Guided and auxiliary filters propose using the current observation, so their particles are aimed at the data before they are weighted. They help most when the observations are precise, which is exactly when the bootstrap filter wastes particles.</p></details>
+
+  <details><summary>Why does the filter degenerate faster with more data?</summary>
+  <p>Each observation multiplies the weights again, so the variance of the log-likelihood estimate grows roughly linearly with the number of observations. A particle count calibrated on 30 days will not hold up on 300 days at the same standard deviation.</p></details>
+
+  <details><summary>Does resampling at every step hurt?</summary>
+  <p>It adds variance whenever the weights are already close to uniform, since it copies and deletes particles for no gain. It also accelerates path degeneracy. Resampling when ESS falls below <i>J</i>/2 avoids both, and the likelihood estimate stays unbiased under either policy.</p></details>
+
+  <details><summary>My filter returned minus infinity. What happened?</summary>
+  <p>Every particle was given weight zero on some day, which happens when no simulated particle can produce that day's observation at all. A Poisson observation model with a particle predicting zero cases and a positive count observed does exactly this. More particles, a looser observation model, or a model that can reach the data will each fix it, and only the last of those fixes the underlying problem.</p></details>
+</section>
+
+<footer>Built as a teaching aid for the MFIIDD particle filter session. Every figure runs its own seeded filter in the page. Sources: Del Moral (2004) <i>Feynman-Kac Formulae</i>; Andrieu, Doucet and Holenstein (2010) <i>JRSS-B</i> 72(3) 269-342; Doucet and Johansen (2009) tutorial on particle filtering and smoothing; Kong, Liu and Wong (1994) <i>JASA</i> 89(425) 278-288; Pitt, Silva, Giordani and Kohn (2012) <i>J. Econometrics</i> 171(2) 134-151; Bérard, Del Moral and Doucet (2014) <i>Electron. J. Probab.</i> 19(94); Jacob, Murray and Rubenthaler (2015) <i>Stat. Comput.</i> 25, on path storage in the particle filter; Lindsten, Jordan and Schön (2014) <i>JMLR</i> 15 2145-2184.</footer>
+
+</div>
+
+<script>
+/* ================= shared numerics ================= */
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    var t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+var LGC=[76.18009172947146,-86.50532032941677,24.01409824083091,
+         -1.231739572450155,0.1208650973866179e-2,-0.5395239384953e-5];
+function logGamma(x){
+  var y=x, tmp=x+5.5, ser=1.000000000190015, j;
+  tmp-=(x+0.5)*Math.log(tmp);
+  for(j=0;j<6;j++) ser+=LGC[j]/++y;
+  return -tmp+Math.log(2.5066282746310005*ser/x);
+}
+/* binomial by inversion; the expected number of steps is n*p */
+function rbinom(rng,n,p){
+  if(n<=0||p<=0) return 0;
+  if(p>=1) return n;
+  var q=Math.pow(1-p,n), s=q, u=rng(), k=0, r=p/(1-p);
+  while(u>s){
+    k++;
+    if(k>n) return n;
+    q*=r*(n-k+1)/k; s+=q;
+    if(!isFinite(s)) return k;
+  }
+  return k;
+}
+function rpois(rng,lam){
+  if(lam<=0) return 0;
+  if(lam<30){
+    var L=Math.exp(-lam), k=0, p=1;
+    do{ k++; p*=rng(); } while(p>L);
+    return k-1;
+  }
+  var u1=rng(), u2=rng();
+  return Math.max(0,Math.round(lam+Math.sqrt(lam)*Math.sqrt(-2*Math.log(u1))*Math.cos(2*Math.PI*u2)));
+}
+var SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs){ var e=document.createElementNS(SVGNS,tag); for(var k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+function tx(svg,attrs,s){ var e=el("text",attrs); e.textContent=s; svg.appendChild(e); return e; }
+function fmtPow(x){ /* x is a base-10 logarithm */
+  if(x<3) return Math.round(Math.pow(10,x)).toString();
+  return "10<sup>"+x.toFixed(1)+"</sup>";
+}
+
+/* ================= the model and the data ================= */
+var NPOP=284, S0=279, I0=2, R0I=3;      /* the island as the ship lands */
+var R0=3, DINF=3, RHO=0.65, BETA=R0/DINF, TDAYS=25;
+var POISLIM=150;                        /* dispersion at or above this is treated as Poisson */
+
+function stepSIR(rng,st){
+  var pInf=1-Math.exp(-BETA*st[1]/NPOP), pRem=1-Math.exp(-1/DINF);
+  var inf=rbinom(rng,st[0],pInf), rem=rbinom(rng,st[1],pRem);
+  return [[st[0]-inf, st[1]+inf-rem, st[2]+rem], inf];
+}
+function simulateTruth(seed){
+  var rng=mulberry32(seed), st=[S0,I0,R0I], inc=[], obs=[], t, r;
+  for(t=0;t<TDAYS;t++){ r=stepSIR(rng,st); st=r[0]; inc.push(r[1]); obs.push(rpois(rng,RHO*r[1])); }
+  return {inc:inc,obs:obs};
+}
+var TRUTH=simulateTruth(35), OBS=TRUTH.obs;
+
+/* observation model: negative binomial with mean rho*x and dispersion k,
+   which tends to the Poisson used to generate the data as k grows. */
+function obsTable(k){
+  return OBS.map(function(y){
+    return k>=POISLIM ? -logGamma(y+1) : logGamma(y+k)-logGamma(k)-logGamma(y+1);
+  });
+}
+function logWeight(y,mu,k,c){
+  if(mu<=0) return y===0?0:-Infinity;
+  return k>=POISLIM ? c+y*Math.log(mu)-mu
+                    : c+k*Math.log(k/(k+mu))+y*Math.log(mu/(k+mu));
+}
+/* multinomial resampling by uniform spacings; offspring come out in parent
+   order, which only affects how the genealogy is drawn */
+function resampleIdx(rng,W,J){
+  var u=new Float64Array(J), s=0, i, j=0, cum=0;
+  for(i=0;i<J;i++){ s+=-Math.log(rng()); u[i]=s; }
+  s+=-Math.log(rng());
+  for(i=0;i<J;i++) u[i]/=s;
+  var idx=new Int32Array(J);
+  for(i=0;i<J;i++){
+    cum+=W[i];
+    while(j<J && u[j]<=cum){ idx[j]=i; j++; }
+  }
+  while(j<J){ idx[j]=J-1; j++; }
+  return idx;
+}
+/* one complete run of the bootstrap filter */
+function runFilter(seed,J,policy,k,keep){
+  var rng=mulberry32(seed), tab=obsTable(k), st=[], i, t;
+  for(i=0;i<J;i++) st.push([S0,I0,R0I]);
+  var W=new Float64Array(J); for(i=0;i<J;i++) W[i]=1/J;
+  var logL=0, ess=[], incs=[], anc=[], resamp=[], wts=[], preds=[];
+  for(t=0;t<TDAYS;t++){
+    var pred=new Float64Array(J), lw=new Float64Array(J), mx=-Infinity, r;
+    for(i=0;i<J;i++){
+      r=stepSIR(rng,st[i]); st[i]=r[0]; pred[i]=r[1];
+      lw[i]=logWeight(OBS[t],RHO*pred[i],k,tab[t]);
+      if(lw[i]>mx) mx=lw[i];
+    }
+    if(mx===-Infinity) return {logL:-Infinity,dead:t,ess:ess,incs:incs,anc:anc,resamp:resamp,wts:wts,preds:preds};
+    var nw=new Float64Array(J), s=0;
+    for(i=0;i<J;i++){ nw[i]=W[i]*Math.exp(lw[i]-mx); s+=nw[i]; }
+    var inc=Math.log(s)+mx; logL+=inc; incs.push(inc);
+    var e=0;
+    for(i=0;i<J;i++){ nw[i]/=s; e+=nw[i]*nw[i]; }
+    e=1/e; ess.push(e);
+    if(keep){ wts.push(Array.prototype.slice.call(nw)); preds.push(Array.prototype.slice.call(pred)); }
+    var doR = policy==="always" || (policy==="adaptive" && e<J/2);
+    resamp.push(doR);
+    if(doR){
+      var idx=resampleIdx(rng,nw,J), ns=[];
+      for(i=0;i<J;i++) ns.push(st[idx[i]].slice());
+      st=ns; W=new Float64Array(J); for(i=0;i<J;i++) W[i]=1/J;
+      if(keep) anc.push(Array.prototype.slice.call(idx));
+    } else {
+      W=nw;
+      if(keep){ var id=[]; for(i=0;i<J;i++) id.push(i); anc.push(id); }
+    }
+  }
+  return {logL:logL,dead:-1,ess:ess,incs:incs,anc:anc,resamp:resamp,wts:wts,preds:preds};
+}
+
+/* ================= FIGURE 1 : the size of the path space ================= */
+(function(){
+  var svg=document.getElementById("f1svg");
+  var mI=document.getElementById("f1m"), tI=document.getElementById("f1t");
+
+  function draw(){
+    var m=+mI.value, T=+tI.value;
+    document.getElementById("f1mval").textContent=m;
+    document.getElementById("f1tval").textContent=T;
+    clear(svg);
+
+    /* ---- left: a small branching tree ---- */
+    var b=Math.min(m+1,5), L={x0:34,x1:250,y0:60,y1:300};
+    tx(svg,{x:L.x0,y:40,"font-size":12.5,"font-weight":700,fill:"#1f2933"},"one particle, "+b+" of the outcomes");
+    var dx=(L.x1-L.x0)/3, mid=(L.y0+L.y1)/2;
+    var nodes=[{x:L.x0,y:mid,spread:(L.y1-L.y0)/2}];
+    svg.appendChild(el("circle",{cx:L.x0,cy:mid,r:4,fill:"#64748b"}));
+    for(var d=1;d<=3;d++){
+      var next=[], ni, bi;
+      for(ni=0;ni<nodes.length;ni++){
+        var n=nodes[ni], sp=n.spread;
+        for(bi=0;bi<b;bi++){
+          var yy=b===1?n.y:n.y-sp+2*sp*bi/(b-1);
+          yy=Math.max(L.y0-6,Math.min(L.y1+6,yy));
+          svg.appendChild(el("line",{x1:n.x,y1:n.y,x2:n.x+dx,y2:yy,
+            stroke:"#f59e0b","stroke-width":d===1?1.3:0.6,opacity:d===1?0.85:0.4}));
+          if(d<3) next.push({x:n.x+dx,y:yy,spread:sp/(b>1?b*0.9:1)});
+          if(d<=2) svg.appendChild(el("circle",{cx:n.x+dx,cy:yy,r:d===1?3:1.8,
+            fill:"#f59e0b",opacity:d===1?0.9:0.5}));
+        }
+      }
+      nodes=next;
+      if(nodes.length>60) nodes=nodes.slice(0,60);
+    }
+    tx(svg,{x:L.x0,y:322,"font-size":10.5,fill:"#6b7280"},"day 1");
+    tx(svg,{x:L.x0+dx,y:322,"font-size":10.5,fill:"#6b7280"},"day 2");
+    tx(svg,{x:L.x0+2*dx,y:322,"font-size":10.5,fill:"#6b7280"},"day 3");
+
+    /* ---- right: log10 of the number of sequences against T ---- */
+    var R={x0:310,x1:706,y0:60,y1:300};
+    var per=Math.log(m+1)/Math.LN10, top=Math.max(per*T,3)*1.12;
+    var sx=function(t){ return R.x0+(t/T)*(R.x1-R.x0); };
+    var sy=function(v){ return R.y1-(v/top)*(R.y1-R.y0); };
+    var ttl=tx(svg,{x:R.x0,y:40,"font-size":12.5,"font-weight":700,fill:"#1f2933"},"sequences of daily case counts, (m+1)");
+    var tsup=el("tspan",{"font-size":9,dy:-5}); tsup.textContent="T"; ttl.appendChild(tsup);
+    svg.appendChild(el("line",{x1:R.x0,y1:R.y1,x2:R.x1,y2:R.y1,stroke:"#cbd5e1"}));
+    svg.appendChild(el("line",{x1:R.x0,y1:R.y0,x2:R.x0,y2:R.y1,stroke:"#cbd5e1"}));
+    var gstep=Math.max(1,Math.ceil(top/6));
+    for(var g=0;g<=top;g+=gstep){
+      svg.appendChild(el("line",{x1:R.x0,y1:sy(g),x2:R.x1,y2:sy(g),stroke:"#eef2f7"}));
+      var lab=tx(svg,{x:R.x0-6,y:sy(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},"10");
+      var sup=el("tspan",{"font-size":7.5,dy:-4});
+      sup.textContent=g; lab.appendChild(sup);
+    }
+    var path="";
+    for(var t=0;t<=T;t++) path+=(t?" L ":"M ")+sx(t)+" "+sy(per*t);
+    svg.appendChild(el("path",{d:path+" L "+sx(T)+" "+sy(0)+" L "+sx(0)+" "+sy(0)+" Z",
+      fill:"#4f46e5","fill-opacity":0.10}));
+    svg.appendChild(el("path",{d:path,fill:"none",stroke:"#4f46e5","stroke-width":2.4}));
+    /* reference lines */
+    if(top>3){
+      svg.appendChild(el("line",{x1:R.x0,y1:sy(3),x2:R.x1,y2:sy(3),stroke:"#f59e0b",
+        "stroke-width":1.6,"stroke-dasharray":"5 4"}));
+      tx(svg,{x:R.x1,y:sy(3)-5,"text-anchor":"end","font-size":10.5,fill:"#b45309"},"1000 particles");
+    }
+    if(top>80){
+      svg.appendChild(el("line",{x1:R.x0,y1:sy(80),x2:R.x1,y2:sy(80),stroke:"#64748b",
+        "stroke-width":1.4,"stroke-dasharray":"3 4"}));
+      tx(svg,{x:R.x1,y:sy(80)-5,"text-anchor":"end","font-size":10.5,fill:"#475569"},"atoms in the observable universe");
+    }
+    for(var q=0;q<=T;q+=Math.max(1,Math.round(T/5)))
+      tx(svg,{x:sx(q),y:R.y1+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},q);
+    tx(svg,{x:(R.x0+R.x1)/2,y:R.y1+34,"text-anchor":"middle","font-size":12,fill:"#374151"},"days of data T");
+
+    document.getElementById("f1count").innerHTML=fmtPow(per*T);
+  }
+  mI.addEventListener("input",draw); tI.addEventListener("input",draw);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-f1]"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll("[data-f1]"),function(x){
+        x.classList.toggle("active",x===b); });
+      var v=b.dataset.f1.split(",");
+      mI.value=v[0]; tI.value=v[1]; draw();
+    });
+  });
+  draw();
+})();
+
+/* ================= FIGURE 2 : propagate, weight, resample ================= */
+(function(){
+  var svg=document.getElementById("f2svg");
+  var jI=document.getElementById("f2j"), kI=document.getElementById("f2k");
+  var W=720, A={l:46,r:16,t:52,h:220}, B={l:46,r:16,t:352,h:120};
+  var policy="adaptive", timer=null, S=null;
+
+  function kValue(){ return Math.exp((+kI.value)/100*Math.log(200)); }
+
+  function fresh(){
+    var J=+jI.value, k=kValue(), i;
+    var st=[]; for(i=0;i<J;i++) st.push([S0,I0,R0I]);
+    var Wv=new Float64Array(J); for(i=0;i<J;i++) Wv[i]=1/J;
+    return {J:J,k:k,tab:obsTable(k),rng:mulberry32(20250907),st:st,W:Wv,
+            t:0,stage:"ready",logL:0,ess:null,pred:null,counts:null,
+            hist:[],nres:0,dead:false};
+  }
+  /* open on day 1 already weighted, so both panels have something in them */
+  function reset(){ stop(); S=fresh(); advance(); advance(); }
+
+  function advance(){
+    if(!S||S.dead) return;
+    var J=S.J, i;
+    if(S.stage==="ready"||S.stage==="resample"){
+      if(S.t>=TDAYS){ stop(); return; }
+      var pred=new Float64Array(J), r;
+      for(i=0;i<J;i++){ r=stepSIR(S.rng,S.st[i]); S.st[i]=r[0]; pred[i]=r[1]; }
+      S.pred=pred; S.t++; S.stage="propagate"; S.counts=null;
+    } else if(S.stage==="propagate"){
+      var lw=new Float64Array(J), mx=-Infinity;
+      for(i=0;i<J;i++){
+        lw[i]=logWeight(OBS[S.t-1],RHO*S.pred[i],S.k,S.tab[S.t-1]);
+        if(lw[i]>mx) mx=lw[i];
+      }
+      if(mx===-Infinity){ S.dead=true; S.stage="weight"; stop(); draw(); return; }
+      var nw=new Float64Array(J), s=0;
+      for(i=0;i<J;i++){ nw[i]=S.W[i]*Math.exp(lw[i]-mx); s+=nw[i]; }
+      S.logL+=Math.log(s)+mx;
+      var e=0;
+      for(i=0;i<J;i++){ nw[i]/=s; e+=nw[i]*nw[i]; }
+      S.W=nw; S.ess=1/e; S.stage="weight";
+      S.hist.push({t:S.t,pred:Array.prototype.slice.call(S.pred),
+                   W:Array.prototype.slice.call(nw)});
+    } else if(S.stage==="weight"){
+      var doR = policy==="always" || (policy==="adaptive" && S.ess<S.J/2);
+      if(doR){
+        var idx=resampleIdx(S.rng,S.W,J), ns=[], c=new Int32Array(J);
+        for(i=0;i<J;i++){ ns.push(S.st[idx[i]].slice()); c[idx[i]]++; }
+        S.st=ns; S.counts=c; S.nres++;
+        S.W=new Float64Array(J); for(i=0;i<J;i++) S.W[i]=1/J;
+      } else { S.counts=null; }
+      S.didResample=doR; S.stage="resample";
+    }
+    draw();
+  }
+
+  function draw(){
+    var J=S.J, k=S.k, i;
+    document.getElementById("f2jval").textContent=J;
+    document.getElementById("f2kval").textContent=k>=POISLIM?"≥ 150 (Poisson)":k.toFixed(1);
+    clear(svg);
+
+    /* ---- panel A: the series and the particle cloud ---- */
+    var aw=W-A.l-A.r, aBase=A.t+A.h, ymax=50;
+    var sx=function(t){ return A.l+(t-0.5)/TDAYS*aw; };
+    var sy=function(v){ return aBase-Math.min(v,ymax)/ymax*A.h; };
+    tx(svg,{x:A.l,y:A.t-28,"font-size":13,"font-weight":700,fill:"#1f2933"},
+      "Reported cases per day, and where the particles think they are");
+    tx(svg,{x:A.l,y:A.t-11,"font-size":11.5,fill:"#6b7280"},
+      S.dead?"every particle scored zero: the filter has died"
+            :(S.stage==="ready"?"press step to propagate day 1"
+              :S.stage==="propagate"?"propagated to day "+S.t+", no weights yet"
+              :S.stage==="weight"?"weighted against y = "+OBS[S.t-1]
+              :(S.didResample?"resampled: survivors copied, weights back to 1/J"
+                             :"no resample this step, weights carried forward")));
+    for(var g=0;g<=ymax;g+=10){
+      svg.appendChild(el("line",{x1:A.l,y1:sy(g),x2:W-A.r,y2:sy(g),stroke:"#eef2f7"}));
+      tx(svg,{x:A.l-6,y:sy(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},g);
+    }
+    svg.appendChild(el("line",{x1:A.l,y1:aBase,x2:W-A.r,y2:aBase,stroke:"#cbd5e1"}));
+    /* the true reported mean */
+    var tp="";
+    for(i=0;i<TDAYS;i++) tp+=(i?" L ":"M ")+sx(i+1)+" "+sy(RHO*TRUTH.inc[i]);
+    svg.appendChild(el("path",{d:tp,fill:"none",stroke:"#64748b","stroke-width":2,opacity:.5}));
+    /* the filtered cloud on earlier days */
+    for(var h=0;h<S.hist.length-1;h++){
+      var rec=S.hist[h];
+      for(i=0;i<rec.pred.length;i++)
+        svg.appendChild(el("circle",{cx:sx(rec.t),cy:sy(RHO*rec.pred[i]),r:1.5,
+          fill:"#f59e0b",opacity:0.18}));
+    }
+    /* the data */
+    for(i=0;i<TDAYS;i++){
+      var done=i<S.t, xx=sx(i+1), yy=sy(OBS[i]);
+      svg.appendChild(el("path",{d:"M "+xx+" "+(yy-4.6)+" L "+(xx+4.6)+" "+yy+" L "+xx+" "+(yy+4.6)+" L "+(xx-4.6)+" "+yy+" Z",
+        fill:done?"#dc2626":"#fff",stroke:"#dc2626","stroke-width":1.4,opacity:done?0.95:0.55}));
+    }
+    /* the current cloud */
+    if(S.pred){
+      var xNow=sx(S.t);
+      svg.appendChild(el("line",{x1:xNow,y1:A.t-4,x2:xNow,y2:aBase,stroke:"#94a3b8",
+        "stroke-width":1,"stroke-dasharray":"3 3"}));
+      var sized=(S.stage==="weight");
+      for(i=0;i<J;i++){
+        var v=RHO*S.pred[i], clipped=v>ymax;
+        var rr=sized?Math.max(1.4,Math.min(9,1.4+5.2*Math.sqrt(Math.min(S.W[i]*J,25))/2.6)):3;
+        svg.appendChild(el("circle",{cx:xNow+(i%5-2)*1.1,cy:sy(v),r:rr,
+          fill:"#f59e0b",opacity:clipped?0.25:0.62,stroke:"#b45309","stroke-width":0.4}));
+      }
+    }
+    for(var q=5;q<=TDAYS;q+=5) tx(svg,{x:sx(q),y:aBase+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},q);
+    tx(svg,{x:(A.l+W-A.r)/2,y:aBase+34,"text-anchor":"middle","font-size":12,fill:"#374151"},"day");
+
+    /* ---- panel B: weights, then offspring counts ---- */
+    var bBase=B.t+B.h, bw=(W-B.l-B.r)/J;
+    var showCounts=(S.stage==="resample"&&S.counts);
+    tx(svg,{x:B.l,y:B.t-14,"font-size":13,"font-weight":700,fill:"#1f2933"},
+      showCounts?"Copies made of each particle":"Normalised weight of each particle");
+    svg.appendChild(el("line",{x1:B.l,y1:bBase,x2:W-B.r,y2:bBase,stroke:"#cbd5e1"}));
+    if(S.stage==="ready"||S.stage==="propagate"){
+      tx(svg,{x:(B.l+W-B.r)/2,y:bBase-B.h/2,"text-anchor":"middle","font-size":12.5,
+        fill:"#94a3b8"},"weights are computed in the next step");
+    } else if(showCounts){
+      var cmax=1; for(i=0;i<J;i++) if(S.counts[i]>cmax) cmax=S.counts[i];
+      for(i=0;i<J;i++){
+        var ch=S.counts[i]/cmax*B.h;
+        svg.appendChild(el("rect",{x:B.l+i*bw+0.5,y:bBase-ch,width:Math.max(bw-1,0.8),
+          height:ch,fill:S.counts[i]?"#0891b2":"#e2e8f0",opacity:0.85}));
+      }
+      var zero=0; for(i=0;i<J;i++) if(!S.counts[i]) zero++;
+      tx(svg,{x:W-B.r,y:B.t-14,"text-anchor":"end","font-size":11.5,fill:"#6b7280"},
+        zero+" of "+J+" particles left no copies, largest family "+cmax);
+    } else {
+      var wmax=0; for(i=0;i<J;i++) if(S.W[i]>wmax) wmax=S.W[i];
+      for(i=0;i<J;i++){
+        var wh=wmax>0?S.W[i]/wmax*B.h:0;
+        svg.appendChild(el("rect",{x:B.l+i*bw+0.5,y:bBase-wh,width:Math.max(bw-1,0.8),
+          height:wh,fill:"#0891b2",opacity:0.8}));
+      }
+      svg.appendChild(el("line",{x1:B.l,y1:bBase-(1/J)/(wmax||1)*B.h,x2:W-B.r,
+        y2:bBase-(1/J)/(wmax||1)*B.h,stroke:"#dc2626","stroke-width":1.2,"stroke-dasharray":"4 3"}));
+      tx(svg,{x:W-B.r,y:bBase-(1/J)/(wmax||1)*B.h-5,"text-anchor":"end","font-size":10.5,
+        fill:"#dc2626"},"equal weight 1/J");
+    }
+    tx(svg,{x:(B.l+W-B.r)/2,y:bBase+30,"text-anchor":"middle","font-size":12,fill:"#374151"},"particle index");
+
+    /* ---- readouts ---- */
+    document.getElementById("f2day").textContent=S.t;
+    document.getElementById("f2stage").textContent=
+      S.dead?"filter died":(S.stage==="ready"?"ready":S.stage);
+    document.getElementById("f2ess").textContent=
+      S.ess?S.ess.toFixed(1)+" of "+J+" ("+Math.round(100*S.ess/J)+"%)":"—";
+    document.getElementById("f2ll").textContent=S.dead?"−∞":S.logL.toFixed(2);
+    document.getElementById("f2nres").textContent=S.nres;
+  }
+
+  function stop(){ if(timer){ clearInterval(timer); timer=null;
+    document.getElementById("f2play").innerHTML="&#9654; play"; } }
+  document.getElementById("f2step").addEventListener("click",function(){ stop(); advance(); });
+  document.getElementById("f2reset").addEventListener("click",reset);
+  document.getElementById("f2play").addEventListener("click",function(){
+    if(timer){ stop(); return; }
+    this.innerHTML="&#10073;&#10073; pause";
+    timer=setInterval(function(){
+      if(S.dead||(S.t>=TDAYS&&S.stage==="resample")){ stop(); return; }
+      advance();
+    },420);
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#f2pol button"),function(b){
+    b.addEventListener("click",function(){
+      policy=b.dataset.pol;
+      Array.prototype.forEach.call(document.querySelectorAll("#f2pol button"),function(x){
+        x.classList.toggle("active",x===b); });
+      reset();
+    });
+  });
+  function setPolicy(p){
+    policy=p;
+    Array.prototype.forEach.call(document.querySelectorAll("#f2pol button"),function(x){
+      x.classList.toggle("active",x.dataset.pol===p); });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll(".f2pre"),function(b){
+    b.addEventListener("click",function(){
+      var p=b.dataset.preset;
+      Array.prototype.forEach.call(document.querySelectorAll(".f2pre"),function(x){
+        x.classList.toggle("active",x===b); });
+      if(p==="tuned"){ jI.value=60; kI.value=100; setPolicy("adaptive"); }
+      if(p==="few"){ jI.value=10; kI.value=100; setPolicy("adaptive"); }
+      if(p==="nores"){ jI.value=60; kI.value=100; setPolicy("never"); }
+      if(p==="loose"){ jI.value=60; kI.value=20; setPolicy("adaptive"); }
+      reset();
+    });
+  });
+  jI.addEventListener("input",reset);
+  kI.addEventListener("input",reset);
+  reset();
+})();
+
+/* ================= FIGURE 3 : degeneracy and ESS ================= */
+(function(){
+  var svg=document.getElementById("f3svg");
+  var jI=document.getElementById("f3j"), dI=document.getElementById("f3d");
+  var W=720, L={l:48,r:14,t:52,h:250,w:400}, K=200;
+
+  function draw(){
+    var J=+jI.value, day=+dI.value, i;
+    document.getElementById("f3jval").textContent=J;
+    document.getElementById("f3dval").textContent=day;
+    clear(svg);
+    var never=runFilter(777,J,"never",K,true);
+    var adapt=runFilter(777,J,"adaptive",K,false);
+    var every=runFilter(777,J,"always",K,false);
+
+    /* ---- left: ESS against day ---- */
+    var base=L.t+L.h, sx=function(t){ return L.l+(t-1)/(TDAYS-1)*(L.w-L.l); };
+    var sy=function(v){ return base-v/J*L.h; };
+    tx(svg,{x:L.l,y:L.t-28,"font-size":13,"font-weight":700,fill:"#1f2933"},"Effective sample size, day by day");
+    tx(svg,{x:L.l,y:L.t-11,"font-size":11.5,fill:"#6b7280"},"same seed and data, three policies");
+    for(var g=0;g<=J;g+=Math.max(10,Math.round(J/5/10)*10)){
+      svg.appendChild(el("line",{x1:L.l,y1:sy(g),x2:L.w,y2:sy(g),stroke:"#eef2f7"}));
+      tx(svg,{x:L.l-6,y:sy(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},g);
+    }
+    svg.appendChild(el("line",{x1:L.l,y1:base,x2:L.w,y2:base,stroke:"#cbd5e1"}));
+    svg.appendChild(el("line",{x1:L.l,y1:sy(J/2),x2:L.w,y2:sy(J/2),stroke:"#64748b",
+      "stroke-width":1.4,"stroke-dasharray":"5 4"}));
+    tx(svg,{x:L.w,y:sy(J/2)-5,"text-anchor":"end","font-size":10.5,fill:"#475569"},"J/2");
+    function line(res,col,wid){
+      var d="";
+      for(i=0;i<res.ess.length;i++) d+=(i?" L ":"M ")+sx(i+1)+" "+sy(res.ess[i]);
+      if(d) svg.appendChild(el("path",{d:d,fill:"none",stroke:col,"stroke-width":wid,opacity:0.9}));
+    }
+    line(every,"#0891b2",2);
+    line(adapt,"#4f46e5",2);
+    line(never,"#dc2626",2.4);
+    svg.appendChild(el("line",{x1:sx(day),y1:L.t-4,x2:sx(day),y2:base,stroke:"#94a3b8",
+      "stroke-width":1.2,"stroke-dasharray":"3 3"}));
+    for(var q=5;q<=TDAYS;q+=5) tx(svg,{x:sx(q),y:base+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},q);
+    tx(svg,{x:(L.l+L.w)/2,y:base+34,"text-anchor":"middle","font-size":12,fill:"#374151"},"day");
+
+    /* ---- right: the sorted weights on the chosen day, never resampling ---- */
+    var Rp={l:446,r:14,t:L.t,h:L.h};
+    var rBase=Rp.t+Rp.h, rw=W-Rp.l-Rp.r;
+    tx(svg,{x:Rp.l,y:L.t-28,"font-size":13,"font-weight":700,fill:"#1f2933"},"Weights on day "+day);
+    tx(svg,{x:Rp.l,y:L.t-11,"font-size":11.5,fill:"#6b7280"},"never resampled, sorted largest first");
+    var wRec=never.wts[day-1];
+    if(!wRec){
+      tx(svg,{x:Rp.l,y:rBase-Rp.h/2,"font-size":12.5,fill:"#94a3b8"},"the filter died before this day");
+      document.getElementById("f3max").textContent="—";
+    } else {
+      var ws=wRec.slice().sort(function(a,b){ return b-a; });
+      var wmax=ws[0], bw=rw/J;
+      for(i=0;i<J;i++){
+        var hh=wmax>0?ws[i]/wmax*Rp.h:0;
+        svg.appendChild(el("rect",{x:Rp.l+i*bw+0.4,y:rBase-hh,width:Math.max(bw-0.8,0.6),
+          height:hh,fill:"#dc2626",opacity:0.75}));
+      }
+      svg.appendChild(el("line",{x1:Rp.l,y1:rBase-(1/J)/wmax*Rp.h,x2:W-Rp.r,
+        y2:rBase-(1/J)/wmax*Rp.h,stroke:"#0891b2","stroke-width":1.2,"stroke-dasharray":"4 3"}));
+      tx(svg,{x:W-Rp.r,y:rBase-(1/J)/wmax*Rp.h-5,"text-anchor":"end","font-size":10.5,
+        fill:"#0e7490"},"equal weight 1/J");
+      document.getElementById("f3max").textContent=(100*wmax).toFixed(1)+"%";
+    }
+    svg.appendChild(el("line",{x1:Rp.l,y1:rBase,x2:W-Rp.r,y2:rBase,stroke:"#cbd5e1"}));
+    tx(svg,{x:(Rp.l+W-Rp.r)/2,y:rBase+34,"text-anchor":"middle","font-size":12,fill:"#374151"},"particles, sorted");
+
+    function chip(id,res){
+      var v=res.ess[day-1];
+      document.getElementById(id).textContent=(v===undefined)?"—":v.toFixed(1);
+    }
+    chip("f3en",never); chip("f3ea",adapt); chip("f3ee",every);
+    document.getElementById("f3ll").textContent=
+      "never "+(isFinite(never.logL)?never.logL.toFixed(1):"−∞")+
+      ", adaptive "+(isFinite(adapt.logL)?adapt.logL.toFixed(1):"−∞")+
+      ", every "+(isFinite(every.logL)?every.logL.toFixed(1):"−∞");
+  }
+  jI.addEventListener("input",draw); dI.addEventListener("input",draw);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-f3]"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll("[data-f3]"),function(x){
+        x.classList.toggle("active",x===b); });
+      var v=b.dataset.f3;
+      dI.value = v==="early"?3 : v==="mid"?10 : 22;
+      draw();
+    });
+  });
+  draw();
+})();
+
+/* ================= FIGURE 4 : the estimate and its bias ================= */
+(function(){
+  var svg=document.getElementById("f4svg");
+  var jI=document.getElementById("f4j");
+  var JS=[4,8,16,32,64,128,256], NREP=60, K=200, cache=[], pending=0;
+
+  /* the mean and SD of the logs are taken over the runs that returned a finite
+     number; the mean on the natural scale keeps the dead runs, which are a
+     legitimate L̂ of zero, so the log of the mean is not inflated by dropping them */
+  function summarise(lls,ntot){
+    var n=lls.length, i, m=0, v=0, mx=-Infinity;
+    for(i=0;i<n;i++){ m+=lls[i]; if(lls[i]>mx) mx=lls[i]; }
+    m/=n;
+    for(i=0;i<n;i++) v+=(lls[i]-m)*(lls[i]-m);
+    var sd=n>1?Math.sqrt(v/(n-1)):0, s=0;
+    for(i=0;i<n;i++) s+=Math.exp(lls[i]-mx);
+    return {mean:m,sd:sd,logmean:Math.log(s/ntot)+mx,lls:lls};
+  }
+  function computeOne(idx){
+    var J=JS[idx], lls=[], dead=0, r;
+    for(var i=0;i<NREP;i++){
+      r=runFilter(90001+i*7919+idx,J,"always",K,false);
+      if(isFinite(r.logL)) lls.push(r.logL); else dead++;
+    }
+    var s=summarise(lls,NREP); s.dead=dead; s.J=J;
+    s.run=runFilter(4242+idx,J,"always",K,false);
+    cache[idx]=s;
+  }
+  function draw(){
+    var idx=+jI.value, i;
+    document.getElementById("f4jval").textContent=JS[idx];
+    clear(svg);
+    if(!cache[idx]){
+      tx(svg,{x:360,y:320,"text-anchor":"middle","font-size":14,fill:"#6b7280"},
+        "running "+NREP+" filters at J = "+JS[idx]+" …");
+      return;
+    }
+    var cur=cache[idx], W=720;
+
+    /* ---- panel A: one run accumulating ---- */
+    var A={l:52,r:16,t:44,h:170}, aBase=A.t+A.h, aw=W-A.l-A.r;
+    var inc=cur.run.incs, run=[], acc=0;
+    for(i=0;i<inc.length;i++){ acc+=inc[i]; run.push(acc); }
+    var total=acc||-1, sxA=function(t){ return A.l+(t-0.5)/TDAYS*aw; };
+    var syA=function(v){ return A.t+(v/total)*A.h; };
+    tx(svg,{x:A.l,y:A.t-24,"font-size":13,"font-weight":700,fill:"#1f2933"},
+      "One run at J = "+JS[idx]+": the daily contributions accumulating");
+    tx(svg,{x:A.l,y:A.t-8,"font-size":11.5,fill:"#6b7280"},
+      "each block is log of the weighted mean weight on that day, stacked onto the running total");
+    svg.appendChild(el("line",{x1:A.l,y1:A.t,x2:W-A.r,y2:A.t,stroke:"#cbd5e1"}));
+    for(var g=0;g>=total;g+=total/4){
+      svg.appendChild(el("line",{x1:A.l,y1:syA(g),x2:W-A.r,y2:syA(g),stroke:"#eef2f7"}));
+      tx(svg,{x:A.l-6,y:syA(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},g.toFixed(0));
+    }
+    for(i=0;i<inc.length;i++){
+      var y0=syA(i?run[i-1]:0), y1=syA(run[i]);
+      svg.appendChild(el("rect",{x:sxA(i+1)-aw/TDAYS*0.34,y:y0,width:aw/TDAYS*0.68,
+        height:Math.max(y1-y0,0.6),fill:"#4f46e5",opacity:0.32}));
+    }
+    var pr="";
+    for(i=0;i<run.length;i++) pr+=(i?" L ":"M ")+sxA(i+1)+" "+syA(run[i]);
+    svg.appendChild(el("path",{d:pr,fill:"none",stroke:"#4f46e5","stroke-width":2.4}));
+    tx(svg,{x:W-A.r,y:syA(run[run.length-1])-8,"text-anchor":"end","font-size":11.5,"font-weight":700,
+      fill:"#4f46e5"},"log L̂ = "+acc.toFixed(2));
+    for(var q=5;q<=TDAYS;q+=5) tx(svg,{x:sxA(q),y:aBase+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},q);
+    tx(svg,{x:(A.l+W-A.r)/2,y:aBase+32,"text-anchor":"middle","font-size":12,fill:"#374151"},"day");
+
+    /* ---- panel B: the sampling distribution ---- */
+    var B={l:52,r:16,t:304,h:126}, bBase=B.t+B.h, bwid=W-B.l-B.r;
+    var all=[];
+    for(i=0;i<JS.length;i++) if(cache[i]) all=all.concat(cache[i].lls);
+    /* a fixed axis so the spread can be compared across particle counts, with
+       the lower 2% trimmed so a single bad run cannot flatten every panel */
+    var sorted=all.slice().sort(function(a,b){ return a-b; });
+    var xmin=sorted[Math.floor(0.02*sorted.length)], xmax=sorted[sorted.length-1];
+    var pad=(xmax-xmin)*0.06+0.2; xmin-=pad; xmax+=pad;
+    var sxB=function(v){ return B.l+Math.max(0,Math.min(1,(v-xmin)/(xmax-xmin)))*bwid; };
+    tx(svg,{x:B.l,y:B.t-24,"font-size":13,"font-weight":700,fill:"#1f2933"},
+      NREP+" runs at J = "+JS[idx]+", same θ and same data");
+    tx(svg,{x:B.l,y:B.t-8,"font-size":11.5,fill:"#6b7280"},
+      "the axis is fixed across particle counts, so the spread can be compared directly");
+    var NB=34, bins=new Array(NB), b;
+    for(b=0;b<NB;b++) bins[b]=0;
+    for(i=0;i<cur.lls.length;i++){
+      b=Math.floor((cur.lls[i]-xmin)/(xmax-xmin)*NB);
+      if(b<0) b=0; if(b>=NB) b=NB-1;
+      bins[b]++;
+    }
+    var bmax=1;
+    for(b=0;b<NB;b++) if(bins[b]>bmax) bmax=bins[b];
+    for(b=0;b<NB;b++){
+      var hh2=bins[b]/bmax*B.h;
+      svg.appendChild(el("rect",{x:B.l+b*bwid/NB+0.5,y:bBase-hh2,width:bwid/NB-1,
+        height:hh2,fill:"#4f46e5",opacity:0.55}));
+    }
+    svg.appendChild(el("line",{x1:B.l,y1:bBase,x2:W-B.r,y2:bBase,stroke:"#cbd5e1"}));
+    svg.appendChild(el("line",{x1:sxB(cur.mean),y1:B.t-2,x2:sxB(cur.mean),y2:bBase,
+      stroke:"#dc2626","stroke-width":2,"stroke-dasharray":"5 4"}));
+    tx(svg,{x:sxB(cur.mean)-5,y:B.t+10,"text-anchor":"end","font-size":10.5,"font-weight":600,
+      fill:"#dc2626"},"mean of log L̂");
+    svg.appendChild(el("line",{x1:sxB(cur.logmean),y1:B.t-2,x2:sxB(cur.logmean),y2:bBase,
+      stroke:"var(--true)","stroke-width":2}));
+    tx(svg,{x:sxB(cur.logmean)+5,y:B.t+10,"font-size":10.5,"font-weight":600,
+      fill:"var(--true)"},"log of mean L̂");
+    tx(svg,{x:W-B.r,y:B.t+10,"text-anchor":"end","font-size":11.5,"font-weight":700,
+      fill:"#4f46e5"},"SD = "+cur.sd.toFixed(2));
+    for(i=0;i<=4;i++){
+      var vv=xmin+(xmax-xmin)*i/4;
+      tx(svg,{x:sxB(vv),y:bBase+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},vv.toFixed(1));
+    }
+    tx(svg,{x:(B.l+W-B.r)/2,y:bBase+32,"text-anchor":"middle","font-size":12,fill:"#374151"},"log-likelihood estimate");
+
+    /* ---- panel C: both quantities against J ---- */
+    var C={l:52,r:16,t:518,h:100}, cBase=C.t+C.h, cw=W-C.l-C.r;
+    var lows=[], highs=[];
+    for(i=0;i<JS.length;i++) if(cache[i]){
+      lows.push(cache[i].mean-cache[i].sd); highs.push(cache[i].logmean+0.3);
+      lows.push(cache[i].logmean); highs.push(cache[i].mean+cache[i].sd);
+    }
+    var cmin=Math.min.apply(null,lows)-0.3, cmaxv=Math.max.apply(null,highs);
+    var sxC=function(i2){ return C.l+i2/(JS.length-1)*cw; };
+    var syC=function(v){ return cBase-(v-cmin)/(cmaxv-cmin||1)*C.h; };
+    tx(svg,{x:C.l,y:C.t-24,"font-size":13,"font-weight":700,fill:"#1f2933"},
+      "Both quantities against the number of particles");
+    tx(svg,{x:C.l,y:C.t-8,"font-size":11.5,fill:"#6b7280"},
+      "whiskers are one standard deviation of log L̂");
+    svg.appendChild(el("line",{x1:C.l,y1:cBase,x2:W-C.r,y2:cBase,stroke:"#cbd5e1"}));
+    var pm="", plm="";
+    for(i=0;i<JS.length;i++){
+      if(!cache[i]) continue;
+      var c2=cache[i], x2=sxC(i);
+      svg.appendChild(el("line",{x1:x2,y1:syC(c2.mean-c2.sd),x2:x2,y2:syC(c2.mean+c2.sd),
+        stroke:"#dc2626","stroke-width":1.4,opacity:0.6}));
+      svg.appendChild(el("circle",{cx:x2,cy:syC(c2.mean),r:3.4,fill:"#dc2626"}));
+      svg.appendChild(el("circle",{cx:x2,cy:syC(c2.logmean),r:3.4,fill:"var(--true)"}));
+      pm+=(pm?" L ":"M ")+x2+" "+syC(c2.mean);
+      plm+=(plm?" L ":"M ")+x2+" "+syC(c2.logmean);
+      tx(svg,{x:x2,y:cBase+16,"text-anchor":"middle","font-size":10,
+        fill:i===idx?"#4f46e5":"#6b7280","font-weight":i===idx?700:400},JS[i]);
+    }
+    if(pm) svg.appendChild(el("path",{d:pm,fill:"none",stroke:"#dc2626","stroke-width":1.6,"stroke-dasharray":"5 4"}));
+    if(plm) svg.appendChild(el("path",{d:plm,fill:"none",stroke:"var(--true)","stroke-width":1.8}));
+    tx(svg,{x:(C.l+W-C.r)/2,y:cBase+32,"text-anchor":"middle","font-size":12,fill:"#374151"},"particles J");
+
+    document.getElementById("f4mean").textContent=cur.mean.toFixed(2);
+    document.getElementById("f4sd").textContent=cur.sd.toFixed(2);
+    document.getElementById("f4logmean").textContent=cur.logmean.toFixed(2);
+    document.getElementById("f4gap").textContent=(cur.logmean-cur.mean).toFixed(2);
+    document.getElementById("f4half").textContent=(cur.sd*cur.sd/2).toFixed(2);
+    document.getElementById("f4dead").textContent=cur.dead+" of "+NREP;
+  }
+  function chunk(i){
+    if(i>=JS.length) return;
+    computeOne(i);
+    draw();
+    pending=setTimeout(function(){ chunk(i+1); },0);
+  }
+  jI.addEventListener("input",draw);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-f4]"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll("[data-f4]"),function(x){
+        x.classList.toggle("active",x===b); });
+      jI.value=b.dataset.f4; draw();
+    });
+  });
+  draw();
+  setTimeout(function(){ chunk(0); },30);
+})();
+
+/* ================= FIGURE 5 : path degeneracy ================= */
+(function(){
+  var svg=document.getElementById("f5svg");
+  var jI=document.getElementById("f5j"), tI=document.getElementById("f5t");
+  var W=720, K=200;
+
+  function draw(){
+    var J=+jI.value, T=+tI.value, i, t;
+    document.getElementById("f5jval").textContent=J;
+    document.getElementById("f5tval").textContent=T;
+    clear(svg);
+    var res=runFilter(31415,J,"always",K,true);
+    if(!res.anc.length){
+      tx(svg,{x:360,y:200,"text-anchor":"middle","font-size":13,fill:"#6b7280"},"the filter died immediately");
+      return;
+    }
+    var A={l:46,r:16,t:44,h:250}, aBase=A.t+A.h, aw=W-A.l-A.r;
+    var sx=function(d){ return A.l+d/TDAYS*aw; };
+    var sy=function(i2){ return A.t+(J===1?A.h/2:(i2+0.5)/J*A.h); };
+
+    /* which edges lead to a particle alive at day T */
+    var alive=[], cur={}, prev;
+    for(i=0;i<J;i++) cur[i]=1;
+    alive[T]=cur;
+    for(t=T-1;t>=0;t--){
+      prev={};
+      for(var key in cur) prev[res.anc[t][+key]]=1;
+      alive[t]=prev; cur=prev;
+    }
+    var counts=[];
+    for(t=0;t<=T;t++) counts.push(Object.keys(alive[t]).length);
+
+    tx(svg,{x:A.l,y:A.t-24,"font-size":13,"font-weight":700,fill:"#1f2933"},
+      "Where the particles at day "+T+" came from");
+    tx(svg,{x:A.l,y:A.t-8,"font-size":11.5,fill:"#6b7280"},
+      "one row per particle slot, one column per day, resampling at every step");
+    /* edges */
+    for(t=0;t<TDAYS;t++){
+      var a=res.anc[t];
+      for(i=0;i<J;i++){
+        var live = (t<T) && alive[t+1][i] && (alive[t][a[i]]!==undefined);
+        svg.appendChild(el("line",{x1:sx(t),y1:sy(a[i]),x2:sx(t+1),y2:sy(i),
+          stroke:live?"#4f46e5":"#64748b","stroke-width":live?1.3:0.7,
+          opacity:live?0.75:0.16}));
+      }
+    }
+    svg.appendChild(el("line",{x1:sx(T),y1:A.t-4,x2:sx(T),y2:aBase+4,stroke:"#dc2626",
+      "stroke-width":1.6,"stroke-dasharray":"5 4"}));
+    tx(svg,{x:sx(T)-4,y:A.t+8,"text-anchor":"end","font-size":10.5,"font-weight":700,
+      fill:"#dc2626"},"traced back from here");
+    for(var q=0;q<=TDAYS;q+=5) tx(svg,{x:sx(q),y:aBase+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},q);
+    tx(svg,{x:(A.l+W-A.r)/2,y:aBase+32,"text-anchor":"middle","font-size":12,fill:"#374151"},"day");
+
+    /* ---- the number of distinct ancestors ---- */
+    var B={l:46,r:16,t:352,h:56}, bBase=B.t+B.h;
+    /* a log scale, because the interesting part of this curve is between 1 and 5 */
+    var syB=function(v){ return bBase-Math.log(Math.max(v,1))/Math.log(J)*B.h; };
+    tx(svg,{x:B.l,y:B.t-8,"font-size":12,"font-weight":700,fill:"#1f2933"},
+      "distinct ancestors of the day "+T+" particles, on a log scale");
+    svg.appendChild(el("line",{x1:B.l,y1:bBase,x2:W-B.r,y2:bBase,stroke:"#cbd5e1"}));
+    [1,2,5,10,J].forEach(function(v){
+      if(v>J) return;
+      svg.appendChild(el("line",{x1:B.l,y1:syB(v),x2:W-B.r,y2:syB(v),stroke:"#eef2f7"}));
+      tx(svg,{x:B.l-6,y:syB(v)+3.5,"text-anchor":"end","font-size":9.5,fill:"#6b7280"},v);
+    });
+    var d="";
+    for(t=0;t<=T;t++) d+=(t?" L ":"M ")+sx(t)+" "+syB(counts[t]);
+    svg.appendChild(el("path",{d:d,fill:"none",stroke:"#dc2626","stroke-width":2.2}));
+
+    var mrca=0;
+    for(t=0;t<=T;t++) if(counts[t]===1) mrca=t;
+    document.getElementById("f5anc1").textContent=counts[1]!==undefined?counts[1]:"—";
+    document.getElementById("f5mrca").textContent=mrca?("up to day "+mrca):"not reached by day 1";
+    var back=Math.max(0,T-5);
+    document.getElementById("f5anc5").textContent=counts[back]+" of "+J;
+  }
+  jI.addEventListener("input",draw); tI.addEventListener("input",draw);
+  Array.prototype.forEach.call(document.querySelectorAll("[data-f5]"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll("[data-f5]"),function(x){
+        x.classList.toggle("active",x===b); });
+      jI.value=b.dataset.f5; draw();
+    });
+  });
+  draw();
+})();
+</script>
+<script>
+/* embed mode: ?embed=sectionId[,id2,...] strips the page chrome AND the
+   explanatory prose/maths from the kept sections, leaving only the interactive
+   figures, for inlining in an <iframe> in the course site. Reports height so the
+   host page can auto-size the iframe. */
+(function(){
+  var q=new URLSearchParams(location.search), e=q.get('embed');
+  var KEEP={fig:1,controls:1,readout:1,legend:1,presets:1,figcap:1};
+  if(e){
+    var keep=e.split(',').map(function(s){return s.trim();}).filter(Boolean);
+    ['header.hero','nav.toc','footer'].forEach(function(sel){
+      Array.prototype.forEach.call(document.querySelectorAll(sel),function(n){n.style.display='none';});
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('body > div'),function(d){
+      if(!d.classList.contains('wrap')) d.style.display='none';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(sec){
+      if(keep.indexOf(sec.id)===-1){ sec.style.display='none'; return; }
+      sec.style.margin='0'; sec.style.border='none'; sec.style.boxShadow='none'; sec.style.padding='2px 2px 8px';
+      Array.prototype.forEach.call(sec.children,function(c){
+        var k=false, cl=c.classList; if(cl){ for(var key in KEEP){ if(cl.contains(key)){k=true;break;} } }
+        if(!k) c.style.display='none';
+      });
+    });
+    var wrap=document.querySelector('.wrap'); if(wrap) wrap.style.padding='0 8px 10px';
+    document.body.style.background='#fff'; document.documentElement.style.background='#fff';
+  }
+  function postH(){ try{ parent.postMessage({nfiddEmbedHeight: Math.ceil(document.body.getBoundingClientRect().height)}, '*'); }catch(_){} }
+  window.addEventListener('load', postH);
+  window.addEventListener('resize', postH);
+  document.addEventListener('input', function(){ setTimeout(postH,60); });
+  document.addEventListener('click', function(){ setTimeout(postH,120); });
+  setTimeout(postH,250); setTimeout(postH,1000);
+})();
+</script>
+</body>
+</html>

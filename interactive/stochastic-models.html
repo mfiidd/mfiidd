@@ -1,0 +1,1108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Stochastic epidemic models — Gillespie, demographic noise, waiting times</title>
+<style>
+  :root{
+    --fc:#4338ca;     /* deterministic solution / primary accent / indigo */
+    --obs:#0d9488;    /* Erlang, temporary immunity / teal */
+    --miss:#d97706;   /* mean of the replicates / amber */
+    --now:#dc2626;    /* data, event markers, infectious / red */
+    --true:#64748b;   /* individual stochastic runs, susceptibles / slate */
+    --ink:#1f2933;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --bg:#fbfbfd;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 22px 120px}
+  header.hero{
+    padding:54px 22px 30px; text-align:center;
+    background:linear-gradient(180deg,#eef2ff 0%, var(--bg) 100%);
+    border-bottom:1px solid var(--line);
+  }
+  header.hero h1{font-size:30px; margin:0 0 8px; letter-spacing:-.4px}
+  header.hero p{max-width:710px; margin:0 auto; color:var(--muted)}
+  nav.toc{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    margin:22px auto 0; max-width:780px;
+  }
+  nav.toc a{
+    text-decoration:none; color:var(--fc); font-weight:600; font-size:14px;
+    border:1px solid #c7d2fe; background:#fff; padding:6px 13px; border-radius:999px;
+  }
+  nav.toc a:hover{background:#eef2ff}
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:26px 28px; margin:30px 0; box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  section > h2{margin:0 0 4px; font-size:23px; letter-spacing:-.3px}
+  .tagline{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{margin:26px 0 8px; font-size:17px}
+  p{margin:10px 0}
+  .fig{
+    border:1px solid var(--line); border-radius:12px; padding:16px 14px 10px;
+    margin:18px 0 6px; background:#fff;
+  }
+  .fig svg{display:block; width:100%; height:auto}
+  .figcap{font-size:13.5px; color:var(--muted); margin:8px 4px 2px}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:16px 26px; align-items:center;
+    margin:8px 4px 2px; padding:12px 14px; background:#f8fafc;
+    border:1px solid var(--line); border-radius:10px; font-size:14px;
+  }
+  .controls label{display:flex; flex-direction:column; gap:2px; min-width:160px}
+  .controls .vlabel{font-weight:600}
+  .controls input[type=range]{width:170px; accent-color:var(--fc)}
+  .readout{
+    display:inline-flex; gap:14px; flex-wrap:wrap; margin:12px 4px 0;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .chip{
+    background:#f1f5f9; border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:14px;
+  }
+  .readout .chip b{font-size:16px}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; margin:14px 4px 0; align-items:center}
+  .presets button{
+    font:600 13px inherit; border:1px solid #c7d2fe; background:#fff; color:var(--fc);
+    padding:6px 13px; border-radius:8px; cursor:pointer;
+  }
+  .presets button:hover{background:#eef2ff}
+  .presets button.active{background:var(--fc); color:#fff; border-color:var(--fc)}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; margin:4px 4px 8px}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .swbox{width:16px; height:14px; border-radius:3px; display:inline-block; vertical-align:middle}
+  .key{background:#f0fdfa; border-left:4px solid var(--obs); padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0}
+  .key.amber{background:#fffbeb; border-color:var(--miss)}
+  .key.blue{background:#eef2ff; border-color:var(--fc)}
+  .key.red{background:#fef2f2; border-color:var(--now)}
+  .formula{
+    background:#0f172a; color:#e2e8f0; border-radius:10px; padding:14px 18px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:15px; overflow-x:auto; margin:14px 0; line-height:2.1;
+  }
+  .formula .obs{color:#5eead4} .formula .miss{color:#fcd34d} .formula .tot{color:#a5b4fc}
+  .frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .25em}
+  .frac > span:first-child{border-bottom:1px solid currentColor; padding:0 .35em}
+  .frac > span:last-child{padding:0 .35em}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+  th{background:#f8fafc}
+  ul{margin:10px 0; padding-left:22px}
+  li{margin:5px 0}
+  code{background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:14px}
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 15px; margin:10px 0; background:#fff}
+  details[open]{background:#fcfcfe}
+  summary{font-weight:600; cursor:pointer}
+  details p{margin:8px 0 2px; font-size:15px}
+  footer{text-align:center; color:var(--muted); font-size:13px; margin-top:40px}
+  a{color:var(--fc)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>Stochastic epidemic models</h1>
+  <p>On an island of 284 people, transmission is a sequence of individual chance events rather than a smooth flow. This page runs the <b>Gillespie algorithm</b> one event at a time, measures how far the <b style="color:var(--fc)">deterministic solution</b> sits from the <b style="color:var(--miss)">average stochastic run</b>, and shows why the SEIT4L model splits temporary immunity into four compartments.</p>
+  <nav class="toc">
+    <a href="#setup">The model</a>
+    <a href="#gillespie">Gillespie, step by step</a>
+    <a href="#mean">Deterministic is not the mean</a>
+    <a href="#noise">How noise scales with N</a>
+    <a href="#waiting">Exponential or Erlang</a>
+    <a href="#when">When it does not matter</a>
+    <a href="#faq">Common questions</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+<!-- ============ SETUP ============ -->
+<section id="setup">
+  <h2>The model behind every figure on this page</h2>
+  <p class="tagline">SEITL on Tristan da Cunha, written as five transitions between whole individuals</p>
+  <p>In August 1971 a ship landed five islanders on Tristan da Cunha. Influenza A/H3N2 spread through the village, subsided after three weeks, and then came back. Of the 284 islanders, 273 had at least one episode of illness and 92 had two. The dataset dates 312 of the 365 recorded attacks to within a day, over 59 days (<a href="https://pubmed.ncbi.nlm.nih.gov/4708546/">Mantle and Tyrrell 1973</a>).</p>
+  <p>The SEITL model explains the second wave with a temporary immune stage <b>T</b>. A fraction &alpha; of those leaving T acquire long-term immunity <b>L</b>, and the rest return to <b>S</b> and can be infected again (<a href="https://doi.org/10.1098/rspb.2011.0300">Camacho et al. 2011</a>). The deterministic version is five ordinary differential equations. The stochastic version is the same model read as a continuous-time Markov chain, in which the right-hand sides become rates at which individual events happen.</p>
+
+  <table>
+    <tr><th>Transition</th><th>Rate</th><th>Effect on the state</th></tr>
+    <tr><td>S &rarr; E</td><td>&beta; S I / N,&nbsp; &beta; = R<sub>0</sub>/D<sub>inf</sub></td><td>S &minus; 1, E + 1</td></tr>
+    <tr><td>E &rarr; I</td><td>&epsilon; E,&nbsp; &epsilon; = 1/D<sub>lat</sub></td><td>E &minus; 1, I + 1, one new case</td></tr>
+    <tr><td>I &rarr; T</td><td>&nu; I,&nbsp; &nu; = 1/D<sub>inf</sub></td><td>I &minus; 1, T + 1</td></tr>
+    <tr><td>T &rarr; S</td><td>(1 &minus; &alpha;) &tau; T,&nbsp; &tau; = 1/D<sub>imm</sub></td><td>T &minus; 1, S + 1</td></tr>
+    <tr><td>T &rarr; L</td><td>&alpha; &tau; T</td><td>T &minus; 1, L + 1</td></tr>
+  </table>
+
+  <p>The two versions are the same set of rates used in two ways. The deterministic model treats them as continuous flows, so S can take the value 0.37. The stochastic model treats them as the intensities of a jump process, so S is always a whole number and the epidemic can hit zero infectious individuals and stop. Everything on this page follows from that difference.</p>
+  <p>Unless a control says otherwise the figures use the parameters the course session settles on: R<sub>0</sub> = 10, D<sub>lat</sub> = 2 days, D<sub>inf</sub> = 2 days, &alpha; = 0.5, D<sub>imm</sub> = 13 days. The initial state is S = 279, I = 2, T = 3, giving N = 284: three of the five returning islanders had been ill during the eight day voyage and are past their infectious period, and two fell ill on landing. The first three figures use the single-stage SEITL. The number of T stages becomes a control in the <a href="#waiting">Erlang section</a>.</p>
+  <div class="key blue">Every number on this page is computed in your browser as you read it. The random draws come from a seeded generator, so a figure looks the same each time you load it, and the buttons labelled <b>new seed</b> give you a different run of the same model.</div>
+</section>
+
+<!-- ============ GILLESPIE ============ -->
+<section id="gillespie">
+  <h2>The Gillespie algorithm, one event at a time</h2>
+  <p class="tagline">Rates in, a waiting time and an event out</p>
+  <p>The direct method (<a href="https://doi.org/10.1016/0021-9991(76)90041-3">Gillespie 1976</a>, <a href="https://doi.org/10.1021/j100540a008">1977</a>) simulates the Markov chain by answering two questions at each step: how long until something happens, and what happens. Both answers come from the rate vector.</p>
+  <p>Write a<sub>j</sub> for the rate of transition j at the current state and a<sub>0</sub> = &Sigma;<sub>j</sub> a<sub>j</sub> for their sum. Because every transition is a competing exponential clock, the time until the first of them fires is exponential with rate a<sub>0</sub>, and the one that fires is transition j with probability a<sub>j</sub>/a<sub>0</sub>. Two uniform draws u<sub>1</sub>, u<sub>2</sub> give both:</p>
+
+  <div class="formula">a<sub>0</sub> = <span class="tot">&Sigma;<sub>j</sub> a<sub>j</sub></span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    &tau; = <span class="frac"><span>&minus;ln u<sub>1</sub></span><span class="tot">a<sub>0</sub></span></span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    fire event k where &nbsp;<span class="obs">&Sigma;<sub>j&lt;k</sub> a<sub>j</sub></span> &lt; u<sub>2</sub> a<sub>0</sub> &le; <span class="obs">&Sigma;<sub>j&le;k</sub> a<sub>j</sub></span></div>
+
+  <p>Then advance the clock by &tau;, apply the state change, and recompute the rates. Nothing is discretised and no time step is chosen, which is what makes the method exact for this model.</p>
+  <p>The figure holds the <b>pending</b> draw: the state and rates shown are the current ones, and the waiting time and event shown are the ones already drawn from them but not yet applied. Predict which bar will fire before you press <b>step</b>.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--true)"></i> S susceptible</span>
+    <span><i class="swbox" style="background:var(--miss)"></i> E exposed</span>
+    <span><i class="swbox" style="background:var(--now)"></i> I infectious</span>
+    <span><i class="swbox" style="background:var(--obs)"></i> T temporarily immune</span>
+    <span><i class="swbox" style="background:var(--fc)"></i> L long-term immune</span>
+  </div>
+
+  <div class="fig">
+    <svg id="gilSvg" viewBox="0 0 720 642" role="img" aria-label="Top: the current state as a stacked bar of the five compartments. Middle: the five transition rates as horizontal bars, and a cumulative rate ruler with the second uniform draw marked on it. Bottom: the trajectory of susceptible, infectious and temporarily immune counts against time, and below it the drawn waiting time of every event on a logarithmic axis."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">R<sub>0</sub>: <span id="gR0val">10.0</span></span>
+      <input id="gR0" type="range" min="2" max="15" step="0.5" value="10"></label>
+    <label><span class="vlabel">Infectious period D<sub>inf</sub> (days): <span id="gDIval">2.0</span></span>
+      <input id="gDI" type="range" min="1" max="5" step="0.5" value="2"></label>
+    <label><span class="vlabel">Long-term immunity &alpha;: <span id="gAval">0.50</span></span>
+      <input id="gA" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+  </div>
+  <div class="presets">
+    <button id="gStep">step &#9656;</button>
+    <button id="gStep50">&times; 50 events</button>
+    <button id="gPlay">&#9654; play</button>
+    <button id="gDay6">run to day 6</button>
+    <button id="gDay20">run to day 20</button>
+    <button id="gEnd">run to the end</button>
+    <button id="gReset">reset</button>
+    <button id="gSeed">new seed</button>
+  </div>
+  <div class="readout">
+    <span class="chip">t = <b id="gT">0.000</b> days</span>
+    <span class="chip">events so far = <b id="gN">0</b></span>
+    <span class="chip">cases so far = <b id="gC">0</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">total rate a<sub>0</sub> = <b id="gA0">—</b> /day</span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">drawn &tau; = <b id="gTau">—</b> days</span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">next event = <b id="gEv">—</b></span>
+  </div>
+  <p class="figcap">The bottom strip plots every drawn waiting time against the time it was drawn, on a logarithmic axis, with the mean waiting time 1/a<sub>0</sub> as a line through them. The scatter of the dots around that line is the exponential draw itself.</p>
+  <div class="key">Press <b>run to day 6</b> and read the bottom strip. With R<sub>0</sub> = 10 the total rate starts at 11.05 per day, passes 150 per day around day 2 to 3, and is back near 90 by day 6, so the mean waiting time falls by more than a factor of ten and then recovers. Every event costs the same work whatever the rate, which is why the steep part of an epidemic is where the simulation time goes. Press <b>run to the end</b> and the whole shape appears: about 1900 events for one 59 day trajectory on this island.</div>
+  <div class="key amber"><b>What the algorithm assumes.</b> The rates depend on the current state alone and stay constant between events, which is what allows the exponential waiting time. That is exactly the memoryless assumption the <a href="#waiting">Erlang section</a> takes apart. Splitting a compartment into stages keeps the algorithm intact and changes only the number of rates.</div>
+</section>
+
+<!-- ============ DETERMINISTIC IS NOT THE MEAN ============ -->
+<section id="mean">
+  <h2>The deterministic trajectory is not the mean of the stochastic ones</h2>
+  <p class="tagline">Averaging runs that peak on different days flattens the peak</p>
+  <p>It is tempting to read the ODE solution as the average behaviour and the stochastic runs as noise around it. The algebra says otherwise. Take the expected number of susceptibles in the Markov chain:</p>
+
+  <div class="formula">d E[S] / dt = &minus; <span class="frac"><span>&beta;</span><span class="tot">N</span></span> E[S I] + (1&minus;&alpha;) &tau; E[T]
+    &nbsp;&nbsp;and&nbsp;&nbsp;
+    <span class="miss">E[S I] = E[S] E[I] + Cov(S, I)</span></div>
+
+  <p>The deterministic equations are what you get by dropping that covariance. It is not zero. A run that is ahead of the others has both more infectious individuals and fewer susceptibles left, so Cov(S, I) turns negative once depletion starts, and the mean of the process does not satisfy the ODE. What you see on a plot is the timing version of the same fact. Runs peak on different days, so averaging them at fixed times spreads one peak over several days and lowers it.</p>
+  <p>Kurtz (<a href="https://doi.org/10.2307/3212147">1970</a>, <a href="https://doi.org/10.2307/3211826">1971</a>) gives the condition under which the two do agree. Scaled by N, the Markov chain converges to the ODE solution over any finite time window as N grows, <i>provided the initial state also scales with N</i>. That proviso is doing real work, and the <b>seeding</b> control below turns it off so you can watch the convergence fail.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--true);opacity:.5"></i> individual stochastic runs</span>
+    <span><i class="swatch" style="border-color:var(--fc)"></i> deterministic (ODE) solution</span>
+    <span><i class="swatch" style="border-color:var(--miss);border-top-style:dashed"></i> pointwise mean of the runs</span>
+  </div>
+
+  <div class="fig">
+    <svg id="meanSvg" viewBox="0 0 720 430" role="img" aria-label="Daily incidence against day. Thin slate lines are individual stochastic replicates, a thick indigo line is the deterministic solution, and a dashed amber line is the pointwise mean of the replicates. Incidence is rescaled to a population of 284 so the curves can be compared across population sizes."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Population N: <span id="mNval">284</span></span>
+      <input id="mN" type="range" min="284" max="3000" step="4" value="284"></label>
+    <label><span class="vlabel">Replicates: <span id="mRval">40</span></span>
+      <input id="mR" type="range" min="20" max="120" step="10" value="40"></label>
+    <label><span class="vlabel">R<sub>0</sub>: <span id="mR0val">10.0</span></span>
+      <input id="mR0" type="range" min="2" max="15" step="0.5" value="10"></label>
+  </div>
+  <div class="presets" id="mSeedMode">
+    <span style="font-size:13.5px;color:var(--muted);align-self:center">seeding:</span>
+    <button data-mode="scaled" class="active">scaled with N</button>
+    <button data-mode="fixed">fixed at 2 infectious</button>
+  </div>
+  <div class="presets">
+    <button id="mP1">Tristan da Cunha, N = 284</button>
+    <button id="mP2">N = 3000, seed scaled</button>
+    <button id="mP3">N = 3000, R<sub>0</sub> = 3, seed scaled</button>
+    <button id="mP4">N = 3000, R<sub>0</sub> = 3, seed fixed</button>
+    <button id="mSeed">new seed</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">ODE peak = <b id="mOdePk">—</b> on day <b id="mOdeDay">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">mean peak = <b id="mMeanPk">—</b> on day <b id="mMeanDay">—</b></span>
+    <span class="chip">mean peak / ODE peak = <b id="mRatio">—</b></span>
+    <span class="chip">SD of peak day = <b id="mSd">—</b> days</span>
+    <span class="chip">runs that took off = <b id="mTook">—</b></span>
+  </div>
+  <p class="figcap">Incidence is plotted per 284 people so that runs at different N sit on the same axis. The pointwise mean is taken over every replicate, the ones that never took off as well.</p>
+  <div class="key">At N = 284 the mean peak is about 12% below the ODE peak and a day late. Drag N up with seeding <b>scaled with N</b> and the two curves close on each other, which is Kurtz's limit arriving. Now press the last two presets in turn. At R<sub>0</sub> = 3 with a scaled seed the ratio reaches about 0.98 by N = 3000; with the seed <b>fixed at 2 infectious</b> it stalls near 0.75 and the spread of peak days stays at three to four days however large N is. The epidemic still starts from two individuals, so the random delay before it takes off never shrinks. The chip for runs that took off also stays short of 100%, and the pointwise mean includes the runs that never started. Both the fizzles and the delay survive as N grows.</div>
+  <div class="key red"><b>The practical consequence.</b> Fitting a deterministic model and treating the residuals as observation noise assumes the deterministic curve is the centre of the stochastic distribution. On an island of 284 it is not, so the fit absorbs the mismatch into the parameters. This is the reason the course moves to particle filters rather than fitting the ODE and widening the error bars.</div>
+</section>
+
+<!-- ============ HOW NOISE SCALES ============ -->
+<section id="noise">
+  <h2>Demographic noise scales as 1 / &radic;N</h2>
+  <p class="tagline">Measured on this model, including where the law does not yet apply</p>
+  <p>Kurtz's central limit theorem (<a href="https://doi.org/10.2307/3211826">1971</a>) says the fluctuation of the counts about the deterministic path is of order &radic;N, so relative to the population it is of order 1/&radic;N. The same result comes out of van Kampen's system-size expansion. Both describe the leading term as N grows. Neither says how large N has to be before that term dominates, and on this model the answer turns out to matter.</p>
+  <p>The figure measures it. For each population size it runs the model many times, discards the runs where the epidemic never took off, and computes the coefficient of variation of the outcome across the rest. On log axes a 1/&radic;N law is a straight line of slope &minus;1/2. The dashed line is that law anchored at the largest population shown, and two fitted slopes are reported: one over the whole range, one over the upper half.</p>
+  <p>The seed is held at I<sub>0</sub> infectious individuals at every population size rather than scaled with it, which matches the island and makes the lower strip readable.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--fc)"></i> measured coefficient of variation</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> 1/&radic;N law anchored at the largest N</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> N = 284</span>
+    <span><i class="swbox" style="background:var(--miss);opacity:.8"></i> runs that failed to take off</span>
+  </div>
+
+  <div class="fig">
+    <svg id="cvSvg" viewBox="0 0 720 440" role="img" aria-label="Upper panel: coefficient of variation of the outcome against population size on logarithmic axes, with a dashed reference line of slope minus one half anchored at the largest population size. Lower strip: the fraction of runs that failed to take off at each population size, which stays roughly flat, against the branching process prediction."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Replicates per population size: <span id="cRval">100</span></span>
+      <input id="cR" type="range" min="20" max="150" step="10" value="100"></label>
+    <label><span class="vlabel">R<sub>0</sub>: <span id="cR0val">10.0</span></span>
+      <input id="cR0" type="range" min="2" max="15" step="0.5" value="10"></label>
+    <label><span class="vlabel">Initial infectious I<sub>0</sub>: <span id="cI0val">2</span></span>
+      <input id="cI0" type="range" min="1" max="8" step="1" value="2"></label>
+  </div>
+  <div class="presets" id="cOutcome">
+    <span style="font-size:13.5px;color:var(--muted);align-self:center">outcome:</span>
+    <button data-out="size" class="active">final size</button>
+    <button data-out="height">peak height</button>
+  </div>
+  <div class="presets">
+    <button id="cSeed">new seed</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">CV at N = 284: <b id="cCv284">—</b></span>
+    <span class="chip">CV at N = 3000: <b id="cCv3000">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">slope, N &ge; 566 = <b id="cSlopeTop">—</b></span>
+    <span class="chip">slope, all N = <b id="cSlope">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">failed to take off at N = 284: <b id="cExt284">—</b></span>
+    <span class="chip">(1/R<sub>0</sub>)<sup>I<sub>0</sub></sup> = <b id="cBranch">—</b></span>
+  </div>
+  <p class="figcap">A run counts as having taken off if its total incidence exceeds N/10. The coefficient of variation is computed over those runs only, because a mixture of major outbreaks and immediate failures has a large CV for a reason that has nothing to do with the &radic;N scaling. Raise the replicate count if the points look ragged.</p>
+
+  <div class="key amber"><b>Read the upper half of the axis first.</b> Above about N = 500 the points sit on the dashed line and the fitted slope is close to &minus;1/2, which is the law working. Below that they lift away from it, and at N = 284 the final size is noisier than the law would predict. An asymptotic result describes the direction of travel, and using it as a formula at the island's size overstates how quiet the model is there. Switch the outcome to <b>peak height</b> and the small-N points fall a little below the line instead. Which way a particular summary departs is not something the asymptotic result tells you.</div>
+
+  <h3>Failing to start is set by the seed, not by the population size</h3>
+  <p>The lower strip is the fraction of runs in which the epidemic never took off. Read it from left to right: it does not trend with N. That contradicts the natural guess that small populations are the ones that fizzle.</p>
+  <p>Approximate the start of the epidemic by a branching process, in which each infectious individual infects a fresh person at rate &beta; and recovers at rate &nu;. The number it infects is then geometric with mean R<sub>0</sub>, the extinction probability of a single line of descent solves s = 1/(1 + R<sub>0</sub> &minus; R<sub>0</sub> s), which gives s = 1/R<sub>0</sub> for R<sub>0</sub> &gt; 1, and I<sub>0</sub> independent lines all have to die out:</p>
+
+  <div class="formula">P(fade out) &approx; <span class="frac"><span>1</span><span class="tot">R<sub>0</sub></span></span><sup>&nbsp;I<sub>0</sub></sup>
+    &nbsp;&nbsp;&nbsp;&nbsp; R<sub>0</sub> = 10, I<sub>0</sub> = 2 &nbsp;&rarr;&nbsp; 1%</div>
+
+  <p>N does not appear. The approximation holds while susceptible depletion is negligible, which is the phase that decides whether the epidemic starts at all, so the prediction sits close to the measured bars across the whole axis. Drag <b>I<sub>0</sub></b> and <b>R<sub>0</sub></b> and the bars follow the line. At R<sub>0</sub> = 10 the predicted 1% takes many replicates to measure, so set R<sub>0</sub> to 3 or 4 to see the agreement at once. See Whittle (<a href="https://doi.org/10.1093/biomet/42.1-2.116">1955</a>) for the original argument and Andersson and Britton (2000) for the modern treatment.</p>
+  <div class="key"><b>What N does control.</b> Not whether the epidemic starts, but how far a run that starts wanders from the deterministic path, and whether it survives the trough between the two waves. At N = 284 the trough holds a handful of infectious individuals, and a handful can reach zero by chance. That is an extinction risk that does scale with N, and it is why a second wave on this island is an uncertain event rather than a foregone conclusion.</div>
+</section>
+
+<!-- ============ EXPONENTIAL OR ERLANG ============ -->
+<section id="waiting">
+  <h2>Exponential or Erlang waiting times</h2>
+  <p class="tagline">Why the model in the practical is called SEIT4L</p>
+  <p>One compartment with a constant exit rate &tau; gives an exponential dwell time with mean D = 1/&tau;. Its density is largest at zero and falls away from there, so the single most likely outcome for someone who has just entered temporary immunity is to leave immediately. Applied to immunity that is a strange claim, and it is a consequence of the compartment structure rather than of anything biological.</p>
+  <p>Chain k compartments, each with exit rate k/D. The total time is a sum of k exponential waiting times, which is Erlang with shape k and the same mean D:</p>
+
+  <div class="formula">f(x) = <span class="frac"><span>(k/D)<sup>k</sup> x<sup>k&minus;1</sup> e<sup>&minus;kx/D</sup></span><span class="tot">(k &minus; 1)!</span></span>
+    &nbsp;&nbsp;&nbsp;&nbsp; mean = D &nbsp;&nbsp; SD = <span class="frac"><span>D</span><span class="tot">&radic;k</span></span>
+    &nbsp;&nbsp; CV = <span class="frac"><span>1</span><span class="tot">&radic;k</span></span>
+    &nbsp;&nbsp; mode = D <span class="frac"><span>k &minus; 1</span><span class="tot">k</span></span></div>
+
+  <p>The mean is fixed as k changes, so nothing about the average duration of immunity is being altered. What changes is the spread and the position of the mode. At k = 1 the mode is at zero. At k = 4 it is at three quarters of the mean, and the coefficient of variation has halved. Wearing, Rohani and Keeling (<a href="https://doi.org/10.1371/journal.pmed.0020174">2005</a>) and Lloyd (<a href="https://doi.org/10.1006/tpbi.2001.1525">2001</a>) work through what this does to epidemic dynamics in general.</p>
+  <p>The lower panel is the consequence. Susceptibles are handed back to S by the exit from the last T stage, and the shape of that exit is the shape of the second wave. With k = 1 they trickle back from the moment the first person enters T, so reinfection is spread thinly over weeks. With k = 4 they return as a cohort, and the second wave stands clear of the tail of the first.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--obs)"></i> Erlang with shape k, and its epidemic</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> exponential (k = 1) for comparison</span>
+    <span><i class="swatch" style="border-color:var(--fc);border-top-style:dashed"></i> mean D<sub>imm</sub></span>
+    <span><i class="swbox" style="background:var(--now)"></i> reported cases, Tristan da Cunha 1971</span>
+  </div>
+
+  <div class="fig">
+    <svg id="erlSvg" viewBox="0 0 720 530" role="img" aria-label="Upper panel: the Erlang density of time spent in temporary immunity for the chosen shape, with the exponential case dashed behind it and the mean marked. Lower panel: daily reported incidence from the deterministic model with that number of temporary immunity stages, the single stage version dashed behind it, and the 1971 Tristan da Cunha counts as points."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Stages k: <span id="eKval">4</span></span>
+      <input id="eK" type="range" min="1" max="10" step="1" value="4"></label>
+    <label><span class="vlabel">D<sub>imm</sub> (days): <span id="eDval">13.0</span></span>
+      <input id="eD" type="range" min="5" max="25" step="0.5" value="13"></label>
+    <label><span class="vlabel">R<sub>0</sub>: <span id="eR0val">10.0</span></span>
+      <input id="eR0" type="range" min="2" max="15" step="0.5" value="10"></label>
+    <label><span class="vlabel">&alpha;: <span id="eAval">0.50</span></span>
+      <input id="eA" type="range" min="0" max="1" step="0.05" value="0.5"></label>
+    <label><span class="vlabel">Reporting rate &rho;: <span id="eRhoval">0.70</span></span>
+      <input id="eRho" type="range" min="0.3" max="1" step="0.05" value="0.7"></label>
+  </div>
+  <div class="presets">
+    <button id="eP1">SEITL, k = 1</button>
+    <button id="eP2">SEIT4L, k = 4</button>
+    <button id="eP3">k = 10</button>
+  </div>
+  <div class="readout">
+    <span class="chip">mean = <b id="eMean">—</b> days</span>
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">CV = 1/&radic;k = <b id="eCv">—</b></span>
+    <span class="chip">mode = <b id="eMode">—</b> days</span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">second peak on day <b id="eP2day">—</b></span>
+    <span class="chip">second peak height = <b id="eP2h">—</b></span>
+    <span class="chip">peak over the trough before it = <b id="eP2w">—</b></span>
+  </div>
+  <p class="figcap">The lower panel uses the deterministic model, so the only thing changing between the curves is the dwell-time distribution. Model incidence is multiplied by the reporting rate &rho; before it is compared with the counts. The last chip is the height of the second peak divided by the height of the trough before it.</p>
+  <div class="key">At k = 1 there is no second peak at all with these parameters, only a long flat shoulder, because susceptibles start returning to S the moment the first person enters T. The readout says <b>none</b>. Slide k up and a peak appears on day 28 and grows away from the trough: about 1.4 times the trough at k = 2, 2.6 at k = 4, and 6.2 at k = 10. Meanwhile the CV of the dwell time falls as 1/&radic;k and the mode moves out from zero towards the mean. The date of the second peak barely moves, so what k controls is how sharply the wave stands out rather than when it happens.</div>
+  <div class="key blue"><b>Why four.</b> Four is a compromise rather than a measurement. It buys most of the change in shape, since the CV falls from 1 to 0.5 between k = 1 and k = 4 but only to 0.41 by k = 6, and it costs three extra state variables. Camacho et al. (2011) compared variants of the model on these data and preferred the four-stage version.</div>
+</section>
+
+<!-- ============ WHEN IT DOES NOT MATTER ============ -->
+<section id="when">
+  <h2>When the deterministic model is good enough</h2>
+  <p class="tagline">The number that decides is not N</p>
+  <p>Stochastic simulation is expensive and stochastic inference is much more expensive, so the honest question is when you can avoid both. The rough condition is that the smallest number of individuals in the compartments driving the dynamics stays large throughout the period you care about.</p>
+  <p>That is a statement about the trajectory rather than about the population. Fluctuations in a compartment holding m individuals are of order &radic;m, so they matter relatively when &radic;m is a noticeable fraction of m, which is to say when m is small. A city of ten million with four infectious people is in the stochastic regime, and an island of 284 in the middle of a wave with sixty infectious people is close to the deterministic one. The places to check are therefore the beginning, the end, and any trough in between.</p>
+  <ul>
+    <li><b>Take-off and fade-out are always stochastic.</b> No population size fixes this. If the question is whether an outbreak happens, or when it will be over, the deterministic model cannot answer it, because it never reaches zero.</li>
+    <li><b>Troughs are stochastic.</b> A multi-wave epidemic passes through a small number of infectious individuals between waves. The Tristan da Cunha trough is where the SEITL model is least deterministic.</li>
+    <li><b>The middle of a large wave is close to deterministic.</b> Relative fluctuation of order 1/&radic;N there once N is well above the island's size, and invisible at N = 10<sup>6</sup>.</li>
+    <li><b>Observation noise is a separate question.</b> A deterministic trajectory with a Poisson observation model is a perfectly reasonable description of a large outbreak, and it is much cheaper to fit. It is wrong here because the process itself is noisy, not because the counts are. The <a href="observation-models.html">observation models page</a> takes that question up on the same 59 days, fitting a single-wave SIR at <i>R</i><sub>0</sub> near 2 whose misfit is structural.</li>
+  </ul>
+  <div class="key blue"><b>The middle ground.</b> Between exact simulation and the ODE sit tau-leaping (<a href="https://doi.org/10.1063/1.1378322">Gillespie 2001</a>), which fires a Poisson number of each event over a short interval, and the chemical Langevin or diffusion approximation, which replaces the jumps with a continuous process whose noise term carries the &radic;N scaling. Both are cheaper than the direct method and both fail in exactly the regime this section says to worry about, where compartments hold few individuals.</div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <h2>Common questions</h2>
+  <p class="tagline">The ones that come up in the practical</p>
+
+  <details><summary>Why not just add noise to the ODE solution?</summary>
+  <p>Because that is observation noise, and the problem here is process noise. Adding noise to the ODE keeps the deterministic curve as the centre of the distribution, and the <a href="#mean">second section</a> shows the true mean is somewhere else. It also cannot produce extinction or a run that peaks four days late.</p>
+  <p>The principled version of the idea is the diffusion approximation, which adds a noise term inside the differential equation rather than to its solution. That is a real approximation to the Markov chain and it is accurate when compartments are large.</p></details>
+
+  <details><summary>Why is my stochastic run different from my neighbour's?</summary>
+  <p>Because the model is a distribution over trajectories rather than a single trajectory, and each run is one draw from it. Identical parameters give different output by construction.</p>
+  <p>Setting a seed makes your own run reproducible. It does not make it typical, so never draw a conclusion from one run.</p></details>
+
+  <details><summary>Is the Gillespie algorithm an approximation?</summary>
+  <p>No. Given the rates, the direct method draws exactly from the law of the continuous-time Markov chain. There is no time step and no discretisation error, and running it with a smaller anything will not change the answer.</p>
+  <p>Tau-leaping is the approximate relative: it holds the rates fixed over a short interval and fires a Poisson number of each event, which is fast and wrong when a compartment can empty within the interval.</p></details>
+
+  <details><summary>How many replicates do I need?</summary>
+  <p>Enough that the quantity you are reading has settled. The standard error of a mean over m runs falls as 1/&radic;m, so going from 100 to 400 runs halves it. A few hundred is usually plenty for a mean or a median, and a few thousand for a tail probability such as the chance of no second wave.</p>
+  <p>The test is to run the whole thing again with a different seed and see whether your conclusion changes.</p></details>
+
+  <details><summary>Why does an epidemic with R<sub>0</sub> above 1 sometimes fail to start?</summary>
+  <p>Because R<sub>0</sub> is an average and the first few infectious individuals may recover before infecting anyone. With one initial case the chance of that is about 1/R<sub>0</sub>, so even R<sub>0</sub> = 10 fails one time in ten.</p>
+  <p>The Tristan da Cunha seed is two infectious islanders, giving roughly 1%. The deterministic model gives 0%, which is the one number it can never get right.</p></details>
+
+  <details><summary>Why four T compartments and not two or twenty?</summary>
+  <p>The returns diminish quickly. The coefficient of variation of the dwell time is 1/&radic;k, so going from one stage to four halves it, and going from four to sixteen only halves it again at the cost of twelve more state variables.</p>
+  <p>Four gives a clearly non-exponential shape and keeps the model small enough to fit with a particle filter. Twenty would be close to a fixed delay, which the data on 284 people cannot distinguish from four.</p></details>
+
+  <details><summary>Why is fitting a stochastic model so much harder?</summary>
+  <p>Because the likelihood of the data given the parameters is an integral over every possible trajectory, and there is no formula for it. The deterministic model has one trajectory per parameter set, so its likelihood is a direct calculation.</p>
+  <p>A particle filter estimates that integral by simulating many trajectories and reweighting them against the data. That estimate is unbiased, which is what lets it stand in for the true likelihood inside MCMC.</p></details>
+
+  <details><summary>Does the stochastic model have a basic reproduction number?</summary>
+  <p>Yes, and it is the same R<sub>0</sub> = &beta;/&nu;, the mean number of infections caused by one infectious individual in a wholly susceptible population. What changes is that the realised number is a random variable, geometrically distributed for exponential infectious periods.</p>
+  <p>That variability is the whole reason an epidemic with R<sub>0</sub> = 10 can still fail.</p></details>
+
+  <footer>Built as a teaching aid for the MFIIDD Tristan da Cunha session &middot; every figure is computed in the page and runs offline.</footer>
+</section>
+
+</div>
+
+<script>
+/* ================= shared numerics ================= */
+const SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+
+/* seeded PRNG so every figure is reproducible across loads */
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    let t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+
+/* Tristan da Cunha 1971, daily reported cases, days 1..59 (Mantle & Tyrrell 1973) */
+const TDC=[0,1,0,10,6,32,47,37,29,11,13,8,2,2,2,0,2,1,2,2,5,2,3,2,3,5,7,8,5,7,
+           4,12,7,5,3,4,1,0,5,2,2,0,6,1,1,2,0,0,0,0,2,0,0,0,0,0,0,0,1];
+const NDAYS=59;
+
+/* ---- SEITkL as a continuous-time Markov chain, simulated day by day ----
+   state x: [S, E, I, T_1..T_k, L];  rate order:
+   0 infection, 1 E->I, 2 I->T1, 3..k+1 T_j->T_{j+1}, k+2 T_k->S, k+3 T_k->L  */
+function simRun(p,init,nDays,rnd){
+  const k=p.k|0, nR=k+4, iL=k+3;
+  const x=new Float64Array(k+4);
+  x[0]=init.S; x[1]=init.E||0; x[2]=init.I; x[3]=init.T||0; x[iL]=init.L||0;
+  let N=0; for(let i=0;i<k+4;i++) N+=x[i];
+  const beta=p.R0/p.Dinf, eps=1/p.Dlat, nu=1/p.Dinf, kap=k/p.Dimm, al=p.alpha;
+  const a=new Float64Array(nR);
+  const inc=new Float64Array(nDays+1);
+  let total=0;
+  for(let d=0; d<nDays; d++){
+    let t=0, di=0;
+    for(;;){
+      a[0]=beta*x[0]*x[2]/N; a[1]=eps*x[1]; a[2]=nu*x[2];
+      for(let j=0;j<k-1;j++) a[3+j]=kap*x[3+j];
+      a[k+2]=(1-al)*kap*x[k+2]; a[k+3]=al*kap*x[k+2];
+      let tot=0; for(let i=0;i<nR;i++) tot+=a[i];
+      if(tot<=0) break;
+      const w=-Math.log(1-rnd())/tot;
+      if(t+w>1) break;
+      t+=w;
+      let u=rnd()*tot, c=0, ev=nR-1;
+      for(let i=0;i<nR;i++){ c+=a[i]; if(u<=c){ ev=i; break; } }
+      if(ev===0){ x[0]--; x[1]++; }
+      else if(ev===1){ x[1]--; x[2]++; di++; }
+      else if(ev===2){ x[2]--; x[3]++; }
+      else if(ev<=k+1){ const j=ev-3; x[3+j]--; x[4+j]++; }
+      else if(ev===k+2){ x[k+2]--; x[0]++; }
+      else { x[k+2]--; x[iL]++; }
+    }
+    inc[d+1]=di; total+=di;
+  }
+  let peakDay=1, peakVal=inc[1];
+  for(let d=2; d<=nDays; d++) if(inc[d]>peakVal){ peakVal=inc[d]; peakDay=d; }
+  return {inc:inc, total:total, peakDay:peakDay, peakVal:peakVal};
+}
+
+/* ---- deterministic SEITkL, RK4; returns daily incidence ----
+   y = [S, E, I, T_1..T_k, L, Cum], length k+5 */
+function odeRun(p,init,nDays,h){
+  const k=p.k|0, n=k+5, iL=k+3, iC=k+4;
+  const beta=p.R0/p.Dinf, eps=1/p.Dlat, nu=1/p.Dinf, kap=k/p.Dimm, al=p.alpha;
+  let y=new Float64Array(n);
+  y[0]=init.S; y[1]=init.E||0; y[2]=init.I; y[3]=init.T||0; y[iL]=init.L||0;
+  const d1=new Float64Array(n), d2=new Float64Array(n), d3=new Float64Array(n), d4=new Float64Array(n);
+  const tmp=new Float64Array(n);
+  function f(v,out){
+    let N=0; for(let i=0;i<=iL;i++) N+=v[i];
+    const inf=N>0 ? beta*v[0]*v[2]/N : 0;
+    out[0]=-inf+(1-al)*kap*v[k+2];
+    out[1]=inf-eps*v[1];
+    out[2]=eps*v[1]-nu*v[2];
+    out[3]=nu*v[2]-kap*v[3];
+    for(let j=1;j<k;j++) out[3+j]=kap*v[2+j]-kap*v[3+j];
+    out[iL]=al*kap*v[k+2];
+    out[iC]=eps*v[1];
+  }
+  const inc=new Float64Array(nDays+1);
+  const steps=Math.max(1,Math.round(1/h)), hh=1/steps;
+  let prevCum=0;
+  for(let d=0; d<nDays; d++){
+    for(let s=0;s<steps;s++){
+      f(y,d1);
+      for(let i=0;i<n;i++) tmp[i]=y[i]+hh/2*d1[i]; f(tmp,d2);
+      for(let i=0;i<n;i++) tmp[i]=y[i]+hh/2*d2[i]; f(tmp,d3);
+      for(let i=0;i<n;i++) tmp[i]=y[i]+hh*d3[i];   f(tmp,d4);
+      for(let i=0;i<n;i++) y[i]+=hh/6*(d1[i]+2*d2[i]+2*d3[i]+d4[i]);
+    }
+    inc[d+1]=y[iC]-prevCum; prevCum=y[iC];
+  }
+  return {inc:inc};
+}
+
+const BASE={R0:10, Dlat:2, Dinf:2, alpha:0.5, Dimm:13, k:1};
+const COL={S:"#64748b", E:"#d97706", I:"#dc2626", T:"#0d9488", L:"#4338ca"};
+
+/* ================= FIGURE 1 : the direct method, one event at a time ================= */
+(function(){
+  const svg=document.getElementById("gilSvg");
+  const W=720;
+  const ids={R0:document.getElementById("gR0"), DI:document.getElementById("gDI"), A:document.getElementById("gA")};
+  const LAB=["S → E", "E → I", "I → T", "T → S", "T → L"];
+  const FML=["β S I / N", "ε E", "ν I", "(1−α) τ T", "α τ T"];
+  const RCOL=[COL.E, COL.I, COL.T, COL.S, COL.L];
+  let seed=20250907, rnd=mulberry32(seed), timer=null;
+  let st=null;
+
+  function params(){
+    return {R0:+ids.R0.value, Dlat:2, Dinf:+ids.DI.value, alpha:+ids.A.value, Dimm:13, k:1};
+  }
+  function rates(x,p){
+    const N=x[0]+x[1]+x[2]+x[3]+x[4];
+    const beta=p.R0/p.Dinf, eps=1/p.Dlat, nu=1/p.Dinf, tau=1/p.Dimm;
+    return [beta*x[0]*x[2]/N, eps*x[1], nu*x[2], (1-p.alpha)*tau*x[3], p.alpha*tau*x[3]];
+  }
+  function reset(){
+    stop();
+    rnd=mulberry32(seed);
+    st={p:params(), x:[279,0,2,3,0], t:0, n:0, cases:0,
+        hist:[{t:0,S:279,E:0,I:2,T:3}], waits:[], pend:null};
+    prepare(); draw();
+  }
+  function prepare(){
+    const a=rates(st.x,st.p);
+    let tot=0; for(let i=0;i<5;i++) tot+=a[i];
+    if(tot<=0){ st.pend=null; st.a=a; st.tot=0; return; }
+    const u1=rnd(), u2=rnd();
+    const wait=-Math.log(1-u1)/tot;
+    let c=0, ev=4, mark=u2*tot;
+    for(let i=0;i<5;i++){ c+=a[i]; if(mark<=c){ ev=i; break; } }
+    st.a=a; st.tot=tot; st.pend={u1:u1, u2:u2, wait:wait, ev:ev, mark:mark};
+  }
+  function step(){
+    if(!st.pend) return false;
+    const ev=st.pend.ev, x=st.x;
+    st.t+=st.pend.wait; st.n++;
+    st.waits.push({t:st.t, w:st.pend.wait, mean:1/st.tot});
+    if(ev===0){ x[0]--; x[1]++; }
+    else if(ev===1){ x[1]--; x[2]++; st.cases++; }
+    else if(ev===2){ x[2]--; x[3]++; }
+    else if(ev===3){ x[3]--; x[0]++; }
+    else { x[3]--; x[4]++; }
+    st.hist.push({t:st.t,S:x[0],E:x[1],I:x[2],T:x[3]});
+    prepare();
+    return true;
+  }
+  function runTo(tTarget,cap){
+    stop();
+    let guard=0;
+    while(st.pend && st.t<tTarget && guard<cap){ if(!step()) break; guard++; }
+    draw();
+  }
+  function stop(){ if(timer){ clearInterval(timer); timer=null; document.getElementById("gPlay").textContent="▶ play"; } }
+
+  function draw(){
+    document.getElementById("gR0val").textContent=(+ids.R0.value).toFixed(1);
+    document.getElementById("gDIval").textContent=(+ids.DI.value).toFixed(1);
+    document.getElementById("gAval").textContent=(+ids.A.value).toFixed(2);
+    clear(svg);
+    const x=st.x, N=284;
+
+    /* ---- panel A: the current state as one stacked bar ---- */
+    svg.appendChild(el("text",{x:16,y:20,"font-size":13,"font-weight":700,fill:"#1f2933"})).textContent="current state (284 islanders)";
+    const aL=16, aR=W-16, aw=aR-aL, ay=30, ah=26;
+    const names=["S","E","I","T","L"], cols=[COL.S,COL.E,COL.I,COL.T,COL.L];
+    let acc=0;
+    for(let i=0;i<5;i++){
+      const wpx=aw*x[i]/N;
+      if(wpx>0.01) svg.appendChild(el("rect",{x:aL+acc,y:ay,width:wpx,height:ah,fill:cols[i],opacity:.88}));
+      acc+=wpx;
+    }
+    svg.appendChild(el("rect",{x:aL,y:ay,width:aw,height:ah,fill:"none",stroke:"#cbd5e1"}));
+    for(let i=0;i<5;i++){
+      svg.appendChild(el("rect",{x:aL+i*(aw/5)+2,y:ay+ah+9,width:11,height:11,fill:cols[i],rx:2}));
+      svg.appendChild(el("text",{x:aL+i*(aw/5)+18,y:ay+ah+19,"font-size":12.5,fill:"#374151"})).textContent=names[i]+" = "+x[i];
+    }
+
+    /* ---- panel B: the rate vector ---- */
+    const bTop=100, rowH=27, bL=150, bR=W-84;
+    svg.appendChild(el("text",{x:16,y:bTop-12,"font-size":13,"font-weight":700,fill:"#1f2933"})).textContent="transition rates aⱼ at this state (per day)";
+    const amax=Math.max(0.0001,Math.max.apply(null,st.a));
+    for(let i=0;i<5;i++){
+      const yy=bTop+i*rowH;
+      svg.appendChild(el("text",{x:16,y:yy+13,"font-size":12.5,"font-weight":600,fill:"#374151"})).textContent=LAB[i];
+      svg.appendChild(el("text",{x:66,y:yy+13,"font-size":11.5,fill:"#6b7280"})).textContent=FML[i];
+      const wpx=(bR-bL)*st.a[i]/amax;
+      svg.appendChild(el("rect",{x:bL,y:yy+2,width:Math.max(wpx,0),height:rowH-8,fill:RCOL[i],opacity:.8,rx:2}));
+      if(st.pend && st.pend.ev===i)
+        svg.appendChild(el("rect",{x:bL-2,y:yy,width:(bR-bL)+4,height:rowH-4,fill:"none",stroke:"#dc2626","stroke-width":1.8,rx:3}));
+      svg.appendChild(el("text",{x:bR+6,y:yy+13,"font-size":11.5,fill:"#374151"})).textContent=st.a[i].toFixed(2);
+    }
+
+    /* ---- panel C: the cumulative ruler and the two draws ---- */
+    const cY=252, cH=20, cL=16, cR=W-16;
+    svg.appendChild(el("text",{x:16,y:cY-8,"font-size":13,"font-weight":700,fill:"#1f2933"})).textContent="cumulative rates, total a₀ — the second draw picks the event";
+    if(st.tot>0){
+      let c=0;
+      for(let i=0;i<5;i++){
+        const wpx=(cR-cL)*st.a[i]/st.tot;
+        if(wpx>0.4){
+          svg.appendChild(el("rect",{x:cL+c,y:cY,width:wpx,height:cH,fill:RCOL[i],opacity:.75}));
+          if(wpx>30) svg.appendChild(el("text",{x:cL+c+wpx/2,y:cY+14,"text-anchor":"middle","font-size":10.5,fill:"#ffffff","font-weight":700})).textContent=LAB[i];
+        }
+        c+=wpx;
+      }
+      svg.appendChild(el("rect",{x:cL,y:cY,width:cR-cL,height:cH,fill:"none",stroke:"#cbd5e1"}));
+      if(st.pend){
+        const mx=cL+(cR-cL)*st.pend.u2;
+        svg.appendChild(el("line",{x1:mx,y1:cY-7,x2:mx,y2:cY+cH+7,stroke:"#111827","stroke-width":2}));
+        svg.appendChild(el("text",{x:Math.min(mx+5,cR-150),y:cY+cH+20,"font-size":11,"font-weight":700,fill:"#111827"}))
+          .textContent="u₂ a₀ = "+st.pend.mark.toFixed(2);
+        svg.appendChild(el("text",{x:cL,y:cY+cH+20,"font-size":11,fill:"#6b7280"}))
+          .textContent="u₁ = "+st.pend.u1.toFixed(3)+"  →  τ = −ln u₁ / a₀ = "+st.pend.wait.toFixed(4)+" d";
+      }
+    } else {
+      svg.appendChild(el("text",{x:cL,y:cY+15,"font-size":13,fill:"#dc2626","font-weight":600}))
+        .textContent="every rate is zero: no transition is possible and the epidemic is over";
+    }
+
+    /* ---- panel D: the trajectory so far ---- */
+    const dT=330, dB=470, dL=44, dR=W-16;
+    const sx=t=>dL+Math.min(t/NDAYS,1)*(dR-dL);
+    const sy=v=>dB-(v/N)*(dB-dT);
+    svg.appendChild(el("text",{x:16,y:dT-10,"font-size":13,"font-weight":700,fill:"#1f2933"})).textContent="trajectory so far";
+    for(let g=0; g<=N; g+=71){
+      svg.appendChild(el("line",{x1:dL,y1:sy(g),x2:dR,y2:sy(g),stroke:"#eef2f7"}));
+      svg.appendChild(el("text",{x:dL-6,y:sy(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"})).textContent=g;
+    }
+    svg.appendChild(el("line",{x1:dL,y1:sy(0),x2:dR,y2:sy(0),stroke:"#cbd5e1"}));
+    const H=st.hist, stride=Math.max(1,Math.floor(H.length/600));
+    ["S","I","T"].forEach(function(key){
+      let d="";
+      for(let i=0;i<H.length;i+=stride) d+=(d?" L ":"M ")+sx(H[i].t).toFixed(1)+" "+sy(H[i][key]).toFixed(1);
+      const last=H[H.length-1];
+      d+=" L "+sx(last.t).toFixed(1)+" "+sy(last[key]).toFixed(1);
+      svg.appendChild(el("path",{d:d,fill:"none",stroke:COL[key],"stroke-width":1.9,opacity:.9}));
+    });
+    const xNow=sx(st.t);
+    svg.appendChild(el("line",{x1:xNow,y1:dT-4,x2:xNow,y2:dB,stroke:"#111827","stroke-width":1.2,"stroke-dasharray":"4 3"}));
+    for(let t=0;t<=NDAYS;t+=10) svg.appendChild(el("text",{x:sx(t),y:dB+15,"text-anchor":"middle","font-size":10,fill:"#6b7280"})).textContent=t;
+    svg.appendChild(el("text",{x:dR,y:dT+12,"text-anchor":"end","font-size":11,fill:"#6b7280"})).textContent="S slate, I red, T teal";
+
+    /* ---- panel E: the drawn waiting times, log scale ---- */
+    const eT=515, eB=605;
+    const lo=-4, hi=0.6;
+    const ey=v=>eB-((Math.log(v)/Math.LN10-lo)/(hi-lo))*(eB-eT);
+    svg.appendChild(el("text",{x:16,y:eT-10,"font-size":13,"font-weight":700,fill:"#1f2933"})).textContent="waiting time drawn at each event (days, log scale)";
+    [1,0.1,0.01,0.001].forEach(function(v){
+      svg.appendChild(el("line",{x1:dL,y1:ey(v),x2:dR,y2:ey(v),stroke:"#eef2f7"}));
+      svg.appendChild(el("text",{x:dL-6,y:ey(v)+4,"text-anchor":"end","font-size":9.5,fill:"#6b7280"})).textContent=v;
+    });
+    svg.appendChild(el("line",{x1:dL,y1:eB,x2:dR,y2:eB,stroke:"#cbd5e1"}));
+    const Wt=st.waits, ws=Math.max(1,Math.floor(Wt.length/500));
+    for(let i=0;i<Wt.length;i+=ws){
+      const w=Wt[i]; if(w.w<=0) continue;
+      svg.appendChild(el("circle",{cx:sx(w.t),cy:Math.max(eT,Math.min(eB,ey(w.w))),r:1.6,fill:"#94a3b8",opacity:.75}));
+    }
+    let mp="";
+    for(let i=0;i<Wt.length;i+=ws){
+      const w=Wt[i];
+      mp+=(mp?" L ":"M ")+sx(w.t).toFixed(1)+" "+Math.max(eT,Math.min(eB,ey(w.mean))).toFixed(1);
+    }
+    if(mp) svg.appendChild(el("path",{d:mp,fill:"none",stroke:"#4338ca","stroke-width":1.8,opacity:.9}));
+    svg.appendChild(el("text",{x:dR,y:eT+12,"text-anchor":"end","font-size":11,fill:"#4338ca"})).textContent="mean waiting time 1/a₀";
+    for(let t=0;t<=NDAYS;t+=10) svg.appendChild(el("text",{x:sx(t),y:eB+15,"text-anchor":"middle","font-size":10,fill:"#6b7280"})).textContent=t;
+    svg.appendChild(el("text",{x:(dL+dR)/2,y:eB+28,"text-anchor":"middle","font-size":11.5,fill:"#374151"})).textContent="time (days)";
+
+    /* ---- readouts ---- */
+    document.getElementById("gT").textContent=st.t.toFixed(3);
+    document.getElementById("gN").textContent=st.n;
+    document.getElementById("gC").textContent=st.cases;
+    document.getElementById("gA0").textContent=st.tot>0?st.tot.toFixed(2):"0";
+    document.getElementById("gTau").textContent=st.pend?st.pend.wait.toFixed(4):"—";
+    document.getElementById("gEv").textContent=st.pend?LAB[st.pend.ev]:"none";
+  }
+
+  document.getElementById("gStep").addEventListener("click",function(){ stop(); step(); draw(); });
+  document.getElementById("gStep50").addEventListener("click",function(){ stop(); for(let i=0;i<50;i++) if(!step()) break; draw(); });
+  document.getElementById("gPlay").addEventListener("click",function(){
+    if(timer){ stop(); }
+    else { this.textContent="❚❚ pause"; timer=setInterval(function(){ if(!step()){ stop(); } draw(); },70); }
+  });
+  document.getElementById("gDay6").addEventListener("click",function(){ if(st.t>=6) reset(); runTo(6,200000); });
+  document.getElementById("gDay20").addEventListener("click",function(){ if(st.t>=20) reset(); runTo(20,200000); });
+  document.getElementById("gEnd").addEventListener("click",function(){ runTo(NDAYS,400000); });
+  document.getElementById("gReset").addEventListener("click",reset);
+  document.getElementById("gSeed").addEventListener("click",function(){ seed=(seed*1103515245+12345)>>>0; reset(); });
+  Object.values(ids).forEach(function(i){ i.addEventListener("input",reset); });
+  reset();
+})();
+
+/* ================= FIGURE 2 : deterministic solution against the mean of the runs ================= */
+(function(){
+  const svg=document.getElementById("meanSvg");
+  const W=720,H=430, m={l:52,r:16,t:34,b:48};
+  const ids={N:document.getElementById("mN"), R:document.getElementById("mR"), R0:document.getElementById("mR0")};
+  let mode="scaled", seed=41, pending=null;
+
+  function initFor(N){
+    if(mode==="scaled"){
+      const I0=Math.max(1,Math.round(2*N/284)), T0=Math.round(3*N/284);
+      return {S:N-I0-T0, E:0, I:I0, T:T0, L:0};
+    }
+    return {S:N-5, E:0, I:2, T:3, L:0};
+  }
+  function draw(){
+    const N=+ids.N.value, reps=+ids.R.value, R0=+ids.R0.value;
+    document.getElementById("mNval").textContent=N;
+    document.getElementById("mRval").textContent=reps;
+    document.getElementById("mR0val").textContent=R0.toFixed(1);
+    const p={R0:R0, Dlat:2, Dinf:2, alpha:0.5, Dimm:13, k:1};
+    const init=initFor(N), scale=284/N;
+    const rnd=mulberry32(seed);
+    const runs=[], mean=new Float64Array(NDAYS+1);
+    let tookOff=0, sumPk=0, sumPk2=0, nPk=0;
+    for(let r=0;r<reps;r++){
+      const run=simRun(p,init,NDAYS,rnd);
+      runs.push(run);
+      for(let d=1; d<=NDAYS; d++) mean[d]+=run.inc[d];
+      if(run.total>N/10){ tookOff++; sumPk+=run.peakDay; sumPk2+=run.peakDay*run.peakDay; nPk++; }
+    }
+    for(let d=1; d<=NDAYS; d++) mean[d]/=reps;
+    const ode=odeRun(p,init,NDAYS,0.02);
+
+    let ymax=0;
+    for(let d=1; d<=NDAYS; d++){ ymax=Math.max(ymax, mean[d]*scale, ode.inc[d]*scale); }
+    for(let r=0;r<Math.min(runs.length,50);r++) for(let d=1; d<=NDAYS; d++) ymax=Math.max(ymax, runs[r].inc[d]*scale);
+    ymax=Math.max(ymax,1)*1.1;
+
+    clear(svg);
+    const sx=t=>m.l+(t-1)/(NDAYS-1)*(W-m.l-m.r);
+    const sy=v=>H-m.b-(v/ymax)*(H-m.t-m.b);
+    const gstep=Math.pow(10,Math.floor(Math.log(ymax)/Math.LN10))*(ymax/Math.pow(10,Math.floor(Math.log(ymax)/Math.LN10))>5?2:1);
+    for(let g=0; g<=ymax; g+=gstep){
+      svg.appendChild(el("line",{x1:m.l,y1:sy(g),x2:W-m.r,y2:sy(g),stroke:"#eef2f7"}));
+      svg.appendChild(el("text",{x:m.l-7,y:sy(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"})).textContent=g;
+    }
+    svg.appendChild(el("line",{x1:m.l,y1:sy(0),x2:W-m.r,y2:sy(0),stroke:"#cbd5e1"}));
+    for(let t=1;t<=NDAYS;t+=6) svg.appendChild(el("text",{x:sx(t),y:H-m.b+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"})).textContent=t;
+    svg.appendChild(el("text",{x:(m.l+W-m.r)/2,y:H-10,"text-anchor":"middle","font-size":12,fill:"#374151"})).textContent="day of the outbreak";
+    svg.appendChild(el("text",{x:m.l,y:m.t-12,"font-size":13,"font-weight":700,fill:"#1f2933"}))
+      .textContent="daily new cases, rescaled to 284 people  (N = "+N+", "+reps+" replicates)";
+
+    function path(arr,f){
+      let d="";
+      for(let t=1;t<=NDAYS;t++) d+=(d?" L ":"M ")+sx(t).toFixed(1)+" "+sy(f(arr[t])).toFixed(1);
+      return d;
+    }
+    const shown=Math.min(runs.length,50);
+    for(let r=0;r<shown;r++)
+      svg.appendChild(el("path",{d:path(runs[r].inc,v=>v*scale),fill:"none",stroke:"#64748b","stroke-width":1,opacity:.22}));
+    svg.appendChild(el("path",{d:path(ode.inc,v=>v*scale),fill:"none",stroke:"#4338ca","stroke-width":2.6}));
+    svg.appendChild(el("path",{d:path(mean,v=>v*scale),fill:"none",stroke:"#d97706","stroke-width":2.6,"stroke-dasharray":"7 4"}));
+
+    let odePk=0,odeDay=1,mnPk=0,mnDay=1;
+    for(let d=1; d<=NDAYS; d++){
+      if(ode.inc[d]>odePk){ odePk=ode.inc[d]; odeDay=d; }
+      if(mean[d]>mnPk){ mnPk=mean[d]; mnDay=d; }
+    }
+    const sd=nPk>1 ? Math.sqrt(Math.max(0,(sumPk2-sumPk*sumPk/nPk)/(nPk-1))) : 0;
+    document.getElementById("mOdePk").textContent=(odePk*scale).toFixed(1);
+    document.getElementById("mOdeDay").textContent=odeDay;
+    document.getElementById("mMeanPk").textContent=(mnPk*scale).toFixed(1);
+    document.getElementById("mMeanDay").textContent=mnDay;
+    document.getElementById("mRatio").textContent=odePk>0?(mnPk/odePk).toFixed(2):"—";
+    document.getElementById("mSd").textContent=sd.toFixed(1);
+    document.getElementById("mTook").textContent=Math.round(100*tookOff/reps)+"%";
+  }
+  function schedule(){ if(pending) cancelAnimationFrame(pending); pending=requestAnimationFrame(function(){ pending=null; draw(); }); }
+  Object.values(ids).forEach(function(i){ i.addEventListener("input",schedule); });
+  Array.prototype.forEach.call(document.querySelectorAll("#mSeedMode button"),function(b){
+    b.addEventListener("click",function(){
+      mode=b.dataset.mode;
+      Array.prototype.forEach.call(document.querySelectorAll("#mSeedMode button"),function(x){ x.classList.toggle("active", x===b); });
+      draw();
+    });
+  });
+  function setMode(mo){
+    mode=mo;
+    Array.prototype.forEach.call(document.querySelectorAll("#mSeedMode button"),function(x){ x.classList.toggle("active", x.dataset.mode===mo); });
+  }
+  document.getElementById("mP1").addEventListener("click",function(){ ids.N.value=284; ids.R0.value=10; setMode("scaled"); draw(); });
+  document.getElementById("mP2").addEventListener("click",function(){ ids.N.value=3000; ids.R0.value=10; setMode("scaled"); draw(); });
+  document.getElementById("mP3").addEventListener("click",function(){ ids.N.value=3000; ids.R0.value=3; setMode("scaled"); draw(); });
+  document.getElementById("mP4").addEventListener("click",function(){ ids.N.value=3000; ids.R0.value=3; setMode("fixed"); draw(); });
+  document.getElementById("mSeed").addEventListener("click",function(){ seed=(seed*1103515245+12345)>>>0; draw(); });
+  draw();
+})();
+
+/* ================= FIGURE 3 : how the noise scales with N ================= */
+(function(){
+  const svg=document.getElementById("cvSvg");
+  const W=720, m={l:56,r:18,t:38}, PT=38, PB=300, ST=336, SB=406;
+  const NS=[100,141,200,284,400,566,800,1131,1600,2263,3000];
+  const ids={R:document.getElementById("cR"), R0:document.getElementById("cR0"), I0:document.getElementById("cI0")};
+  let outcome="size", seed=907, pending=null;
+
+  /* least squares slope of log CV on log N over the given points */
+  function fitSlope(pts){
+    let sxm=0, sym=0, cnt=0;
+    pts.forEach(function(r){ if(isFinite(r.cv)&&r.cv>0){ sxm+=Math.log(r.N); sym+=Math.log(r.cv); cnt++; } });
+    if(cnt<2) return NaN;
+    sxm/=cnt; sym/=cnt;
+    let sxx=0, sxy=0;
+    pts.forEach(function(r){ if(isFinite(r.cv)&&r.cv>0){ const dx=Math.log(r.N)-sxm, dy=Math.log(r.cv)-sym; sxx+=dx*dx; sxy+=dx*dy; } });
+    return sxx>0 ? sxy/sxx : NaN;
+  }
+
+  function draw(){
+    const reps=+ids.R.value, R0=+ids.R0.value, I0=+ids.I0.value;
+    document.getElementById("cRval").textContent=reps;
+    document.getElementById("cR0val").textContent=R0.toFixed(1);
+    document.getElementById("cI0val").textContent=I0;
+    const p={R0:R0, Dlat:2, Dinf:2, alpha:0.5, Dimm:13, k:1};
+    const rnd=mulberry32(seed);
+    const res=[];
+    for(let i=0;i<NS.length;i++){
+      const N=NS[i], init={S:N-I0-3, E:0, I:I0, T:3, L:0};
+      let n=0, s=0, s2=0, minor=0;
+      for(let r=0;r<reps;r++){
+        const run=simRun(p,init,NDAYS,rnd);
+        if(run.total<=N/10){ minor++; continue; }
+        const v = outcome==="size" ? run.total : run.peakVal;
+        n++; s+=v; s2+=v*v;
+      }
+      const mean=n>0?s/n:0;
+      const sd=n>1?Math.sqrt(Math.max(0,(s2-s*s/n)/(n-1))):0;
+      res.push({N:N, cv:(n>1&&mean>0)?sd/mean:NaN, ext:minor/reps, n:n});
+    }
+    const slope=fitSlope(res), slopeTop=fitSlope(res.filter(function(r){ return r.N>=566; }));
+
+    clear(svg);
+    const lnLo=Math.log(85)/Math.LN10, lnHi=Math.log(3600)/Math.LN10;
+    const sx=N=>m.l+((Math.log(N)/Math.LN10)-lnLo)/(lnHi-lnLo)*(W-m.l-m.r);
+    let cvs=res.map(r=>r.cv).filter(v=>isFinite(v)&&v>0);
+    let cvHi=cvs.length?Math.max.apply(null,cvs):1, cvLo=cvs.length?Math.min.apply(null,cvs):0.05;
+    const yHi=Math.log(cvHi*1.8)/Math.LN10, yLo=Math.log(Math.max(cvLo*0.55,1e-3))/Math.LN10;
+    const sy=v=>PB-((Math.log(v)/Math.LN10)-yLo)/(yHi-yLo)*(PB-PT);
+
+    svg.appendChild(el("text",{x:m.l,y:m.t-14,"font-size":13,"font-weight":700,fill:"#1f2933"}))
+      .textContent="coefficient of variation of the "+(outcome==="size"?"final size":"peak height")+", across runs that took off";
+    /* y gridlines at decades and half decades */
+    for(let e=-3; e<=1; e++){
+      for(const mm of [1,2,5]){
+        const v=mm*Math.pow(10,e);
+        const yy=sy(v);
+        if(yy<PT-2||yy>PB+2) continue;
+        svg.appendChild(el("line",{x1:m.l,y1:yy,x2:W-m.r,y2:yy,stroke:"#eef2f7"}));
+        svg.appendChild(el("text",{x:m.l-7,y:yy+4,"text-anchor":"end","font-size":10,fill:"#6b7280"})).textContent=v<0.01?v.toFixed(3):(v<1?v.toFixed(2):v.toFixed(0));
+      }
+    }
+    svg.appendChild(el("line",{x1:m.l,y1:PB,x2:W-m.r,y2:PB,stroke:"#cbd5e1"}));
+    NS.forEach(function(N){ svg.appendChild(el("text",{x:sx(N),y:PB+15,"text-anchor":"middle","font-size":9.5,fill:"#6b7280"})).textContent=N; });
+
+    /* the 1/sqrt(N) law, anchored at the largest population shown */
+    const ref=res[res.length-1];
+    if(ref&&isFinite(ref.cv)&&ref.cv>0){
+      const c=ref.cv*Math.sqrt(ref.N);
+      let d="";
+      for(let i=0;i<=40;i++){
+        const lg=lnLo+(lnHi-lnLo)*i/40, N=Math.pow(10,lg), v=c/Math.sqrt(N);
+        const yy=sy(v); if(yy<PT-40||yy>PB+40) continue;
+        d+=(d?" L ":"M ")+sx(N).toFixed(1)+" "+yy.toFixed(1);
+      }
+      if(d) svg.appendChild(el("path",{d:d,fill:"none",stroke:"#64748b","stroke-width":1.8,"stroke-dasharray":"6 4",opacity:.85}));
+    }
+    /* the measured points */
+    let dp="";
+    res.forEach(function(r){
+      if(!isFinite(r.cv)||r.cv<=0) return;
+      const yy=Math.max(PT,Math.min(PB,sy(r.cv)));
+      dp+=(dp?" L ":"M ")+sx(r.N).toFixed(1)+" "+yy.toFixed(1);
+    });
+    if(dp) svg.appendChild(el("path",{d:dp,fill:"none",stroke:"#4338ca","stroke-width":1.6,opacity:.5}));
+    res.forEach(function(r){
+      if(!isFinite(r.cv)||r.cv<=0) return;
+      svg.appendChild(el("circle",{cx:sx(r.N),cy:Math.max(PT,Math.min(PB,sy(r.cv))),r:4.2,fill:"#4338ca"}));
+    });
+    /* the island */
+    svg.appendChild(el("line",{x1:sx(284),y1:PT-6,x2:sx(284),y2:PB,stroke:"#dc2626","stroke-width":1.6,"stroke-dasharray":"5 4"}));
+    svg.appendChild(el("text",{x:sx(284)+5,y:PT+4,"font-size":10.5,"font-weight":700,fill:"#dc2626"})).textContent="N = 284";
+    svg.appendChild(el("text",{x:W-m.r,y:PT+4,"text-anchor":"end","font-size":11,fill:"#64748b"})).textContent="dashed: slope −1/2";
+
+    /* strip: fraction that never took off */
+    svg.appendChild(el("text",{x:m.l,y:ST-10,"font-size":13,"font-weight":700,fill:"#1f2933"})).textContent="fraction of runs in which the epidemic never took off";
+    let eTop=Math.pow(1/R0,I0);
+    res.forEach(function(r){ eTop=Math.max(eTop,r.ext); });
+    const eMax=Math.max(0.02,Math.min(1,eTop*1.6));
+    const ey=v=>SB-Math.min(v/eMax,1)*(SB-ST);
+    [0,eMax/2,eMax].forEach(function(g){
+      svg.appendChild(el("line",{x1:m.l,y1:ey(g),x2:W-m.r,y2:ey(g),stroke:"#eef2f7"}));
+      svg.appendChild(el("text",{x:m.l-7,y:ey(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"})).textContent=(g*100).toFixed(eMax<0.1?1:0)+"%";
+    });
+    svg.appendChild(el("line",{x1:m.l,y1:SB,x2:W-m.r,y2:SB,stroke:"#cbd5e1"}));
+    const bw=Math.min(30,(W-m.l-m.r)/NS.length*0.55);
+    res.forEach(function(r){
+      svg.appendChild(el("rect",{x:sx(r.N)-bw/2,y:ey(r.ext),width:bw,height:Math.max(SB-ey(r.ext),0),fill:"#d97706",opacity:.8,rx:2}));
+    });
+    const bp=Math.pow(1/R0,I0);
+    if(bp<=eMax){
+      svg.appendChild(el("line",{x1:m.l,y1:ey(bp),x2:W-m.r,y2:ey(bp),stroke:"#4338ca","stroke-width":1.6,"stroke-dasharray":"5 4"}));
+      svg.appendChild(el("text",{x:W-m.r,y:ey(bp)-4,"text-anchor":"end","font-size":10.5,"font-weight":700,fill:"#4338ca"}))
+        .textContent="(1/R₀)^I₀ = "+(bp*100).toFixed(1)+"%";
+    }
+    svg.appendChild(el("text",{x:(m.l+W-m.r)/2,y:SB+30,"text-anchor":"middle","font-size":12,fill:"#374151"})).textContent="population size N (log scale)";
+    NS.forEach(function(N){ svg.appendChild(el("text",{x:sx(N),y:SB+15,"text-anchor":"middle","font-size":9.5,fill:"#6b7280"})).textContent=N; });
+
+    const r284=res.find(r=>r.N===284), r3000=res.find(r=>r.N===3000);
+    document.getElementById("cCv284").textContent=(r284&&isFinite(r284.cv))?r284.cv.toFixed(3):"—";
+    document.getElementById("cCv3000").textContent=(r3000&&isFinite(r3000.cv))?r3000.cv.toFixed(3):"—";
+    document.getElementById("cSlope").textContent=isFinite(slope)?slope.toFixed(2):"—";
+    document.getElementById("cSlopeTop").textContent=isFinite(slopeTop)?slopeTop.toFixed(2):"—";
+    document.getElementById("cExt284").textContent=r284?(100*r284.ext).toFixed(1)+"%":"—";
+    document.getElementById("cBranch").textContent=(100*bp).toFixed(1)+"%";
+  }
+  function schedule(){ if(pending) cancelAnimationFrame(pending); pending=requestAnimationFrame(function(){ pending=null; draw(); }); }
+  Object.values(ids).forEach(function(i){ i.addEventListener("input",schedule); });
+  Array.prototype.forEach.call(document.querySelectorAll("#cOutcome button"),function(b){
+    b.addEventListener("click",function(){
+      outcome=b.dataset.out;
+      Array.prototype.forEach.call(document.querySelectorAll("#cOutcome button"),function(x){ x.classList.toggle("active", x===b); });
+      draw();
+    });
+  });
+  document.getElementById("cSeed").addEventListener("click",function(){ seed=(seed*1103515245+12345)>>>0; draw(); });
+  draw();
+})();
+
+/* ================= FIGURE 4 : exponential against Erlang, and the second wave ================= */
+(function(){
+  const svg=document.getElementById("erlSvg");
+  const W=720;
+  const A={l:52,r:18,t:34,b:214};      /* dwell-time density */
+  const B={l:52,r:18,t:270,b:490};     /* epidemic curve */
+  const ids={K:document.getElementById("eK"), D:document.getElementById("eD"),
+             R0:document.getElementById("eR0"), A:document.getElementById("eA"),
+             RHO:document.getElementById("eRho")};
+  const LOGFACT=[0]; for(let i=1;i<=12;i++) LOGFACT[i]=LOGFACT[i-1]+Math.log(i);
+
+  function erlangPdf(x,k,D){
+    if(x<=0) return k===1 ? k/D : 0;
+    const lam=k/D;
+    return Math.exp(k*Math.log(lam)+(k-1)*Math.log(x)-lam*x-LOGFACT[k-1]);
+  }
+  function secondWave(inc){
+    let p1=1; for(let d=2; d<=NDAYS; d++) if(inc[d]>inc[p1]) p1=d;
+    let tr=p1; while(tr<NDAYS && inc[tr+1]<=inc[tr]) tr++;   /* down to the trough */
+    if(tr>=NDAYS) return null;
+    let p2=tr+1;
+    for(let d=tr+1; d<=NDAYS; d++) if(inc[d]>inc[p2]) p2=d;
+    if(inc[p2]<=inc[tr]*1.05) return null;
+    return {day:p2, val:inc[p2], trough:inc[tr], ratio:inc[p2]/Math.max(inc[tr],1e-9)};
+  }
+
+  function draw(){
+    const k=+ids.K.value, D=+ids.D.value, R0=+ids.R0.value, al=+ids.A.value, rho=+ids.RHO.value;
+    document.getElementById("eKval").textContent=k;
+    document.getElementById("eDval").textContent=D.toFixed(1);
+    document.getElementById("eR0val").textContent=R0.toFixed(1);
+    document.getElementById("eAval").textContent=al.toFixed(2);
+    document.getElementById("eRhoval").textContent=rho.toFixed(2);
+    clear(svg);
+
+    /* ---- upper panel: dwell-time densities ---- */
+    const xMax=Math.max(3*D,30);
+    const ax=v=>A.l+v/xMax*(W-A.l-A.r);
+    let pmax=0;
+    for(let i=0;i<=400;i++){ const xv=xMax*i/400; pmax=Math.max(pmax,erlangPdf(xv,k,D),erlangPdf(xv,1,D)); }
+    pmax*=1.12;
+    const ay=v=>A.b-(v/pmax)*(A.b-A.t);
+    svg.appendChild(el("text",{x:A.l,y:A.t-13,"font-size":13,"font-weight":700,fill:"#1f2933"}))
+      .textContent="time spent in temporary immunity: Erlang with shape k = "+k+", mean "+D.toFixed(1)+" days";
+    svg.appendChild(el("line",{x1:A.l,y1:A.b,x2:W-A.r,y2:A.b,stroke:"#cbd5e1"}));
+    for(let v=0; v<=xMax; v+=Math.max(5,Math.round(xMax/8/5)*5))
+      svg.appendChild(el("text",{x:ax(v),y:A.b+15,"text-anchor":"middle","font-size":10,fill:"#6b7280"})).textContent=v;
+    svg.appendChild(el("text",{x:(A.l+W-A.r)/2,y:A.b+31,"text-anchor":"middle","font-size":11.5,fill:"#374151"})).textContent="days in T";
+    function dens(kk){
+      let d="";
+      for(let i=0;i<=400;i++){ const xv=xMax*i/400; d+=(d?" L ":"M ")+ax(xv).toFixed(1)+" "+ay(erlangPdf(xv,kk,D)).toFixed(1); }
+      return d;
+    }
+    svg.appendChild(el("path",{d:dens(1),fill:"none",stroke:"#64748b","stroke-width":1.7,"stroke-dasharray":"6 4",opacity:.8}));
+    svg.appendChild(el("path",{d:dens(k),fill:"none",stroke:"#0d9488","stroke-width":2.6}));
+    svg.appendChild(el("line",{x1:ax(D),y1:A.t-2,x2:ax(D),y2:A.b,stroke:"#4338ca","stroke-width":1.5,"stroke-dasharray":"5 4"}));
+    svg.appendChild(el("text",{x:ax(D)+5,y:A.t+9,"font-size":10.5,"font-weight":700,fill:"#4338ca"})).textContent="mean";
+    const mode=D*(k-1)/k;
+    svg.appendChild(el("circle",{cx:ax(mode),cy:ay(erlangPdf(Math.max(mode,1e-9),k,D)),r:4.4,fill:"#fff",stroke:"#0d9488","stroke-width":2.2}));
+    svg.appendChild(el("text",{x:ax(mode)+7,y:ay(erlangPdf(Math.max(mode,1e-9),k,D))-6,"font-size":10.5,"font-weight":700,fill:"#0d9488"}))
+      .textContent="mode "+mode.toFixed(1)+" d";
+
+    /* ---- lower panel: the epidemic it produces ---- */
+    const p={R0:R0, Dlat:2, Dinf:2, alpha:al, Dimm:D, k:k};
+    const p1={R0:R0, Dlat:2, Dinf:2, alpha:al, Dimm:D, k:1};
+    const init={S:279, E:0, I:2, T:3, L:0};
+    const cur=odeRun(p,init,NDAYS,0.02), exp1=odeRun(p1,init,NDAYS,0.02);
+    let ymax=0;
+    for(let d=1; d<=NDAYS; d++) ymax=Math.max(ymax, rho*cur.inc[d], rho*exp1.inc[d], TDC[d-1]);
+    ymax=Math.max(ymax,5)*1.1;
+    const bx=t=>B.l+(t-1)/(NDAYS-1)*(W-B.l-B.r);
+    const by=v=>B.b-(v/ymax)*(B.b-B.t);
+    svg.appendChild(el("text",{x:B.l,y:B.t-13,"font-size":13,"font-weight":700,fill:"#1f2933"}))
+      .textContent="daily reported cases from the deterministic model with "+k+" temporary immunity stage"+(k===1?"":"s");
+    const gs=Math.max(5,Math.round(ymax/5/5)*5);
+    for(let g=0; g<=ymax; g+=gs){
+      svg.appendChild(el("line",{x1:B.l,y1:by(g),x2:W-B.r,y2:by(g),stroke:"#eef2f7"}));
+      svg.appendChild(el("text",{x:B.l-7,y:by(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"})).textContent=g;
+    }
+    svg.appendChild(el("line",{x1:B.l,y1:by(0),x2:W-B.r,y2:by(0),stroke:"#cbd5e1"}));
+    for(let t=1;t<=NDAYS;t+=6) svg.appendChild(el("text",{x:bx(t),y:B.b+15,"text-anchor":"middle","font-size":10,fill:"#6b7280"})).textContent=t;
+    svg.appendChild(el("text",{x:(B.l+W-B.r)/2,y:B.b+32,"text-anchor":"middle","font-size":12,fill:"#374151"})).textContent="day of the outbreak";
+    function inc2path(arr){
+      let d="";
+      for(let t=1;t<=NDAYS;t++) d+=(d?" L ":"M ")+bx(t).toFixed(1)+" "+by(rho*arr[t]).toFixed(1);
+      return d;
+    }
+    if(k>1) svg.appendChild(el("path",{d:inc2path(exp1.inc),fill:"none",stroke:"#64748b","stroke-width":1.7,"stroke-dasharray":"6 4",opacity:.8}));
+    svg.appendChild(el("path",{d:inc2path(cur.inc),fill:"none",stroke:"#0d9488","stroke-width":2.6}));
+    for(let t=1;t<=NDAYS;t++)
+      svg.appendChild(el("circle",{cx:bx(t),cy:by(TDC[t-1]),r:2.6,fill:"#dc2626",opacity:.85}));
+
+    /* ---- readouts ---- */
+    document.getElementById("eMean").textContent=D.toFixed(1);
+    document.getElementById("eCv").textContent=(1/Math.sqrt(k)).toFixed(3);
+    document.getElementById("eMode").textContent=mode.toFixed(1);
+    const sw=secondWave(cur.inc);
+    document.getElementById("eP2day").textContent=sw?sw.day:"none";
+    document.getElementById("eP2h").textContent=sw?(rho*sw.val).toFixed(1):"—";
+    document.getElementById("eP2w").textContent=sw?"×"+sw.ratio.toFixed(2):"—";
+  }
+  Object.values(ids).forEach(function(i){ i.addEventListener("input",draw); });
+  function preset(k){ ids.K.value=k; draw(); }
+  document.getElementById("eP1").addEventListener("click",function(){ preset(1); });
+  document.getElementById("eP2").addEventListener("click",function(){ preset(4); });
+  document.getElementById("eP3").addEventListener("click",function(){ preset(10); });
+  draw();
+})();
+</script>
+<script>
+/* embed mode: ?embed=sectionId[,id2,...] strips the page chrome AND the
+   explanatory prose/maths from the kept sections, leaving only the interactive
+   figures, for inlining in an <iframe> in the course site. Reports height so the
+   host page can auto-size the iframe. */
+(function(){
+  var q=new URLSearchParams(location.search), e=q.get('embed');
+  var KEEP={fig:1,controls:1,readout:1,legend:1,presets:1,figcap:1};
+  if(e){
+    var keep=e.split(',').map(function(s){return s.trim();}).filter(Boolean);
+    ['header.hero','nav.toc','footer'].forEach(function(sel){
+      Array.prototype.forEach.call(document.querySelectorAll(sel),function(n){n.style.display='none';});
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('body > div'),function(d){
+      if(!d.classList.contains('wrap')) d.style.display='none';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(sec){
+      if(keep.indexOf(sec.id)===-1){ sec.style.display='none'; return; }
+      sec.style.margin='0'; sec.style.border='none'; sec.style.boxShadow='none'; sec.style.padding='2px 2px 8px';
+      Array.prototype.forEach.call(sec.children,function(c){
+        var k=false, cl=c.classList; if(cl){ for(var key in KEEP){ if(cl.contains(key)){k=true;break;} } }
+        if(!k) c.style.display='none';
+      });
+    });
+    var wrap=document.querySelector('.wrap'); if(wrap) wrap.style.padding='0 8px 10px';
+    document.body.style.background='#fff'; document.documentElement.style.background='#fff';
+  }
+  function postH(){ try{ parent.postMessage({nfiddEmbedHeight: Math.ceil(document.body.getBoundingClientRect().height)}, '*'); }catch(_){} }
+  window.addEventListener('load', postH);
+  window.addEventListener('resize', postH);
+  document.addEventListener('input', function(){ setTimeout(postH,60); });
+  document.addEventListener('click', function(){ setTimeout(postH,120); });
+  setTimeout(postH,250); setTimeout(postH,1000);
+})();
+</script>
+</body>
+</html>

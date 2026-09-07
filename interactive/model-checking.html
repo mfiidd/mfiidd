@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Model checking — prior predictive, posterior predictive, calibration</title>
+<style>
+  :root{
+    --fc:#2563eb;     /* posterior predictive / primary */
+    --obs:#0891b2;    /* the observed data / teal */
+    --miss:#f59e0b;   /* prior predictive / amber */
+    --now:#dc2626;    /* observed statistic, hard ceiling / red */
+    --true:#64748b;   /* uniform reference / slate */
+    --ink:#1f2933;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --bg:#fbfbfd;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 22px 120px}
+  header.hero{
+    padding:54px 22px 30px; text-align:center;
+    background:linear-gradient(180deg,#ecfeff 0%, var(--bg) 100%);
+    border-bottom:1px solid var(--line);
+  }
+  header.hero h1{font-size:30px; margin:0 0 8px; letter-spacing:-.4px}
+  header.hero p{max-width:710px; margin:0 auto; color:var(--muted)}
+  nav.toc{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    margin:22px auto 0; max-width:780px;
+  }
+  nav.toc a{
+    text-decoration:none; color:var(--fc); font-weight:600; font-size:14px;
+    border:1px solid #bae6fd; background:#fff; padding:6px 13px; border-radius:999px;
+  }
+  nav.toc a:hover{background:#ecfeff}
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:26px 28px; margin:30px 0; box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  section > h2{margin:0 0 4px; font-size:23px; letter-spacing:-.3px}
+  .tagline{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{margin:26px 0 8px; font-size:17px}
+  p{margin:10px 0}
+  .fig{
+    border:1px solid var(--line); border-radius:12px; padding:16px 14px 10px;
+    margin:18px 0 6px; background:#fff;
+  }
+  .fig svg{display:block; width:100%; height:auto}
+  .figcap{font-size:13.5px; color:var(--muted); margin:8px 4px 2px}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:16px 26px; align-items:center;
+    margin:8px 4px 2px; padding:12px 14px; background:#f8fafc;
+    border:1px solid var(--line); border-radius:10px; font-size:14px;
+  }
+  .controls label{display:flex; flex-direction:column; gap:2px; min-width:160px}
+  .controls .vlabel{font-weight:600}
+  .controls input[type=range]{width:170px; accent-color:var(--fc)}
+  .readout{
+    display:inline-flex; gap:14px; flex-wrap:wrap; margin:12px 4px 0;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .chip{
+    background:#f1f5f9; border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:14px;
+  }
+  .readout .chip b{font-size:16px}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; margin:14px 4px 0; align-items:center}
+  .presets button{
+    font:600 13px inherit; border:1px solid #bae6fd; background:#fff; color:var(--fc);
+    padding:6px 13px; border-radius:8px; cursor:pointer;
+  }
+  .presets button:hover{background:#ecfeff}
+  .presets button.active{background:var(--fc); color:#fff; border-color:var(--fc)}
+  .presets .plabel{font-size:13.5px; color:var(--muted); align-self:center}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; margin:4px 4px 8px}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .swbox{width:16px; height:14px; border-radius:3px; display:inline-block; vertical-align:middle}
+  .key{background:#ecfeff; border-left:4px solid var(--obs); padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0}
+  .key.amber{background:#fffbeb; border-color:var(--miss)}
+  .key.blue{background:#eff6ff; border-color:var(--fc)}
+  .key.red{background:#fef2f2; border-color:var(--now)}
+  .formula{
+    background:#0f172a; color:#e2e8f0; border-radius:10px; padding:14px 18px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:15px; overflow-x:auto; margin:14px 0; line-height:2.1;
+  }
+  .formula .obs{color:#5eead4} .formula .miss{color:#fcd34d} .formula .tot{color:#93c5fd}
+  .formula .cmt{color:#94a3b8}
+  .frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .25em}
+  .frac > span:first-child{border-bottom:1px solid currentColor; padding:0 .35em}
+  .frac > span:last-child{padding:0 .35em}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+  th{background:#f8fafc}
+  ul{margin:10px 0; padding-left:22px}
+  li{margin:5px 0}
+  code{background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:14px}
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:10px 0; background:#fff}
+  details[open]{background:#fcfdff}
+  summary{font-weight:600; cursor:pointer}
+  details p{margin:8px 0 2px}
+  .live{font-variant-numeric:tabular-nums}
+  footer{text-align:center; color:var(--muted); font-size:13px; margin-top:40px}
+  a{color:var(--fc)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>Model checking: what the simulator tells you</h1>
+  <p>Prior predictive checks, posterior predictive checks and simulation-based calibration all push parameters through the same simulator. What changes between them is <b>where the parameters come from</b>, and that determines what each check can and cannot see.</p>
+  <nav class="toc">
+    <a href="#distributions">Three checks, one simulator</a>
+    <a href="#prior">Prior predictive</a>
+    <a href="#posterior">Posterior predictive</a>
+    <a href="#pvalues">Predictive p-values</a>
+    <a href="#ceiling">A ceiling no parameter can clear</a>
+    <a href="#sbc">Simulation-based calibration</a>
+    <a href="#faq">Common questions</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+<!-- ============ DISTRIBUTIONS ============ -->
+<section id="distributions">
+  <h2>Three checks, one simulator</h2>
+  <p class="tagline">Only the source of &theta; changes</p>
+  <p>Everything on this page runs the model the course session runs. A parameter vector <i>&theta;</i> = (<i>R</i><sub>0</sub>, <i>D</i><sub>inf</sub>, <i>&rho;</i>) goes into a deterministic SIR model, which returns daily incidence, and a Poisson observation model turns incidence into reported counts.</p>
+
+  <div class="formula"><span class="cmt">/* transmission */</span>
+    d<i>S</i>/d<i>t</i> = &minus;&beta; <i>S I</i> / <i>N</i> &nbsp;&nbsp;&nbsp; d<i>I</i>/d<i>t</i> = &beta; <i>S I</i> / <i>N</i> &minus; &nu; <i>I</i> &nbsp;&nbsp;&nbsp; &beta; = <i>R</i><sub>0</sub> / <i>D</i><sub>inf</sub>, &nbsp; &nu; = 1 / <i>D</i><sub>inf</sub>
+    <br><span class="cmt">/* observation */</span>
+    <span class="obs">y<sub>i</sub></span> ~ Poisson( &rho; &middot; [ <i>S</i>(<i>i</i>&minus;1) &minus; <i>S</i>(<i>i</i>) ] )</div>
+
+  <p>The island starts at <i>S</i> = 279, <i>I</i> = 2, <i>R</i> = 3, so <i>N</i> = 284. Day 1 is 13 August 1971, the day the ship landed. There are 59 days of counts and 312 reported cases in total. Hold on to that last pair of numbers.</p>
+
+  <p>The three checks differ in one line:</p>
+
+  <div class="formula"><b>prior predictive</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="miss">&theta;<sup>(i)</sup> ~ p(&theta;)</span> &nbsp;&rarr;&nbsp; y<sup>rep,(i)</sup> ~ p(y | &theta;<sup>(i)</sup>)
+    <br><b>posterior predictive</b> &nbsp; <span class="tot">&theta;<sup>(i)</sup> ~ p(&theta; | y)</span> &nbsp;&rarr;&nbsp; y<sup>rep,(i)</sup> ~ p(y | &theta;<sup>(i)</sup>)
+    <br><b>SBC</b> &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="miss">&theta;<sup>(i)</sup> ~ p(&theta;)</span> &nbsp;&rarr;&nbsp; y<sup>(i)</sup> ~ p(y | &theta;<sup>(i)</sup>) &nbsp;&rarr;&nbsp; fit, then rank &theta;<sup>(i)</sup></div>
+
+  <table>
+    <tr><th>Check</th><th>What it can catch</th><th>What it is blind to</th></tr>
+    <tr><td><b>Prior predictive</b></td><td>Priors that imply impossible or absurd data. Needs no data and no fitting.</td><td>Everything about the fit. A model can pass this and still be unable to reproduce the observations.</td></tr>
+    <tr><td><b>Posterior predictive</b></td><td>Features of the observed data the fitted model cannot reproduce.</td><td>Out-of-sample failure. The same data set the fit, so the comparison is optimistic by construction.</td></tr>
+    <tr><td><b>SBC</b></td><td>An inference procedure that returns the wrong posterior: too narrow, too wide, or shifted.</td><td>Model misspecification. SBC never touches the real data, so a wrong model that is fitted correctly passes.</td></tr>
+  </table>
+
+  <div class="key blue">These are steps 2 and 5 of the workflow in <a href="https://arxiv.org/abs/2011.01808">Gelman et al. (2020)</a>. The loop matters more than any single check: each failure tells you which part of the model to change, and you go round again.</div>
+</section>
+
+<!-- ============ PRIOR PREDICTIVE ============ -->
+<section id="prior">
+  <h2>Vague on the parameter is not vague on the outcome</h2>
+  <p class="tagline">The push-forward through the model is the whole point</p>
+  <p>A flat prior on <i>R</i><sub>0</sub> looks like an admission of ignorance. Push it through the SIR model and it stops being flat. The map from <i>R</i><sub>0</sub> to attack rate saturates: once <i>R</i><sub>0</sub> is above about 4 the epidemic infects essentially the whole island, so most of a wide prior piles up on the same outcome. The map to peak timing compresses the other way, because the growth rate <i>&beta;</i> &minus; <i>&nu;</i> is (<i>R</i><sub>0</sub> &minus; 1) / <i>D</i><sub>inf</sub> and the time to the peak falls roughly like 1 / (<i>R</i><sub>0</sub> &minus; 1).</p>
+  <p>The left panel is the prior you set. The right panel is what that prior implies about an outcome you can judge. Change the prior and watch the two move differently.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--miss);opacity:.75"></i> prior on R<sub>0</sub></span>
+    <span><i class="swbox" style="background:var(--fc);opacity:.75"></i> implied outcome</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> value observed on Tristan da Cunha</span>
+  </div>
+
+  <div class="fig">
+    <svg id="ppSvg" viewBox="0 0 720 480" role="img" aria-label="Left: the uniform prior on the basic reproduction number, drawn on a fixed axis. Right: a histogram of the outcome that prior implies, with the observed value marked. Below: incidence curves simulated from parameters drawn from the prior."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">R<sub>0</sub> prior lower bound: <span id="ppLoVal">1.0</span></span>
+      <input id="ppLo" type="range" min="0.5" max="5" step="0.1" value="1.0"></label>
+    <label><span class="vlabel">R<sub>0</sub> prior upper bound: <span id="ppHiVal">20.0</span></span>
+      <input id="ppHi" type="range" min="2" max="20" step="0.5" value="20"></label>
+    <label><span class="vlabel">Infectious period upper bound (days): <span id="ppDVal">14.0</span></span>
+      <input id="ppD" type="range" min="2" max="14" step="0.5" value="14"></label>
+  </div>
+  <div class="presets" id="ppOutcome">
+    <span class="plabel">outcome shown:</span>
+    <button data-out="attack" class="active">attack rate</button>
+    <button data-out="peakday">peak day</button>
+    <button data-out="peakinc">peak incidence</button>
+  </div>
+  <div class="presets" id="ppPreset">
+    <span class="plabel">prior:</span>
+    <button data-p="1,20,14" class="active">Uniform(1, 20)</button>
+    <button data-p="0.5,10,14">session prior</button>
+    <button data-p="1,5,7">influenza-like</button>
+    <button data-p="1.5,3,5">tight</button>
+  </div>
+  <div class="readout">
+    <span class="chip">median attack rate = <b id="ppAR">—</b></span>
+    <span class="chip">P(attack rate &ge; 90%) = <b id="ppARhi">—</b></span>
+    <span class="chip">median peak day = <b id="ppPD">—</b></span>
+    <span class="chip">P(peak within 5 days) = <b id="ppPDlo">—</b></span>
+  </div>
+  <p class="figcap">300 draws from the prior, each solved with a fixed-step Runge&ndash;Kutta scheme; the lower panel shows the first 80 incidence curves. The reporting rate is held at 1 here so that the outcome is a property of the epidemic and not of the surveillance.</p>
+  <div class="key amber">Start on <b>Uniform(1, 20)</b>. The chips report P(attack rate &ge; 90%) = <b class="live" id="ppF1">—</b> and P(peak within five days) = <b class="live" id="ppF2">—</b>. That prior is not humble about influenza on Tristan da Cunha. It asserts that the island was almost certainly wiped through in under a week. Switch to the <b>influenza-like</b> prior and the same two numbers fall to <b class="live" id="ppF3">—</b> and <b class="live" id="ppF4">—</b>, while the median peak moves from day <b class="live" id="ppF5">—</b> to day <b class="live" id="ppF6">—</b>.</div>
+  <p>The vertical axis of the curve panel is left alone deliberately. Capping it makes the picture tidier and hides the trajectories that make the point.</p>
+</section>
+
+<!-- ============ POSTERIOR PREDICTIVE ============ -->
+<section id="posterior">
+  <h2>Posterior predictive, and why it flatters the model</h2>
+  <p class="tagline">Same simulator, parameters from p(&theta; | y), and one data set doing two jobs</p>
+  <p>The posterior predictive distribution replaces draws from the prior with draws from the posterior. Nothing else changes. The comparison is no longer "could this model produce anything like an epidemic" but "does this fitted model produce data that look like the data we have".</p>
+  <p>There is a catch the session does not state. The posterior was pulled towards <i>y</i> by <i>y</i> itself, and the replicates come from that posterior. Any statistic the fit was able to chase has already been chased, so the observed value sits closer to the middle of the replicate distribution than a fresh data set would. The check is optimistic by construction.</p>
+  <p>The slider makes that visible. Fit to the first <i>k</i> days only, then look at how the same posterior predictive interval performs on the days inside the fitting window and on the days outside it.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--miss);opacity:.5"></i> prior predictive 50% and 90% intervals</span>
+    <span><i class="swbox" style="background:var(--fc);opacity:.45"></i> posterior predictive 50% and 90% intervals</span>
+    <span><i class="swbox" style="background:var(--obs)"></i> observed counts</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> edge of the fitting window</span>
+  </div>
+
+  <div class="fig">
+    <svg id="ppcSvg" viewBox="0 0 720 540" role="img" aria-label="Top: the prior predictive interval for daily reported cases against the observed series. Bottom: the posterior predictive interval from a fit to the first k days, with the fitted window shaded and the held-out days beyond it."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Fit to the first <span id="ppcKval">59</span> days</span>
+      <input id="ppcK" type="range" min="12" max="59" step="1" value="59"></label>
+  </div>
+  <div class="presets" id="ppcPreset">
+    <button data-k="59" class="active">fit all 59 days</button>
+    <button data-k="20">fit the first 20 days</button>
+    <button data-k="15">fit the first 15 days</button>
+  </div>
+  <div class="readout">
+    <span class="chip">posterior mean R<sub>0</sub> = <b id="ppcR0">—</b></span>
+    <span class="chip">posterior mean D<sub>inf</sub> = <b id="ppcD">—</b></span>
+    <span class="chip">posterior mean &rho; = <b id="ppcRho">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">90% cover, fitted days = <b id="ppcIn">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">90% cover, held-out days = <b id="ppcOut">—</b></span>
+    <span class="chip">held-out cases, predicted vs observed = <b id="ppcTot">—</b></span>
+  </div>
+  <p class="figcap">Each redraw runs a fresh componentwise random-walk Metropolis chain in the browser: 3000 iterations, the first 1000 discarded, proposal scales adapted during that burn-in towards an acceptance rate near 0.3. 400 thinned draws are then pushed through the simulator and the Poisson observation model. The seed is fixed, so the same slider position always gives the same picture.</p>
+  <div class="key">At <b>k = 20</b> the fit is drawn to a fast, early epidemic. The posterior mean <i>R</i><sub>0</sub> is <b class="live" id="pcA">—</b> with an infectious period of <b class="live" id="pcB">—</b> days, neither of which is plausible for influenza. Inside the window the 90% interval covers <b class="live" id="pcC">—</b> of the fitted days. Outside it, coverage falls to <b class="live" id="pcD">—</b>, and the replicate medians add up to <b class="live" id="pcE">—</b> cases after day 20 against <b class="live" id="pcF">—</b> reported. The in-window picture on its own would not have told you that.</div>
+  <div class="key blue">Fitting to all 59 days does not rescue it. The posterior settles at <i>R</i><sub>0</sub> = <b class="live" id="pcG">—</b> with an infectious period of <b class="live" id="pcH">—</b> days, splitting the difference between the two waves, and the 90% interval then covers only <b class="live" id="pcI">—</b> of the days it was fitted to. A posterior predictive check that fails on the data used to fit is a strong signal, precisely because the check was tilted in the model's favour.</div>
+</section>
+
+<!-- ============ PREDICTIVE P-VALUES ============ -->
+<section id="pvalues">
+  <h2>Predictive p-values, and what they are not</h2>
+  <p class="tagline">Pick a statistic, compare the observed value against its replicated distribution</p>
+  <p>A visual check needs a person to look at it. A predictive p-value reduces the comparison to one number. Choose a summary statistic <i>T</i>, compute it on every replicate, and record where the observed value falls:</p>
+
+  <div class="formula">p<sub>B</sub> = Pr( T(<span class="tot">y<sup>rep</sup></span>) &ge; T(<span class="obs">y</span>) | <span class="obs">y</span> ) &nbsp;&nbsp;&asymp;&nbsp;&nbsp; <span class="frac"><span>#{ i : T(y<sup>rep,(i)</sup>) &ge; T(y) }</span><span>number of replicates</span></span></div>
+
+  <p>Near 0.5 the observed value is unremarkable under the model. Near 0 or near 1 it sits in a tail, and the sign tells you the direction of the failure. Switch statistics below. One fitted model, one data set, and the answer runs the whole length of the scale.</p>
+
+  <div class="fig">
+    <svg id="pvSvg" viewBox="0 0 720 340" role="img" aria-label="A histogram of the chosen summary statistic across replicated data sets, with the observed value marked by a vertical line and the tail at least as extreme as the observation shaded."></svg>
+  </div>
+  <div class="presets" id="pvStat">
+    <span class="plabel">statistic:</span>
+    <button data-s="peak" class="active">peak height</button>
+    <button data-s="peakday">peak day</button>
+    <button data-s="total">total cases</button>
+    <button data-s="waves">number of waves</button>
+    <button data-s="firstday">day of first case</button>
+    <button data-s="centre">mean day of cases</button>
+  </div>
+  <div class="presets" id="pvRef">
+    <span class="plabel">replicates from:</span>
+    <button data-r="post" class="active">posterior predictive</button>
+    <button data-r="prior">prior predictive</button>
+  </div>
+  <div class="readout">
+    <span class="chip">observed T(y) = <b id="pvObs">—</b></span>
+    <span class="chip">replicate median = <b id="pvMed">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">p<sub>B</sub> = <b id="pvP">—</b></span>
+    <span class="chip">replicates = <b id="pvN">400</b></span>
+  </div>
+  <p class="figcap">Definitions. <b>Number of waves</b>: smooth the series with a five-day centred moving average, then count the days whose smoothed value is at least 1.5 cases and is the largest within seven days either side, resolving ties to the earlier day. <b>Day of first case</b>: the first day with a non-zero count. <b>Mean day of cases</b>: the case-weighted average day. The observed series gives <b class="live" id="pvD1">—</b>, <b class="live" id="pvD2">—</b> and <b class="live" id="pvD3">—</b> for those three. Prior predictive replicates use the session priors, <i>R</i><sub>0</sub> ~ Uniform(0.5, 10), <i>D</i><sub>inf</sub> ~ Uniform(1, 14), <i>&rho;</i> ~ Uniform(0, 1).</p>
+
+  <div class="key red"><b>One model, six answers.</b> Under the posterior predictive distribution: peak height <b class="live" id="pvA1">—</b>, total cases <b class="live" id="pvA2">—</b>, peak day <b class="live" id="pvA3">—</b>, number of waves <b class="live" id="pvA4">—</b>, day of the first case <b class="live" id="pvA5">—</b>, mean day of cases <b class="live" id="pvA6">—</b>. Three of those are as extreme as 400 replicates allow, one is nearly so, and two sit comfortably in the middle.</div>
+
+  <p>The two that pass are worth more attention than the four that fail, because both are statistics a reader might reasonably have chosen in advance.</p>
+  <ul>
+    <li><b>Day of the first case</b> passes because it carries almost no information. Any epidemic that gets going at all reports its first case within a day or two, whatever <i>R</i><sub>0</sub> is, so the statistic cannot distinguish a model that is right from one that is not.</li>
+    <li><b>Mean day of cases</b> passes for a worse reason. Two errors cancel. The fitted single wave peaks around day <b class="live" id="pvB1">—</b> against an observed peak on day 7, which on its own would push the replicate mean day too late. The observed second wave drags the observed mean day out to <b class="live" id="pvB2">—</b>, and the replicate median lands at <b class="live" id="pvB3">—</b>. The statistic agrees because the model is late and the data are bimodal, and it would agree just as well if neither were true.</li>
+  </ul>
+  <p>A statistic the model reproduces is weak evidence. A statistic it misses points at the missing mechanism. Choose summaries that could plausibly fail, and report the ones that did.</p>
+
+  <p>Switch the reference to the <b>prior predictive</b> and the picture changes again. The prior admits epidemics of nearly any size and speed, so the observed values are comfortable inside a very wide distribution: peak height gives <b class="live" id="pvC1">—</b> and peak day gives <b class="live" id="pvC2">—</b>. A check that cannot fail is not telling you the model is good.</p>
+
+  <h3>Why these are not calibrated p-values</h3>
+  <p>A frequentist p-value is uniformly distributed under the null hypothesis, which is what makes a fixed threshold mean the same thing every time. A posterior predictive p-value is not, and the reason is the double use of the data. The replicates are drawn from <i>p</i>(<i>&theta;</i> | <i>y</i>), a distribution that has already been pulled towards <i>y</i>. The observed statistic is therefore closer to the centre of its own replicate distribution than a genuinely fresh data set would be, so the p-value clusters around 0.5 rather than spreading uniformly. The check is conservative: it under-reports problems.</p>
+  <p><a href="https://doi.org/10.1214/aos/1176325622">Meng (1994)</a> made this precise, showing that under the model the posterior predictive p-value satisfies Pr(p<sub>B</sub> &le; &alpha;) &le; 2&alpha;. It can be twice as far into the tail as a uniform p-value would be at the same nominal level, but no further. <a href="http://www.stat.columbia.edu/~gelman/research/published/ppc_understand3.pdf">Gelman (2013)</a> gives worked examples where the distribution is a long way from uniform in both directions. Two consequences follow.</p>
+  <ul>
+    <li><b>Do not threshold.</b> There is no 0.05 here. A value of 0.03 does not mean the model is rejected and a value of 0.2 does not mean it is fine.</li>
+    <li><b>Read the direction, not the magnitude.</b> p<sub>B</sub> near 1 for peak day says the model peaks late, every time. That statement survives the calibration problem. "Significantly late" does not.</li>
+  </ul>
+  <p>Prior predictive p-values in the sense of <a href="https://doi.org/10.2307/2981553">Box (1980)</a> are uniform under the prior predictive distribution, because the data are used only once. They are also far less useful, as the panel above shows: a vague prior makes them pass whatever you feed them.</p>
+</section>
+
+<!-- ============ THE CEILING ============ -->
+<section id="ceiling">
+  <h2>A ceiling no parameter can clear</h2>
+  <p class="tagline">312 reported cases in a population of 284</p>
+  <p>The checks above all say the model misses. They do not say whether the problem is the parameters or the structure. For this data set the answer is available before any fitting, from a conservation argument.</p>
+  <p>Divide the susceptible equation by the recovered equation. The transmission terms cancel and the result depends on <i>R</i><sub>0</sub> alone. Integrating from the start of the outbreak to the end, where <i>I</i> has returned to zero, gives the classical final size relation:</p>
+
+  <div class="formula"><span class="frac"><span>d<i>S</i></span><span>d<i>R</i></span></span> = &minus; <span class="frac"><span><i>R</i><sub>0</sub></span><span><i>N</i></span></span> <i>S</i>
+    &nbsp;&nbsp;&rarr;&nbsp;&nbsp;
+    <span class="tot">S(&infin;)</span> = S(0) &middot; exp( &minus; <span class="frac"><span><i>R</i><sub>0</sub></span><span><i>N</i></span></span> [ N &minus; <span class="tot">S(&infin;)</span> &minus; R(0) ] )
+    <br><span class="cmt">/* cumulative infections over the whole outbreak */</span>
+    C(&infin;) = S(0) &minus; <span class="tot">S(&infin;)</span> &nbsp;&lt;&nbsp; S(0) = <span class="miss">279</span></div>
+
+  <p>The recovered compartment and the basic reproduction number are both written <i>R</i> by long convention. The compartment is <i>R</i> and the reproduction number is <i>R</i><sub>0</sub>.</p>
+  <p>Everyone who is ever infected in a single SIR wave leaves the susceptible compartment once and never returns, so the cumulative number of infections cannot exceed <i>S</i>(0) = 279 no matter what <i>R</i><sub>0</sub> and <i>D</i><sub>inf</sub> are. Reporting only shrinks that further, since the expected number of reported cases is <i>&rho;</i> &middot; <i>C</i>(&infin;) and <i>&rho;</i> &le; 1. The observed total is 312.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--fc)"></i> expected reported cases at the current &rho;</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> ceiling: S(0) = 279</span>
+    <span><i class="swatch" style="border-color:var(--now)"></i> observed total = 312</span>
+    <span><i class="swbox" style="background:var(--obs)"></i> observed daily counts</span>
+  </div>
+
+  <div class="fig">
+    <svg id="cSvg" viewBox="0 0 720 400" role="img" aria-label="Left: expected total reported cases against the basic reproduction number, saturating below the ceiling of 279 and never reaching the observed total of 312. Right: the single wave produced by the current parameters, drawn against the observed daily counts."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">R<sub>0</sub>: <span id="cR0val">2.0</span></span>
+      <input id="cR0" type="range" min="0.5" max="20" step="0.1" value="2.0"></label>
+    <label><span class="vlabel">Infectious period D<sub>inf</sub> (days): <span id="cDval">3.5</span></span>
+      <input id="cD" type="range" min="1" max="14" step="0.1" value="3.5"></label>
+    <label><span class="vlabel">Reporting rate &rho;: <span id="cRhoVal">1.00</span></span>
+      <input id="cRho" type="range" min="0.05" max="1" step="0.01" value="1"></label>
+  </div>
+  <div class="presets" id="cPreset">
+    <button data-c="fit" class="active">the fitted posterior mean</button>
+    <button data-c="max">push it as far as it goes</button>
+  </div>
+  <div class="readout">
+    <span class="chip">expected reported cases = <b id="cTot">—</b></span>
+    <span class="chip">shortfall against 312 = <b id="cGap">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--true);padding-left:10px">ceiling &rho; &times; 279 = <b id="cCeil">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">Pr(Poisson(279) &ge; 312) = <b id="cPois">—</b></span>
+  </div>
+  <div class="key red">The blue curve saturates. Raising <i>R</i><sub>0</sub> past about 5 buys almost nothing, because the epidemic is already infecting every susceptible on the island, and the curve never crosses the red line. This is not a hard parameter to find. It does not exist.</div>
+  <p>Strictly, "impossible" is one word too strong, and the page computes the correction. The Poisson observation model has variance equal to its mean, so a total of 312 could arise as an upward fluctuation around an expectation of 279. That requires <i>&rho;</i> = 1, an <i>R</i><sub>0</sub> large enough to infect every susceptible, and then a draw <b class="live" id="cZ">—</b> standard deviations above the mean. The chip above gives the probability of the last step alone.</p>
+  <p>The right-hand panel shows why chasing that configuration is hopeless anyway. Press <b>push it as far as it goes</b>. The model puts <b class="live" id="cP1">—</b> cases on the first day and is finished within a week. It buys the total by destroying the shape.</p>
+
+  <div class="key blue"><b>A parameter problem or a structure problem.</b> A parameter problem moves when you move the parameters. This one does not, so no prior, no sampler and no observation model will fix it. Reported cases exceed the population because islanders were infected twice, which a single SIR wave cannot represent. Changing Poisson to negative binomial widens the interval around a single-wave trajectory and makes the miss look less surprising. It does not add a second wave. The SEITL model in the next session adds a temporary immune state that drains back into susceptible, which does.</div>
+</section>
+
+<!-- ============ SBC ============ -->
+<section id="sbc">
+  <h2>Simulation-based calibration</h2>
+  <p class="tagline">Checking the inference rather than the model</p>
+  <p>Predictive checks compare the model against one data set. Simulation-based calibration asks a different question: given that the model is exactly right, does the fitting procedure return the correct posterior? It works from a self-consistency property. If <i>&theta;</i> is drawn from the prior and <i>y</i> is simulated from <i>&theta;</i>, then <i>&theta;</i> is an ordinary draw from the posterior <i>p</i>(<i>&theta;</i> | <i>y</i>). It is exchangeable with the fitted posterior samples, so its rank among <i>L</i> of them is uniform on 0, 1, &hellip;, <i>L</i> (<a href="https://arxiv.org/abs/1804.06788">Talts et al. 2018</a>).</p>
+
+  <div class="formula"><span class="cmt">/* repeated many times */</span>
+    &theta;<sup>true</sup> ~ p(&theta;) &nbsp;&rarr;&nbsp; y ~ p(y | &theta;<sup>true</sup>) &nbsp;&rarr;&nbsp; &theta;<sup>(1..L)</sup> ~ p(&theta; | y)
+    <br>r = #{ l : &theta;<sup>(l)</sup> &lt; &theta;<sup>true</sup> } &nbsp;&nbsp;<span class="cmt">/* uniform on {0, …, L} if the inference is correct */</span></div>
+
+  <p>The three failures have three signatures, and they are legible once you know that the rank counts how many posterior draws fall below the truth. A posterior that is <b>too narrow</b> misses the truth on one side or the other, so ranks pile up at both ends and the histogram is U-shaped. A posterior that is <b>too wide</b> brackets the truth too comfortably, so ranks cluster in the middle and the histogram arches. A posterior that is <b>shifted</b> puts too many draws on one side, and the histogram slopes.</p>
+  <p>Modern practice reads the empirical CDF of the ranks against uniform instead of binning them. The difference plot has no bin-width choice, and a band can be drawn on it.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--fc)"></i> ECDF of ranks minus uniform</span>
+    <span><i class="swbox" style="background:var(--true);opacity:.25"></i> pointwise 95% band under uniformity</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> zero difference</span>
+  </div>
+
+  <div class="fig">
+    <svg id="sbcSvg" viewBox="0 0 720 380" role="img" aria-label="The difference between the empirical distribution function of simulation-based calibration ranks and the uniform distribution function, with a pointwise 95 per cent band, or the same ranks as a histogram."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Posterior width, &times; the correct one: <span id="sbW">1.00</span></span>
+      <input id="sbWid" type="range" min="0.4" max="2" step="0.02" value="1"></label>
+    <label><span class="vlabel">Posterior bias, in posterior SDs: <span id="sbB">0.00</span></span>
+      <input id="sbBias" type="range" min="-1" max="1" step="0.02" value="0"></label>
+    <label><span class="vlabel">Replicates: <span id="sbN">500</span></span>
+      <input id="sbNrep" type="range" min="50" max="1000" step="50" value="500"></label>
+  </div>
+  <div class="presets" id="sbView">
+    <span class="plabel">view:</span>
+    <button data-v="ecdf" class="active">ECDF difference</button>
+    <button data-v="hist">rank histogram</button>
+  </div>
+  <div class="presets" id="sbPreset">
+    <button data-s="1,0" class="active">calibrated</button>
+    <button data-s="0.6,0">posterior too narrow</button>
+    <button data-s="1.6,0">posterior too wide</button>
+    <button data-s="1,0.6">posterior biased</button>
+  </div>
+  <div class="readout">
+    <span class="chip">largest ECDF difference = <b id="sbMax">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">points outside the band = <b id="sbOut">—</b></span>
+    <span class="chip">L = <b>99</b> posterior draws per replicate</span>
+  </div>
+  <p class="figcap">The band is <b>pointwise</b>: each rank threshold is checked at the 95% level on its own, so with 100 thresholds a calibrated run is expected to stray outside it somewhere. Judge the shape of the excursion rather than counting crossings. Simultaneous bands, which do control the overall rate, are given by <a href="https://arxiv.org/abs/2103.10522">S&auml;ilynoja, B&uuml;rkner and Vehtari (2022)</a>.</p>
+
+  <div class="key"><b>What is simulated here.</b> Repeating a NUTS fit of the SIR model several hundred times is beyond a web page, so this figure uses a conjugate stand-in: <i>&theta;</i> ~ Normal(0, 1) with eight observations <i>y<sub>j</sub></i> ~ Normal(<i>&theta;</i>, 1), whose exact posterior is Normal(<i>m</i>, <i>s</i><sup>2</sup>) with <i>s</i><sup>2</sup> = 1/9 and <i>m</i> = (&Sigma; <i>y<sub>j</sub></i>)/9. The correct posterior is therefore known, and the sliders corrupt it deliberately by scaling <i>s</i> and shifting <i>m</i>. Everything else, including the ranking and the band, is exactly what SBC does on a real model.</div>
+
+  <div class="key amber"><b>SBC does not check the model.</b> The data it fits were generated by the model, so a structurally wrong model that is fitted correctly passes SBC with a flat histogram. The SIR fit on this page would pass. That is the division of labour: SBC audits the inference, predictive checks audit the model, and neither substitutes for the other.</div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <h2>Common questions</h2>
+  <p class="tagline">The ones that come up in the practical</p>
+
+  <details><summary>What is the difference between a prior predictive check and just plotting my prior?</summary>
+  <p>Plotting the prior shows you what you believe about a parameter. A prior predictive check shows you what that belief implies about data, after the model has transformed it. The transformation is where the surprises are: Uniform(1, 20) on <i>R</i><sub>0</sub> is flat on the parameter and heavily concentrated on "the whole island is infected within a week" on the outcome.</p></details>
+
+  <details><summary>My posterior predictive check passes. Is the model right?</summary>
+  <p>No. It means the fitted model reproduces the statistics you chose to look at, on the data it was fitted to. This page has two statistics that pass on a model that cannot possibly be right, one because it carries no information and one because two errors cancel. A statistic the model misses is worth far more than one it matches.</p></details>
+
+  <details><summary>Why can I not use p &lt; 0.05 here?</summary>
+  <p>Because the data were used twice, once to form the posterior and again to compute the statistic, the p-value is not uniform under the model. It concentrates around 0.5, so the check is conservative and a fixed threshold does not mean what it means in a frequentist test. Read the direction of the failure, and read it alongside the plots.</p></details>
+
+  <details><summary>How many SBC replicates do I need?</summary>
+  <p>Enough that the band is narrow enough to see the deviation you care about, which in practice is a few hundred for an obvious failure and closer to a thousand for a subtle one. Set the width to 0.9 with no bias and drag the replicates slider: at 50 replicates <b class="live" id="fq1">—</b> of the 100 rank thresholds fall outside the band, and at 1000 replicates <b class="live" id="fq2">—</b> of them do.</p></details>
+
+  <details><summary>SBC passed but my fit to real data is terrible. Why?</summary>
+  <p>SBC only ever fits data that the model itself generated, so it certifies that the sampler recovers parameters when the model is true. It is silent about whether the model is true. A correct sampler on a model that cannot produce two waves gives you a correct posterior for a useless model.</p></details>
+
+  <details><summary>Do I need to run SBC every time?</summary>
+  <p>No. It costs hundreds of fits, so it belongs to model development rather than to daily use: a new likelihood, a new parameterisation, a custom sampler, or a pipeline whose results you intend to rely on repeatedly. For an established model in well-tested software, predictive checks and the usual convergence diagnostics catch most of what goes wrong.</p></details>
+
+  <details><summary>The check failed. Do I change the observation model or the dynamics?</summary>
+  <p>Ask whether the failure is about spread or about shape. If the replicates have the right shape but are too tight around it, the observation model is the cheap fix, and a negative binomial is the usual first move. If the replicates have the wrong shape, as on this page, no observation model will help, because it changes how the gap is scored rather than what the model can produce.</p></details>
+
+  <details><summary>Why does the prior predictive distribution not use the fitted reporting rate?</summary>
+  <p>Because at that stage there is no fit. The prior predictive distribution uses the prior on every parameter, including <i>&rho;</i> ~ Uniform(0, 1), which is why its intervals are so much wider than the posterior predictive ones in the same figure.</p></details>
+</section>
+
+<footer>Built as a teaching aid for the MFIIDD model checking session &middot; all figures are interactive, computed in the page and self-contained &middot; data: Tristan da Cunha, 1971.</footer>
+
+</div>
+
+<script>
+/* ================= shared numerics ================= */
+function mulberry32(a){
+  return function(){ a|=0; a=a+0x6D2B79F5|0; var t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; };
+}
+var LGF=[]; (function(){ var s=0; LGF[0]=0; for(var k=1;k<=3000;k++){ s+=Math.log(k); LGF[k]=s; } })();
+function makeRng(seed){
+  var u=mulberry32(seed), spare=null;
+  return {
+    u:u,
+    n:function(){
+      if(spare!==null){ var s=spare; spare=null; return s; }
+      var x,y,r; do{ x=2*u()-1; y=2*u()-1; r=x*x+y*y; }while(r>=1||r===0);
+      var f=Math.sqrt(-2*Math.log(r)/r); spare=y*f; return x*f;
+    },
+    pois:function(lam){
+      if(!(lam>0)) return 0;
+      if(lam<30){ var L=Math.exp(-lam), k=0, p=1; do{ k++; p*=u(); }while(p>L); return k-1; }
+      var c=0.767-3.36/lam, b=Math.PI/Math.sqrt(3*lam), a=b*lam, kk=Math.log(c)-lam-Math.log(b);
+      for(var guard=0; guard<1000; guard++){
+        var uu=u(); if(uu<=0||uu>=1) continue;
+        var x=(a-Math.log((1-uu)/uu))/b, n=Math.floor(x+0.5); if(n<0) continue;
+        var v=u(), y=a-b*x, t=1+Math.exp(y);
+        if(y+Math.log(v/(t*t)) <= kk+n*Math.log(lam)-LGF[Math.min(n,3000)]) return n;
+      }
+      return Math.round(lam);
+    }
+  };
+}
+var SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs){ var e=document.createElementNS(SVGNS,tag); for(var k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+function add(svg,tag,attrs){ var e=el(tag,attrs); svg.appendChild(e); return e; }
+function txt(svg,x,y,s,attrs){
+  var a={x:x,y:y,"font-size":10.5,fill:"#6b7280"};
+  for(var k in (attrs||{})) a[k]=attrs[k];
+  var e=add(svg,"text",a); e.textContent=s; return e;
+}
+function rct(svg,x,y,w,h,attrs){
+  if(w<0){ x+=w; w=-w; } if(h<0){ y+=h; h=-h; }
+  var a={x:x,y:y,width:Math.max(w,0),height:Math.max(h,0)};
+  for(var k in (attrs||{})) a[k]=attrs[k];
+  return add(svg,"rect",a);
+}
+function ln(svg,x1,y1,x2,y2,attrs){
+  var a={x1:x1,y1:y1,x2:x2,y2:y2,stroke:"#cbd5e1"};
+  for(var k in (attrs||{})) a[k]=attrs[k];
+  return add(svg,"line",a);
+}
+function pth(svg,d,attrs){
+  var a={d:d,fill:"none"};
+  for(var k in (attrs||{})) a[k]=attrs[k];
+  return add(svg,"path",a);
+}
+function put(id,value){ var n=document.getElementById(id); if(n) n.textContent=value; }
+function sortNum(a){ return a.slice().sort(function(x,y){ return x-y; }); }
+function quant(sorted,p){
+  var i=Math.floor(p*(sorted.length-1));
+  return sorted[Math.max(0,Math.min(sorted.length-1,i))];
+}
+function mean(a){ var s=0; for(var i=0;i<a.length;i++) s+=a[i]; return s/a.length; }
+function pct(x){ return Math.round(100*x)+"%"; }
+function niceTicks(lo,hi,n){
+  var span=hi-lo; if(!(span>0)) return [lo];
+  var raw=span/n, mag=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), norm=raw/mag;
+  var step=(norm<1.5?1:norm<3?2:norm<7?5:10)*mag;
+  var out=[], v=Math.ceil(lo/step)*step;
+  for(; v<=hi+1e-9; v+=step) out.push(Math.abs(v)<1e-9?0:v);
+  return out;
+}
+
+/* ================= the model ================= */
+var S0=279, I0=2, RINIT=3, NPOP=284, NDAYS=59;
+var OBS=[0,1,0,10,6,32,47,37,29,11,13,8,2,2,2,0,2,1,2,2,5,2,3,2,3,5,7,8,5,7,4,12,7,5,3,4,1,0,5,2,2,0,6,1,1,2,0,0,0,0,2,0,0,0,0,0,0,0,1];
+var OBSTOT=0; (function(){ for(var i=0;i<OBS.length;i++) OBSTOT+=OBS[i]; })();
+
+/* Daily incidence S(i-1) - S(i) for days 1..NDAYS, classical RK4 with a step
+   short enough for the fastest epidemic the priors allow. */
+function sirInc(R0,D){
+  var beta=R0/D, nu=1/D;
+  var per=Math.max(4,Math.min(40,Math.ceil(4*beta))), h=1/per;
+  var S=S0, I=I0, inc=new Array(NDAYS);
+  for(var d=0; d<NDAYS; d++){
+    var Sp=S;
+    for(var s=0; s<per; s++){
+      var a1=-beta*S*I/NPOP, b1=beta*S*I/NPOP-nu*I;
+      var S2=S+h/2*a1, I2=I+h/2*b1;
+      var a2=-beta*S2*I2/NPOP, b2=beta*S2*I2/NPOP-nu*I2;
+      var S3=S+h/2*a2, I3=I+h/2*b2;
+      var a3=-beta*S3*I3/NPOP, b3=beta*S3*I3/NPOP-nu*I3;
+      var S4=S+h*a3, I4=I+h*b3;
+      var a4=-beta*S4*I4/NPOP, b4=beta*S4*I4/NPOP-nu*I4;
+      S+=h/6*(a1+2*a2+2*a3+a4);
+      I+=h/6*(b1+2*b2+2*b3+b4);
+    }
+    inc[d]=Math.max(Sp-S,0);
+  }
+  return inc;
+}
+/* Final size relation: S(inf) = S(0) exp(-(R0/N)(N - S(inf) - R(0))). */
+function finalSize(R0){
+  var s=S0;
+  for(var k=0;k<400;k++) s=S0*Math.exp(-(R0/NPOP)*(NPOP-s-RINIT));
+  return S0-s;
+}
+function poisTail(mu,k){
+  var s=0, lm=Math.log(mu);
+  for(var j=0;j<k;j++) s+=Math.exp(j*lm-mu-LGF[j]);
+  return Math.max(1-s,0);
+}
+
+/* ================= posterior sampling ================= */
+var LO=[0.5,1.0,0.0], HI=[10.0,14.0,1.0];
+function toUnc(p){ var z=[]; for(var i=0;i<3;i++){ var t=(p[i]-LO[i])/(HI[i]-LO[i]); z.push(Math.log(t/(1-t))); } return z; }
+function toCon(z){ var p=[]; for(var i=0;i<3;i++){ var s=1/(1+Math.exp(-z[i])); p.push(LO[i]+s*(HI[i]-LO[i])); } return p; }
+function logJac(z){ var s=0; for(var i=0;i<3;i++){ var g=1/(1+Math.exp(-z[i])); s+=Math.log(HI[i]-LO[i])+Math.log(g)+Math.log(1-g); } return s; }
+function logPost(z,nfit,inc){
+  var p=toCon(z), ll=0;
+  for(var i=0;i<nfit;i++){
+    var lam=Math.max(p[2]*inc[i],1e-10);
+    ll+=OBS[i]*Math.log(lam)-lam-LGF[OBS[i]];
+  }
+  if(!isFinite(ll)) return -Infinity;
+  return ll+logJac(z);
+}
+/* Componentwise random-walk Metropolis, proposal scales adapted during burn-in.
+   The ODE depends on R_0 and D_inf but not on rho, so a rho proposal reuses the
+   current incidence curve. That is exactly the same chain, at two thirds of the
+   solver calls. */
+function fit(nfit,seed,nIter,nBurn){
+  var rng=makeRng(seed), z=toUnc([2.0,3.0,0.6]);
+  var cur=toCon(z), curInc=sirInc(cur[0],cur[1]), lp=logPost(z,nfit,curInc);
+  var sc=[0.4,0.4,0.4], acc=[0,0,0], tot=[0,0,0], draws=[];
+  for(var it=0; it<nIter; it++){
+    for(var i=0;i<3;i++){
+      var zp=z.slice(); zp[i]+=sc[i]*rng.n();
+      var pp=toCon(zp);
+      var incP=(i===2)?curInc:sirInc(pp[0],pp[1]);
+      var lpp=logPost(zp,nfit,incP); tot[i]++;
+      if(Math.log(rng.u())<lpp-lp){ z=zp; lp=lpp; curInc=incP; acc[i]++; }
+    }
+    if(it<nBurn && it%50===49){
+      for(var j=0;j<3;j++){ sc[j]*=Math.exp(acc[j]/tot[j]-0.30); acc[j]=0; tot[j]=0; }
+    }
+    if(it>=nBurn) draws.push(toCon(z));
+  }
+  return draws;
+}
+var FITS={};
+function getFit(nfit){
+  if(!FITS[nfit]) FITS[nfit]=fit(nfit,20260909,3000,1000);
+  return FITS[nfit];
+}
+function thin(draws,n){
+  var step=Math.max(1,Math.floor(draws.length/n)), out=[];
+  for(var i=0;i<draws.length && out.length<n;i+=step) out.push(draws[i]);
+  return out;
+}
+function replicate(params,seed){
+  var rng=makeRng(seed), out=[];
+  for(var i=0;i<params.length;i++){
+    var inc=sirInc(params[i][0],params[i][1]), y=new Array(NDAYS);
+    for(var d=0; d<NDAYS; d++) y[d]=rng.pois(params[i][2]*inc[d]);
+    out.push(y);
+  }
+  return out;
+}
+function priorParams(n,seed){
+  var rng=makeRng(seed), out=[];
+  for(var i=0;i<n;i++) out.push([0.5+9.5*rng.u(), 1+13*rng.u(), rng.u()]);
+  return out;
+}
+function bandsOf(reps){
+  var cols=[];
+  for(var d=0; d<NDAYS; d++){
+    var c=new Array(reps.length);
+    for(var i=0;i<reps.length;i++) c[i]=reps[i][d];
+    cols.push(sortNum(c));
+  }
+  return cols;
+}
+function ribbon(svg,cols,sx,sy,plo,phi,fillCol,op){
+  var up="", dn="";
+  for(var d=0; d<NDAYS; d++) up+=(d?" L ":"M ")+sx(d+1)+" "+sy(quant(cols[d],phi));
+  for(var e=NDAYS-1; e>=0; e--) dn+=" L "+sx(e+1)+" "+sy(quant(cols[e],plo));
+  pth(svg,up+dn+" Z",{fill:fillCol,"fill-opacity":op,stroke:"none"});
+}
+
+/* One cached summary per fitting window, shared by the figure and the prose so
+   the two cannot drift apart. */
+var WSTATS={};
+function windowStats(k){
+  if(WSTATS[k]) return WSTATS[k];
+  var draws=getFit(k), cols=bandsOf(replicate(thin(draws,400),555));
+  var inN=0, inC=0, outN=0, outC=0, predOut=0, obsOut=0;
+  for(var d=0; d<NDAYS; d++){
+    var ok=(OBS[d]>=quant(cols[d],0.05) && OBS[d]<=quant(cols[d],0.95));
+    if(d<k){ inN++; if(ok) inC++; } else { outN++; if(ok) outC++; predOut+=quant(cols[d],0.5); obsOut+=OBS[d]; }
+  }
+  WSTATS[k]={
+    cols:cols,
+    R0:mean(draws.map(function(x){return x[0];})),
+    D:mean(draws.map(function(x){return x[1];})),
+    rho:mean(draws.map(function(x){return x[2];})),
+    inCov:inN?inC/inN:null, outCov:outN?outC/outN:null,
+    predOut:predOut, obsOut:obsOut, outN:outN
+  };
+  return WSTATS[k];
+}
+
+/* summary statistics used by the p-value figure */
+function movAvg(y,w){
+  var out=new Array(y.length);
+  for(var i=0;i<y.length;i++){
+    var s=0,n=0;
+    for(var j=Math.max(0,i-w); j<=Math.min(y.length-1,i+w); j++){ s+=y[j]; n++; }
+    out[i]=s/n;
+  }
+  return out;
+}
+function nWaves(y){
+  var s=movAvg(y,2), c=0;
+  for(var i=0;i<s.length;i++){
+    if(s[i]<1.5) continue;
+    var isMax=true;
+    for(var j=Math.max(0,i-7); j<=Math.min(s.length-1,i+7); j++){
+      if(j<i && s[j]>=s[i]) isMax=false;
+      if(j>i && s[j]>s[i]) isMax=false;
+    }
+    if(isMax) c++;
+  }
+  return c;
+}
+var STATS={
+  peak:{label:"peak height (cases on the busiest day)",int:true,dp:0,
+    f:function(y){ var m=0; for(var i=0;i<y.length;i++) if(y[i]>m) m=y[i]; return m; }},
+  peakday:{label:"peak day",int:true,dp:0,
+    f:function(y){ var m=-1,at=0; for(var i=0;i<y.length;i++) if(y[i]>m){ m=y[i]; at=i+1; } return at; }},
+  total:{label:"total reported cases",int:true,dp:0,
+    f:function(y){ var s=0; for(var i=0;i<y.length;i++) s+=y[i]; return s; }},
+  waves:{label:"number of waves",int:true,dp:0,f:nWaves},
+  firstday:{label:"day of the first reported case",int:true,dp:0,
+    f:function(y){ for(var i=0;i<y.length;i++) if(y[i]>0) return i+1; return NDAYS+1; }},
+  centre:{label:"case-weighted mean day",int:false,dp:1,
+    f:function(y){ var s=0,n=0; for(var i=0;i<y.length;i++){ s+=y[i]*(i+1); n+=y[i]; } return n? s/n : 0; }}
+};
+
+/* the shared full-data fit, used by the p-value figure and the ceiling presets;
+   filled in by the second boot stage below */
+var FULLFIT, FULLMEAN, POSTREPS, PRIORREPS;
+function pvalue(stat,ref){
+  var reps=(ref==="post")?POSTREPS:PRIORREPS, f=STATS[stat].f, obs=f(OBS);
+  var vals=[], ge=0;
+  for(var i=0;i<reps.length;i++){ var v=f(reps[i]); vals.push(v); if(v>=obs) ge++; }
+  return {obs:obs, vals:vals, sorted:sortNum(vals), p:ge/reps.length};
+}
+
+/* the prior push-forward, shared by the figure and the prose */
+var PFC={};
+function pushForward(lo,hi,dmax){
+  var key=lo+"|"+hi+"|"+dmax;
+  if(PFC[key]) return PFC[key];
+  var rng=makeRng(4242), n=300, curves=[], ar=[], pd=[], pk=[];
+  for(var i=0;i<n;i++){
+    var R0=lo+(hi-lo)*rng.u(), D=1+(dmax-1)*rng.u();
+    var inc=sirInc(R0,D), s=0, m=-1, at=0;
+    for(var d=0; d<NDAYS; d++){ s+=inc[d]; if(inc[d]>m){ m=inc[d]; at=d+1; } }
+    ar.push(100*s/NPOP); pd.push(at); pk.push(m);
+    if(curves.length<80) curves.push(inc);
+  }
+  var hiN=0, loN=0;
+  for(var a=0;a<ar.length;a++) if(ar[a]>=90) hiN++;
+  for(var b=0;b<pd.length;b++) if(pd[b]<=5) loN++;
+  PFC[key]={curves:curves, ar:ar, pd:pd, pk:pk,
+            medAR:quant(sortNum(ar),0.5), pAR90:hiN/ar.length,
+            medPD:quant(sortNum(pd),0.5), pPD5:loN/pd.length};
+  return PFC[key];
+}
+
+/* The figures cost a second or so of arithmetic, so they are drawn after the
+   page has painted, in two stages: the cheap prior push-forward first, then the
+   fitting and everything that depends on it. */
+function bootFirst(){
+
+/* ================= FIGURE 1 : prior push-forward ================= */
+(function(){
+  var svg=document.getElementById("ppSvg");
+  var A={x0:52,x1:330,y0:60,y1:190};      // the prior on R0
+  var B={x0:400,x1:702,y0:60,y1:190};     // the implied outcome
+  var C={x0:52,x1:702,y0:262,y1:432};     // simulated curves
+  var ids={lo:document.getElementById("ppLo"),hi:document.getElementById("ppHi"),d:document.getElementById("ppD")};
+  var outcome="attack";
+
+  function draw(){
+    var lo=+ids.lo.value, hi=+ids.hi.value, dmax=+ids.d.value;
+    if(hi<=lo+0.5) hi=lo+0.5;
+    put("ppLoVal",lo.toFixed(1)); put("ppHiVal",hi.toFixed(1)); put("ppDVal",dmax.toFixed(1));
+    clear(svg);
+    var pf=pushForward(lo,hi,dmax);
+
+    /* ---- panel A: the prior itself, on a fixed axis so width is comparable ---- */
+    var axLo=0, axHi=20;
+    var ax=function(v){ return A.x0+(v-axLo)/(axHi-axLo)*(A.x1-A.x0); };
+    var dens=1/(hi-lo), densMax=1/0.5;
+    var ay=function(v){ return A.y1-(v/densMax)*(A.y1-A.y0); };
+    txt(svg,A.x0,A.y0-16,"Prior on R₀: Uniform("+lo.toFixed(1)+", "+hi.toFixed(1)+")",{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+    ln(svg,A.x0,A.y1,A.x1,A.y1);
+    rct(svg,ax(lo),ay(dens),ax(hi)-ax(lo),A.y1-ay(dens),{fill:"#f59e0b","fill-opacity":0.35,stroke:"#f59e0b","stroke-width":1.6});
+    var at2=[0,5,10,15,20];
+    for(var t=0;t<at2.length;t++) txt(svg,ax(at2[t]),A.y1+15,at2[t],{"text-anchor":"middle"});
+    txt(svg,(A.x0+A.x1)/2,A.y1+33,"basic reproduction number R₀",{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+    txt(svg,A.x0+4,A.y0-2,"flat, and honest about R₀",{"font-size":10.5,fill:"#b45309","font-weight":600});
+
+    /* ---- panel B: the implied outcome ---- */
+    var vals, blo, bhi, blab, obsVal, fmt;
+    if(outcome==="attack"){ vals=pf.ar; blo=0; bhi=100; blab="attack rate (% of the island infected)"; obsVal=null; fmt=function(v){ return v.toFixed(0)+"%"; }; }
+    else if(outcome==="peakday"){ vals=pf.pd; blo=0; bhi=59; blab="day of peak incidence"; obsVal=7; fmt=function(v){ return v.toFixed(0); }; }
+    else { vals=pf.pk; blo=0; bhi=Math.max(60,Math.ceil(quant(sortNum(pf.pk),0.99)/20)*20); blab="peak daily incidence (infections)"; obsVal=47; fmt=function(v){ return v.toFixed(0); }; }
+
+    var nb=24, bins=new Array(nb); for(var b=0;b<nb;b++) bins[b]=0;
+    for(var v=0;v<vals.length;v++){
+      var k=Math.floor((vals[v]-blo)/(bhi-blo)*nb);
+      bins[Math.max(0,Math.min(nb-1,k))]++;
+    }
+    var bmax=1; for(var b2=0;b2<nb;b2++) if(bins[b2]>bmax) bmax=bins[b2];
+    var bx=function(v){ return B.x0+(v-blo)/(bhi-blo)*(B.x1-B.x0); };
+    var by=function(c){ return B.y1-(c/(bmax*1.12))*(B.y1-B.y0); };
+    txt(svg,B.x0,B.y0-16,"What that prior implies",{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+    ln(svg,B.x0,B.y1,B.x1,B.y1);
+    var bw=(B.x1-B.x0)/nb;
+    for(var b3=0;b3<nb;b3++){
+      if(bins[b3]===0) continue;
+      rct(svg,B.x0+b3*bw+0.6,by(bins[b3]),bw-1.2,B.y1-by(bins[b3]),{fill:"#2563eb","fill-opacity":0.72,rx:1.5});
+    }
+    var bt=niceTicks(blo,bhi,5);
+    for(var t2=0;t2<bt.length;t2++) txt(svg,bx(bt[t2]),B.y1+15,fmt(bt[t2]),{"text-anchor":"middle"});
+    txt(svg,(B.x0+B.x1)/2,B.y1+33,blab,{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+    if(obsVal!==null && obsVal>=blo && obsVal<=bhi){
+      ln(svg,bx(obsVal),B.y0-6,bx(obsVal),B.y1,{stroke:"#dc2626","stroke-width":1.8,"stroke-dasharray":"5 3"});
+      txt(svg,Math.min(bx(obsVal)+5,B.x1-70),B.y0+4,"observed "+obsVal,{fill:"#dc2626","font-weight":600,"font-size":10.5});
+    }
+    txt(svg,B.x0+4,B.y0-2,"anything but flat",{"font-size":10.5,fill:"#1d4ed8","font-weight":600});
+
+    /* ---- panel C: the curves themselves ---- */
+    var cmax=0;
+    for(var c1=0;c1<pf.curves.length;c1++) for(var d1=0;d1<NDAYS;d1++) if(pf.curves[c1][d1]>cmax) cmax=pf.curves[c1][d1];
+    cmax=Math.max(cmax*1.08,10);
+    var cx=function(t){ return C.x0+(t-1)/(NDAYS-1)*(C.x1-C.x0); };
+    var cy=function(v){ return C.y1-(v/cmax)*(C.y1-C.y0); };
+    txt(svg,C.x0,C.y0-14,"Daily incidence implied by "+pf.curves.length+" draws from that prior",{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+    var ct=niceTicks(0,cmax,5);
+    for(var t3=0;t3<ct.length;t3++){
+      ln(svg,C.x0,cy(ct[t3]),C.x1,cy(ct[t3]),{stroke:"#eef2f7"});
+      txt(svg,C.x0-8,cy(ct[t3])+4,ct[t3].toFixed(0),{"text-anchor":"end"});
+    }
+    ln(svg,C.x0,C.y1,C.x1,C.y1);
+    for(var c2=0;c2<pf.curves.length;c2++){
+      var dd="";
+      for(var d2=0; d2<NDAYS; d2++) dd+=(d2?" L ":"M ")+cx(d2+1)+" "+cy(pf.curves[c2][d2]);
+      pth(svg,dd,{stroke:"#f59e0b","stroke-width":1,opacity:0.28});
+    }
+    var od="";
+    for(var d3=0; d3<NDAYS; d3++) od+=(d3?" L ":"M ")+cx(d3+1)+" "+cy(OBS[d3]);
+    pth(svg,od,{stroke:"#0891b2","stroke-width":2.2});
+    txt(svg,C.x1-4,cy(OBS[6])-8,"the data actually observed",{"text-anchor":"end",fill:"#0e7490","font-weight":600,"font-size":11});
+    for(var t4=10;t4<=NDAYS;t4+=10) txt(svg,cx(t4),C.y1+16,t4,{"text-anchor":"middle"});
+    txt(svg,(C.x0+C.x1)/2,C.y1+34,"day of the outbreak",{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+
+    put("ppAR",pf.medAR.toFixed(0)+"%");
+    put("ppARhi",pf.pAR90.toFixed(2));
+    put("ppPD","day "+pf.medPD);
+    put("ppPDlo",pf.pPD5.toFixed(2));
+    markPreset();
+  }
+
+  function markPreset(){
+    var lo=+ids.lo.value, hi=+ids.hi.value, d=+ids.d.value;
+    var bs=document.querySelectorAll("#ppPreset button");
+    for(var i=0;i<bs.length;i++){
+      var p=bs[i].getAttribute("data-p").split(",");
+      bs[i].classList.toggle("active", Math.abs(+p[0]-lo)<0.01 && Math.abs(+p[1]-hi)<0.01 && Math.abs(+p[2]-d)<0.01);
+    }
+  }
+  for(var k in ids) ids[k].addEventListener("input",draw);
+  var ob=document.querySelectorAll("#ppOutcome button");
+  for(var i=0;i<ob.length;i++){
+    ob[i].addEventListener("click",function(){
+      outcome=this.getAttribute("data-out");
+      for(var j=0;j<ob.length;j++) ob[j].classList.toggle("active", ob[j]===this);
+      draw();
+    });
+  }
+  var pb=document.querySelectorAll("#ppPreset button");
+  for(var i2=0;i2<pb.length;i2++){
+    pb[i2].addEventListener("click",function(){
+      var p=this.getAttribute("data-p").split(",");
+      ids.lo.value=p[0]; ids.hi.value=p[1]; ids.d.value=p[2];
+      draw();
+    });
+  }
+  draw();
+})();
+
+setTimeout(bootRest,0);
+}
+
+function bootRest(){
+FULLFIT=getFit(NDAYS);
+FULLMEAN=[mean(FULLFIT.map(function(d){return d[0];})),
+          mean(FULLFIT.map(function(d){return d[1];})),
+          mean(FULLFIT.map(function(d){return d[2];}))];
+POSTREPS=replicate(thin(FULLFIT,400),90210);
+PRIORREPS=replicate(priorParams(400,31415),271828);
+
+/* ================= FIGURE 2 : prior vs posterior predictive ================= */
+(function(){
+  var svg=document.getElementById("ppcSvg");
+  var P={x0:56,x1:702,y0:64,y1:246};
+  var Q={x0:56,x1:702,y0:316,y1:498};
+  var kIn=document.getElementById("ppcK");
+  var priorCols=bandsOf(replicate(priorParams(400,777),1234));
+  var timer=null;
+
+  function panel(box,cols,col,title,kWindow){
+    var ymax=1;
+    for(var d=0; d<NDAYS; d++){ var v=quant(cols[d],0.95); if(v>ymax) ymax=v; }
+    for(var d2=0; d2<NDAYS; d2++) if(OBS[d2]>ymax) ymax=OBS[d2];
+    ymax=ymax*1.1;
+    var sx=function(t){ return box.x0+(t-1)/(NDAYS-1)*(box.x1-box.x0); };
+    var sy=function(v){ return box.y1-(v/ymax)*(box.y1-box.y0); };
+    txt(svg,box.x0,box.y0-16,title,{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+    var ts=niceTicks(0,ymax,5);
+    for(var t=0;t<ts.length;t++){
+      ln(svg,box.x0,sy(ts[t]),box.x1,sy(ts[t]),{stroke:"#eef2f7"});
+      txt(svg,box.x0-8,sy(ts[t])+4,ts[t].toFixed(0),{"text-anchor":"end"});
+    }
+    if(kWindow && kWindow<NDAYS){
+      var edge=sx(kWindow)+((box.x1-box.x0)/(NDAYS-1))/2;
+      rct(svg,edge,box.y0,box.x1-edge,box.y1-box.y0,{fill:"#dc2626","fill-opacity":0.045});
+      ln(svg,edge,box.y0,edge,box.y1,{stroke:"#dc2626","stroke-width":1.8,"stroke-dasharray":"5 3"});
+      txt(svg,Math.min(edge+10,box.x1-100),box.y0+12,"held out from the fit",{fill:"#dc2626","font-weight":600,"font-size":10.5});
+    }
+    ln(svg,box.x0,box.y1,box.x1,box.y1);
+    ribbon(svg,cols,sx,sy,0.05,0.95,col,0.20);
+    ribbon(svg,cols,sx,sy,0.25,0.75,col,0.30);
+    var md="";
+    for(var d3=0; d3<NDAYS; d3++) md+=(d3?" L ":"M ")+sx(d3+1)+" "+sy(quant(cols[d3],0.5));
+    pth(svg,md,{stroke:col,"stroke-width":1.8,opacity:0.85});
+    for(var d4=0; d4<NDAYS; d4++) add(svg,"circle",{cx:sx(d4+1),cy:sy(OBS[d4]),r:2.6,fill:"#0891b2"});
+    for(var t2=10;t2<=NDAYS;t2+=10) txt(svg,sx(t2),box.y1+16,t2,{"text-anchor":"middle"});
+    txt(svg,(box.x0+box.x1)/2,box.y1+34,"day of the outbreak",{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+    txt(svg,box.x1,box.y0-4,"axis maximum "+ymax.toFixed(0)+" cases",{"text-anchor":"end","font-size":10.5,fill:"#9ca3af"});
+  }
+
+  function draw(){
+    var k=+kIn.value;
+    put("ppcKval",k);
+    clear(svg);
+    var w=windowStats(k);
+    panel(P,priorCols,"#f59e0b","Prior predictive: parameters from p(θ), before any fitting",0);
+    panel(Q,w.cols,"#2563eb","Posterior predictive: parameters from p(θ | y) fitted to days 1 to "+k,k);
+    put("ppcR0",w.R0.toFixed(2));
+    put("ppcD",w.D.toFixed(2)+" d");
+    put("ppcRho",w.rho.toFixed(2));
+    put("ppcIn",pct(w.inCov));
+    put("ppcOut",w.outN?pct(w.outCov):"no held-out days");
+    put("ppcTot",w.outN?(w.predOut+" vs "+w.obsOut):"—");
+    var bs=document.querySelectorAll("#ppcPreset button");
+    for(var i=0;i<bs.length;i++) bs[i].classList.toggle("active", +bs[i].getAttribute("data-k")===k);
+  }
+
+  kIn.addEventListener("input",function(){
+    put("ppcKval",kIn.value);
+    if(timer) clearTimeout(timer);
+    timer=setTimeout(draw,80);
+  });
+  var pb=document.querySelectorAll("#ppcPreset button");
+  for(var i=0;i<pb.length;i++){
+    pb[i].addEventListener("click",function(){ kIn.value=this.getAttribute("data-k"); draw(); });
+  }
+  draw();
+})();
+
+/* ================= FIGURE 3 : predictive p-values ================= */
+(function(){
+  var svg=document.getElementById("pvSvg");
+  var B={x0:56,x1:700,y0:66,y1:268};
+  var stat="peak", ref="post";
+
+  function draw(){
+    clear(svg);
+    var r=pvalue(stat,ref), spec=STATS[stat];
+    var minv=Math.min(r.sorted[0],r.obs), maxv=Math.max(r.sorted[r.sorted.length-1],r.obs);
+    var lo, hi, nb;
+    if(spec.int && (maxv-minv)<=30){ lo=minv-0.5; hi=maxv+0.5; nb=Math.round(hi-lo); }
+    else {
+      var pad=Math.max((maxv-minv)*0.06,0.5);
+      lo=Math.max(0,minv-pad); hi=maxv+pad; nb=26;
+      if(hi<=lo) hi=lo+1;
+    }
+    var bins=new Array(nb); for(var b=0;b<nb;b++) bins[b]=0;
+    for(var v=0;v<r.vals.length;v++){
+      var kk=Math.floor((r.vals[v]-lo)/(hi-lo)*nb);
+      bins[Math.max(0,Math.min(nb-1,kk))]++;
+    }
+    var bmax=1; for(var b2=0;b2<nb;b2++) if(bins[b2]>bmax) bmax=bins[b2];
+    var sx=function(v){ return B.x0+(v-lo)/(hi-lo)*(B.x1-B.x0); };
+    var sy=function(c){ return B.y1-(c/(bmax*1.15))*(B.y1-B.y0); };
+    var bw=(B.x1-B.x0)/nb;
+    txt(svg,B.x0,B.y0-38,(ref==="post"?"Posterior":"Prior")+" predictive distribution of "+spec.label,
+      {"font-size":13,"font-weight":700,fill:"#1f2933"});
+    txt(svg,B.x0,B.y0-19,"shaded: replicates at least as large as the observed value",{"font-size":11,fill:"#9ca3af"});
+    var ts=niceTicks(0,bmax*1.15,4);
+    for(var t=0;t<ts.length;t++){
+      ln(svg,B.x0,sy(ts[t]),B.x1,sy(ts[t]),{stroke:"#eef2f7"});
+      txt(svg,B.x0-8,sy(ts[t])+4,ts[t].toFixed(0),{"text-anchor":"end"});
+    }
+    ln(svg,B.x0,B.y1,B.x1,B.y1);
+    for(var b3=0;b3<nb;b3++){
+      if(bins[b3]===0) continue;
+      var centre=lo+(b3+0.5)/nb*(hi-lo), tail=(centre>=r.obs);
+      rct(svg,B.x0+b3*bw+0.7,sy(bins[b3]),Math.max(bw-1.4,1),B.y1-sy(bins[b3]),
+        {fill:tail?"#dc2626":(ref==="post"?"#2563eb":"#f59e0b"),"fill-opacity":tail?0.55:0.72,rx:1.5});
+    }
+    ln(svg,sx(r.obs),B.y0-8,sx(r.obs),B.y1,{stroke:"#dc2626","stroke-width":2.2});
+    var right=(sx(r.obs)>B.x1-150);
+    txt(svg,right?sx(r.obs)-8:sx(r.obs)+8,B.y0+4,"observed T(y) = "+r.obs.toFixed(spec.dp),
+      {"text-anchor":right?"end":"start",fill:"#dc2626","font-weight":700,"font-size":11.5});
+    var ts2=niceTicks(lo,hi,6);
+    for(var t2=0;t2<ts2.length;t2++) txt(svg,sx(ts2[t2]),B.y1+16,ts2[t2].toFixed(spec.dp),{"text-anchor":"middle"});
+    txt(svg,(B.x0+B.x1)/2,B.y1+34,spec.label,{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+    txt(svg,B.x0-40,(B.y0+B.y1)/2,"replicates",{"text-anchor":"middle","font-size":11.5,fill:"#374151",
+      transform:"rotate(-90 "+(B.x0-40)+" "+((B.y0+B.y1)/2)+")"});
+
+    put("pvObs",r.obs.toFixed(spec.dp));
+    put("pvMed",quant(r.sorted,0.5).toFixed(spec.dp));
+    put("pvP",r.p.toFixed(2));
+    put("pvN",r.vals.length);
+  }
+  var sb=document.querySelectorAll("#pvStat button");
+  for(var i=0;i<sb.length;i++){
+    sb[i].addEventListener("click",function(){
+      stat=this.getAttribute("data-s");
+      for(var j=0;j<sb.length;j++) sb[j].classList.toggle("active", sb[j]===this);
+      draw();
+    });
+  }
+  var rb=document.querySelectorAll("#pvRef button");
+  for(var i2=0;i2<rb.length;i2++){
+    rb[i2].addEventListener("click",function(){
+      ref=this.getAttribute("data-r");
+      for(var j=0;j<rb.length;j++) rb[j].classList.toggle("active", rb[j]===this);
+      draw();
+    });
+  }
+  draw();
+})();
+
+/* ================= FIGURE 4 : the final-size ceiling ================= */
+(function(){
+  var svg=document.getElementById("cSvg");
+  var L={x0:56,x1:344,y0:62,y1:300};
+  var R={x0:412,x1:700,y0:62,y1:300};
+  var ids={R0:document.getElementById("cR0"),D:document.getElementById("cD"),rho:document.getElementById("cRho")};
+
+  function draw(){
+    var R0=+ids.R0.value, D=+ids.D.value, rho=+ids.rho.value;
+    put("cR0val",R0.toFixed(1)); put("cDval",D.toFixed(1)); put("cRhoVal",rho.toFixed(2));
+    clear(svg);
+
+    /* ---- left: expected reported total against R0 ---- */
+    var ymax=340;
+    var lx=function(v){ return L.x0+(v-0.5)/19.5*(L.x1-L.x0); };
+    var ly=function(v){ return L.y1-(v/ymax)*(L.y1-L.y0); };
+    txt(svg,L.x0,L.y0-16,"Expected reported cases over the outbreak",{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+    var ts=niceTicks(0,ymax,5);
+    for(var t=0;t<ts.length;t++){
+      ln(svg,L.x0,ly(ts[t]),L.x1,ly(ts[t]),{stroke:"#eef2f7"});
+      txt(svg,L.x0-8,ly(ts[t])+4,ts[t].toFixed(0),{"text-anchor":"end"});
+    }
+    rct(svg,L.x0,ly(ymax),L.x1-L.x0,ly(S0)-ly(ymax),{fill:"#64748b","fill-opacity":0.07});
+    ln(svg,L.x0,L.y1,L.x1,L.y1);
+    var d="";
+    for(var r=0.5; r<=20.0001; r+=0.1) d+=(d?" L ":"M ")+lx(r)+" "+ly(rho*finalSize(r));
+    pth(svg,d,{stroke:"#2563eb","stroke-width":2.4});
+    ln(svg,L.x0,ly(S0),L.x1,ly(S0),{stroke:"#64748b","stroke-width":1.6,"stroke-dasharray":"6 4"});
+    txt(svg,L.x1-4,ly(S0)-6,"ceiling S(0) = 279",{"text-anchor":"end",fill:"#475569","font-weight":600,"font-size":10.5});
+    ln(svg,L.x0,ly(OBSTOT),L.x1,ly(OBSTOT),{stroke:"#dc2626","stroke-width":2});
+    txt(svg,L.x1-4,ly(OBSTOT)-6,"observed 312",{"text-anchor":"end",fill:"#dc2626","font-weight":700,"font-size":11});
+    add(svg,"circle",{cx:lx(R0),cy:ly(rho*finalSize(R0)),r:5,fill:"#fff",stroke:"#2563eb","stroke-width":2.4});
+    for(var t2=5;t2<=20;t2+=5) txt(svg,lx(t2),L.y1+16,t2,{"text-anchor":"middle"});
+    txt(svg,(L.x0+L.x1)/2,L.y1+34,"basic reproduction number R₀",{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+
+    /* ---- right: the wave that produces it ---- */
+    var inc=sirInc(R0,D), pred=[], tot59=0, pmax=0;
+    for(var i=0;i<NDAYS;i++){ var pv=rho*inc[i]; pred.push(pv); tot59+=pv; if(pv>pmax) pmax=pv; }
+    var rmax=Math.max(pmax*1.12,55);
+    var rx=function(t){ return R.x0+(t-1)/(NDAYS-1)*(R.x1-R.x0); };
+    var ry=function(v){ return R.y1-(v/rmax)*(R.y1-R.y0); };
+    txt(svg,R.x0,R.y0-16,"The single wave those parameters give",{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+    var ts3=niceTicks(0,rmax,5);
+    for(var t3=0;t3<ts3.length;t3++){
+      ln(svg,R.x0,ry(ts3[t3]),R.x1,ry(ts3[t3]),{stroke:"#eef2f7"});
+      txt(svg,R.x0-8,ry(ts3[t3])+4,ts3[t3].toFixed(0),{"text-anchor":"end"});
+    }
+    ln(svg,R.x0,R.y1,R.x1,R.y1);
+    var bw=(R.x1-R.x0)/NDAYS;
+    for(var i2=0;i2<NDAYS;i2++){
+      if(OBS[i2]===0) continue;
+      rct(svg,rx(i2+1)-bw*0.35,ry(OBS[i2]),bw*0.7,R.y1-ry(OBS[i2]),{fill:"#0891b2","fill-opacity":0.55,rx:1});
+    }
+    var pd2="";
+    for(var i3=0;i3<NDAYS;i3++) pd2+=(i3?" L ":"M ")+rx(i3+1)+" "+ry(pred[i3]);
+    pth(svg,pd2,{stroke:"#2563eb","stroke-width":2.2});
+    for(var t4=10;t4<=NDAYS;t4+=10) txt(svg,rx(t4),R.y1+16,t4,{"text-anchor":"middle"});
+    txt(svg,(R.x0+R.x1)/2,R.y1+34,"day of the outbreak",{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+    txt(svg,R.x1,R.y0-4,"axis maximum "+rmax.toFixed(0),{"text-anchor":"end","font-size":10.5,fill:"#9ca3af"});
+
+    put("cTot",tot59.toFixed(0));
+    put("cGap",(OBSTOT-tot59).toFixed(0)+" cases");
+    put("cCeil",(rho*S0).toFixed(0));
+    put("cPois",poisTail(S0,OBSTOT).toFixed(3));
+    var bs=document.querySelectorAll("#cPreset button");
+    for(var i4=0;i4<bs.length;i4++){
+      var want=bs[i4].getAttribute("data-c")==="max"?MAXSET:FITSET;
+      bs[i4].classList.toggle("active", Math.abs(want[0]-R0)<0.05 && Math.abs(want[1]-D)<0.05 && Math.abs(want[2]-rho)<0.005);
+    }
+  }
+  var FITSET=[+FULLMEAN[0].toFixed(1),+FULLMEAN[1].toFixed(1),+FULLMEAN[2].toFixed(2)];
+  var MAXSET=[20,3.5,1];
+  var pb=document.querySelectorAll("#cPreset button");
+  for(var i=0;i<pb.length;i++){
+    pb[i].addEventListener("click",function(){
+      var s=this.getAttribute("data-c")==="max"?MAXSET:FITSET;
+      ids.R0.value=s[0]; ids.D.value=s[1]; ids.rho.value=s[2];
+      draw();
+    });
+  }
+  for(var k in ids) ids[k].addEventListener("input",draw);
+  ids.R0.value=FITSET[0]; ids.D.value=FITSET[1]; ids.rho.value=FITSET[2];
+  draw();
+})();
+
+/* ================= FIGURE 5 : simulation-based calibration ================= */
+var sbcOutside;
+(function(){
+  var svg=document.getElementById("sbcSvg");
+  var B={x0:64,x1:700,y0:60,y1:300};
+  var LDRAWS=99, NOBS=8;
+  var ids={w:document.getElementById("sbWid"),b:document.getElementById("sbBias"),n:document.getElementById("sbNrep")};
+  var view="ecdf", bandCache={};
+
+  /* SBC on a conjugate model: theta ~ N(0,1), y_j ~ N(theta,1), j = 1..NOBS.
+     Exact posterior N(m, s^2) with s^2 = 1/(1+NOBS), m = s^2 * sum(y).
+     widthMult and biasMult corrupt it on purpose. */
+  function ranks(nRep,widthMult,biasMult){
+    var rng=makeRng(20260909), out=new Array(nRep);
+    var s2=1/(1+NOBS), s=Math.sqrt(s2);
+    for(var r=0;r<nRep;r++){
+      var th=rng.n(), sum=0;
+      for(var j=0;j<NOBS;j++) sum+=th+rng.n();
+      var m=s2*sum, rank=0;
+      for(var l=0;l<LDRAWS;l++) if(m+biasMult*s+widthMult*s*rng.n() < th) rank++;
+      out[r]=rank;
+    }
+    return out;
+  }
+  function binomQuant(n,p,q){
+    if(p<=0) return 0;
+    if(p>=1) return n;
+    var lp=Math.log(p), l1p=Math.log(1-p), c=0;
+    for(var k=0;k<=n;k++){
+      c+=Math.exp(LGF[n]-LGF[k]-LGF[n-k]+k*lp+(n-k)*l1p);
+      if(c>=q) return k;
+    }
+    return n;
+  }
+  function band(nRep){
+    if(bandCache[nRep]) return bandCache[nRep];
+    var loB=[], hiB=[];
+    for(var k=0;k<=LDRAWS;k++){
+      var p=(k+1)/(LDRAWS+1);
+      loB.push(binomQuant(nRep,p,0.025)/nRep-p);
+      hiB.push(binomQuant(nRep,p,0.975)/nRep-p);
+    }
+    bandCache[nRep]={lo:loB,hi:hiB};
+    return bandCache[nRep];
+  }
+  /* difference curve plus how far it strays, shared with the FAQ text */
+  function summary(nRep,w,b){
+    var rk=ranks(nRep,w,b), counts=new Array(LDRAWS+1);
+    for(var i=0;i<=LDRAWS;i++) counts[i]=0;
+    for(var i2=0;i2<rk.length;i2++) counts[rk[i2]]++;
+    var bd=band(nRep), diff=[], cum=0, worst=0, outside=0;
+    for(var k=0;k<=LDRAWS;k++){
+      cum+=counts[k];
+      var p=(k+1)/(LDRAWS+1), dv=cum/nRep-p;
+      diff.push(dv);
+      if(Math.abs(dv)>Math.abs(worst)) worst=dv;
+      if(dv<bd.lo[k] || dv>bd.hi[k]) outside++;
+    }
+    return {counts:counts, band:bd, diff:diff, worst:worst, outside:outside, n:LDRAWS+1};
+  }
+  sbcOutside=function(nRep,w,b){ return summary(nRep,w,b).outside; };
+
+  function draw(){
+    var w=+ids.w.value, b=+ids.b.value, nRep=+ids.n.value;
+    put("sbW",w.toFixed(2)); put("sbB",b.toFixed(2)); put("sbN",nRep);
+    clear(svg);
+    var S=summary(nRep,w,b), bd=S.band;
+
+    if(view==="ecdf"){
+      var span=0.02;
+      for(var k2=0;k2<=LDRAWS;k2++) span=Math.max(span,Math.abs(S.diff[k2]),Math.abs(bd.lo[k2]),Math.abs(bd.hi[k2]));
+      span*=1.18;
+      var sx=function(p){ return B.x0+p*(B.x1-B.x0); };
+      var sy=function(v){ return (B.y0+B.y1)/2 - v/span*((B.y1-B.y0)/2); };
+      txt(svg,B.x0,B.y0-16,"ECDF of the ranks minus the uniform ECDF",{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+      var ts=niceTicks(-span,span,6);
+      for(var t=0;t<ts.length;t++){
+        ln(svg,B.x0,sy(ts[t]),B.x1,sy(ts[t]),{stroke:"#eef2f7"});
+        txt(svg,B.x0-8,sy(ts[t])+4,ts[t].toFixed(2),{"text-anchor":"end"});
+      }
+      var up="", dn="";
+      for(var k3=0;k3<=LDRAWS;k3++) up+=(k3?" L ":"M ")+sx((k3+1)/(LDRAWS+1))+" "+sy(bd.hi[k3]);
+      for(var k4=LDRAWS;k4>=0;k4--) dn+=" L "+sx((k4+1)/(LDRAWS+1))+" "+sy(bd.lo[k4]);
+      pth(svg,up+dn+" Z",{fill:"#64748b","fill-opacity":0.2,stroke:"none"});
+      ln(svg,B.x0,sy(0),B.x1,sy(0),{stroke:"#64748b","stroke-width":1.4,"stroke-dasharray":"5 4"});
+      var dd="";
+      for(var k5=0;k5<=LDRAWS;k5++) dd+=(k5?" L ":"M ")+sx((k5+1)/(LDRAWS+1))+" "+sy(S.diff[k5]);
+      pth(svg,dd,{stroke:"#2563eb","stroke-width":2.2});
+      for(var q=0;q<=1.0001;q+=0.25) txt(svg,sx(q),B.y1+16,q.toFixed(2),{"text-anchor":"middle"});
+      txt(svg,(B.x0+B.x1)/2,B.y1+34,"normalised rank",{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+      ln(svg,B.x0,B.y1,B.x1,B.y1);
+    } else {
+      var nb=20, bins=new Array(nb);
+      for(var i3=0;i3<nb;i3++) bins[i3]=0;
+      for(var k6=0;k6<=LDRAWS;k6++) bins[Math.min(nb-1,Math.floor(k6/(LDRAWS+1)*nb))]+=S.counts[k6];
+      var expect=nRep/nb, bmax=expect;
+      for(var i4=0;i4<nb;i4++) if(bins[i4]>bmax) bmax=bins[i4];
+      bmax*=1.15;
+      var hx=function(i){ return B.x0+i/nb*(B.x1-B.x0); };
+      var hy=function(v){ return B.y1-(v/bmax)*(B.y1-B.y0); };
+      txt(svg,B.x0,B.y0-16,"Rank histogram, "+nb+" bins",{"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+      var ts2=niceTicks(0,bmax,5);
+      for(var t2=0;t2<ts2.length;t2++){
+        ln(svg,B.x0,hy(ts2[t2]),B.x1,hy(ts2[t2]),{stroke:"#eef2f7"});
+        txt(svg,B.x0-8,hy(ts2[t2])+4,ts2[t2].toFixed(0),{"text-anchor":"end"});
+      }
+      var eLo=binomQuant(nRep,1/nb,0.025), eHi=binomQuant(nRep,1/nb,0.975);
+      rct(svg,B.x0,hy(eHi),B.x1-B.x0,hy(eLo)-hy(eHi),{fill:"#64748b","fill-opacity":0.18});
+      for(var i5=0;i5<nb;i5++) rct(svg,hx(i5)+1,hy(bins[i5]),(B.x1-B.x0)/nb-2,B.y1-hy(bins[i5]),{fill:"#2563eb","fill-opacity":0.72,rx:1.5});
+      ln(svg,B.x0,hy(expect),B.x1,hy(expect),{stroke:"#64748b","stroke-width":1.4,"stroke-dasharray":"5 4"});
+      txt(svg,B.x1-4,hy(expect)-6,"expected under uniformity",{"text-anchor":"end",fill:"#475569","font-size":10.5,"font-weight":600});
+      ln(svg,B.x0,B.y1,B.x1,B.y1);
+      for(var q2=0;q2<=1.0001;q2+=0.25) txt(svg,B.x0+q2*(B.x1-B.x0),B.y1+16,q2.toFixed(2),{"text-anchor":"middle"});
+      txt(svg,(B.x0+B.x1)/2,B.y1+34,"normalised rank",{"text-anchor":"middle","font-size":11.5,fill:"#374151"});
+      txt(svg,B.x0+4,B.y0-2,"grey band: pointwise 95% range for one bin",{"font-size":10.5,fill:"#475569"});
+    }
+    put("sbMax",S.worst.toFixed(3));
+    put("sbOut",S.outside+" of "+S.n);
+    var ps=document.querySelectorAll("#sbPreset button");
+    for(var i6=0;i6<ps.length;i6++){
+      var v=ps[i6].getAttribute("data-s").split(",");
+      ps[i6].classList.toggle("active", Math.abs(+v[0]-w)<0.005 && Math.abs(+v[1]-b)<0.005);
+    }
+  }
+  for(var k in ids) ids[k].addEventListener("input",draw);
+  var vb=document.querySelectorAll("#sbView button");
+  for(var i=0;i<vb.length;i++){
+    vb[i].addEventListener("click",function(){
+      view=this.getAttribute("data-v");
+      for(var j=0;j<vb.length;j++) vb[j].classList.toggle("active", vb[j]===this);
+      draw();
+    });
+  }
+  var pb=document.querySelectorAll("#sbPreset button");
+  for(var i2=0;i2<pb.length;i2++){
+    pb[i2].addEventListener("click",function(){
+      var v=this.getAttribute("data-s").split(",");
+      ids.w.value=v[0]; ids.b.value=v[1];
+      draw();
+    });
+  }
+  draw();
+})();
+
+/* ================= numbers quoted in the prose =================
+   Every figure above computes these from the same functions the plots use, so
+   the text and the figures cannot drift apart. */
+(function(){
+  var wide=pushForward(1,20,14), flu=pushForward(1,5,7);
+  put("ppF1",wide.pAR90.toFixed(2)); put("ppF2",wide.pPD5.toFixed(2));
+  put("ppF3",flu.pAR90.toFixed(2));  put("ppF4",flu.pPD5.toFixed(2));
+  put("ppF5",wide.medPD);            put("ppF6",flu.medPD);
+
+  var w20=windowStats(20), w59=windowStats(NDAYS);
+  put("pcA",w20.R0.toFixed(2)); put("pcB",w20.D.toFixed(1));
+  put("pcC",pct(w20.inCov));    put("pcD",pct(w20.outCov));
+  put("pcE",w20.predOut);       put("pcF",w20.obsOut);
+  put("pcG",w59.R0.toFixed(2)); put("pcH",w59.D.toFixed(1)); put("pcI",pct(w59.inCov));
+
+  var order=["peak","total","peakday","waves","firstday","centre"];
+  for(var i=0;i<order.length;i++) put("pvA"+(i+1),pvalue(order[i],"post").p.toFixed(2));
+  put("pvD1",STATS.waves.f(OBS));
+  put("pvD2",STATS.firstday.f(OBS));
+  put("pvD3",STATS.centre.f(OBS).toFixed(1));
+  var pkd=pvalue("peakday","post"), ctr=pvalue("centre","post");
+  put("pvB1",quant(pkd.sorted,0.5));
+  put("pvB2",ctr.obs.toFixed(1));
+  put("pvB3",quant(ctr.sorted,0.5).toFixed(1));
+  put("pvC1",pvalue("peak","prior").p.toFixed(2));
+  put("pvC2",pvalue("peakday","prior").p.toFixed(2));
+
+  put("cZ",((OBSTOT-S0)/Math.sqrt(S0)).toFixed(1));
+  var maxInc=sirInc(20,3.5);
+  put("cP1",Math.round(maxInc[0]));
+
+  put("fq1",sbcOutside(50,0.9,0));
+  put("fq2",sbcOutside(1000,0.9,0));
+})();
+
+}
+setTimeout(bootFirst,0);
+</script>
+<script>
+/* embed mode: ?embed=sectionId[,id2,...] strips the page chrome AND the
+   explanatory prose/maths from the kept sections, leaving only the interactive
+   figures, for inlining in an <iframe> in the course site. Reports height so the
+   host page can auto-size the iframe. */
+(function(){
+  var q=new URLSearchParams(location.search), e=q.get('embed');
+  var KEEP={fig:1,controls:1,readout:1,legend:1,presets:1,figcap:1};
+  if(e){
+    var keep=e.split(',').map(function(s){return s.trim();}).filter(Boolean);
+    ['header.hero','nav.toc','footer'].forEach(function(sel){
+      Array.prototype.forEach.call(document.querySelectorAll(sel),function(n){n.style.display='none';});
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('body > div'),function(d){
+      if(!d.classList.contains('wrap')) d.style.display='none';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(sec){
+      if(keep.indexOf(sec.id)===-1){ sec.style.display='none'; return; }
+      sec.style.margin='0'; sec.style.border='none'; sec.style.boxShadow='none'; sec.style.padding='2px 2px 8px';
+      Array.prototype.forEach.call(sec.children,function(c){
+        var k=false, cl=c.classList; if(cl){ for(var key in KEEP){ if(cl.contains(key)){k=true;break;} } }
+        if(!k) c.style.display='none';
+      });
+    });
+    var wrap=document.querySelector('.wrap'); if(wrap) wrap.style.padding='0 8px 10px';
+    document.body.style.background='#fff'; document.documentElement.style.background='#fff';
+  }
+  function postH(){ try{ parent.postMessage({nfiddEmbedHeight: Math.ceil(document.body.getBoundingClientRect().height)}, '*'); }catch(_){} }
+  window.addEventListener('load', postH);
+  window.addEventListener('resize', postH);
+  document.addEventListener('input', function(){ setTimeout(postH,60); });
+  document.addEventListener('click', function(){ setTimeout(postH,120); });
+  setTimeout(postH,250); setTimeout(postH,1000);
+})();
+</script>
+</body>
+</html>

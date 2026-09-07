@@ -1,0 +1,1073 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>MCMC diagnostics: what R̂, ESS and MCSE measure</title>
+<style>
+  :root{
+    --fc:#4f46e5;     /* primary / R-hat blue */
+    --obs:#0d9488;    /* within-chain, W / teal */
+    --miss:#f59e0b;   /* between-chain, B / amber */
+    --now:#dc2626;    /* threshold, split line / red */
+    --true:#64748b;   /* target / truth / slate */
+    --ink:#1f2933;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --bg:#fbfbfd;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 22px 120px}
+  header.hero{
+    padding:54px 22px 30px; text-align:center;
+    background:linear-gradient(180deg,#eef2ff 0%, var(--bg) 100%);
+    border-bottom:1px solid var(--line);
+  }
+  header.hero h1{font-size:30px; margin:0 0 8px; letter-spacing:-.4px}
+  header.hero p{max-width:710px; margin:0 auto; color:var(--muted)}
+  nav.toc{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    margin:22px auto 0; max-width:780px;
+  }
+  nav.toc a{
+    text-decoration:none; color:var(--fc); font-weight:600; font-size:14px;
+    border:1px solid #c7d2fe; background:#fff; padding:6px 13px; border-radius:999px;
+  }
+  nav.toc a:hover{background:#eef2ff}
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:26px 28px; margin:30px 0; box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  section > h2{margin:0 0 4px; font-size:23px; letter-spacing:-.3px}
+  .tagline{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{margin:26px 0 8px; font-size:17px}
+  p{margin:10px 0}
+  .fig{
+    border:1px solid var(--line); border-radius:12px; padding:16px 14px 10px;
+    margin:18px 0 6px; background:#fff;
+  }
+  .fig svg{display:block; width:100%; height:auto}
+  .figcap{font-size:13.5px; color:var(--muted); margin:8px 4px 2px}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:16px 26px; align-items:center;
+    margin:8px 4px 2px; padding:12px 14px; background:#f8fafc;
+    border:1px solid var(--line); border-radius:10px; font-size:14px;
+  }
+  .controls label{display:flex; flex-direction:column; gap:2px; min-width:160px}
+  .controls .vlabel{font-weight:600}
+  .controls input[type=range]{width:170px; accent-color:var(--fc)}
+  .readout{
+    display:inline-flex; gap:14px; flex-wrap:wrap; margin:12px 4px 0;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .chip{
+    background:#f1f5f9; border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:14px;
+  }
+  .readout .chip b{font-size:16px}
+  .chip.pass{border-left:4px solid var(--obs); padding-left:10px}
+  .chip.fail{border-left:4px solid var(--now); padding-left:10px; background:#fef2f2}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; margin:14px 4px 0; align-items:center}
+  .presets button{
+    font:600 13px inherit; border:1px solid #c7d2fe; background:#fff; color:var(--fc);
+    padding:6px 13px; border-radius:8px; cursor:pointer;
+  }
+  .presets button:hover{background:#eef2ff}
+  .presets button.active{background:var(--fc); color:#fff; border-color:var(--fc)}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; margin:4px 4px 8px}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .swbox{width:16px; height:14px; border-radius:3px; display:inline-block; vertical-align:middle}
+  .key{background:#f0fdfa; border-left:4px solid var(--obs); padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0}
+  .key.amber{background:#fffbeb; border-color:var(--miss)}
+  .key.blue{background:#eef2ff; border-color:var(--fc)}
+  .key.red{background:#fef2f2; border-color:var(--now)}
+  .formula{
+    background:#0f172a; color:#e2e8f0; border-radius:10px; padding:14px 18px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:15px; overflow-x:auto; margin:14px 0; line-height:2.1;
+  }
+  .formula .obs{color:#5eead4} .formula .miss{color:#fcd34d} .formula .tot{color:#a5b4fc}
+  .frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .25em}
+  .frac > span:first-child{border-bottom:1px solid currentColor; padding:0 .35em}
+  .frac > span:last-child{padding:0 .35em}
+  .digits{
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:30px; letter-spacing:-.5px; margin:10px 4px 2px;
+  }
+  .digits .solid{color:var(--ink)}
+  .digits .noise{color:#cbd5e1}
+  details{
+    border:1px solid var(--line); border-radius:10px; background:#fff;
+    padding:10px 15px; margin:10px 0;
+  }
+  details[open]{background:#fcfcfe}
+  summary{font-weight:600; cursor:pointer}
+  details[open] summary{margin-bottom:4px}
+  details p{margin:8px 0 2px; font-size:15px}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+  th{background:#f8fafc}
+  ul{margin:10px 0; padding-left:22px}
+  li{margin:5px 0}
+  code{background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:14px}
+  footer{text-align:center; color:var(--muted); font-size:13px; margin-top:40px}
+  a{color:var(--fc)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>MCMC diagnostics: R̂, ESS and MCSE</h1>
+  <p>Every number on this page comes from one chain generator that you control. Turn up the autocorrelation, start the chains in the wrong place, or let them drift, and watch which diagnostic notices and which one does not. The companion page on <a href="nuts.html">NUTS</a> covers the sampler these diagnostics are usually run on.</p>
+  <nav class="toc">
+    <a href="#chain">The chain</a>
+    <a href="#rhat">R̂ from its definition</a>
+    <a href="#split">Split-R̂</a>
+    <a href="#ess">ESS</a>
+    <a href="#mcse">MCSE</a>
+    <a href="#limits">What they cannot see</a>
+    <a href="#faq">Questions</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+<!-- ============ THE CHAIN ============ -->
+<section id="chain">
+  <h2>A chain you can break</h2>
+  <p class="tagline">One generator, four diagnostics, all recomputed as you drag</p>
+  <p>The practical fitted an SIR model and read R̂ and ESS off a summary table. Here the chains come from an AR(1) process instead, so the thing being diagnosed is under your control. Each draw is a weighted average of the previous draw and fresh noise:</p>
+
+  <div class="formula">x<sub>t</sub> = &mu; + <span class="tot">&rho;</span> (x<sub>t&minus;1</sub> &minus; &mu;) + &sigma;&radic;<span style="border-top:1px solid #e2e8f0">1 &minus; <span class="tot">&rho;</span>&sup2;</span> &nbsp;z<sub>t</sub>, &nbsp;&nbsp; z<sub>t</sub> ~ Normal(0, 1)</div>
+
+  <p>The target is <i>Normal(&mu; = 2.5, &sigma; = 0.25)</i>, standing in for the posterior of R<sub>0</sub>. The square root on the noise holds the marginal standard deviation at &sigma; whatever &rho; is, so the distribution the chains explore never changes. Only the speed at which they explore it does. When ESS falls it falls because the draws repeat each other, not because the target got wider.</p>
+  <p>One chain gives the diagnostics nothing to compare. A single trace can settle into a steady band and stay there for the whole run while sitting in the wrong place, or in one mode of a posterior that has two. Every number computed from those draws will then agree with every other. Set the chain count below to one and the between-chain comparison has nothing to work with, because there are no chain means to take a variance of, so R̂ as <a href="#rhat">the next section</a> defines it cannot be formed. Only the split version survives, and it does not care where the chain is. It reads 1.000 with the separation slider at zero and 0.999 with it at the maximum, which has moved the chain's target more than a posterior standard deviation. Chains started from dispersed points are what give a chain in the wrong place something to disagree with.</p>
+  <p>Convergence itself is asymptotic. The chain's distribution approaches the target as the run grows without bound, and no finite run can show that it has arrived. R̂ and ESS can only fail to find evidence against convergence, so R̂ = 1.00 is consistent with a chain that has not converged. What follows is a set of ways to be caught out. Passing all of them is not a proof.</p>
+  <p>The panel on the right of the trace pools every draw into a histogram and overlays the target the chains are supposed to reproduce.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:#4f46e5"></i> chain 1</span>
+    <span><i class="swatch" style="border-color:#0d9488"></i> chain 2</span>
+    <span><i class="swatch" style="border-color:#f59e0b"></i> chain 3</span>
+    <span><i class="swatch" style="border-color:#db2777"></i> chain 4</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> target mean &mu;</span>
+  </div>
+
+  <div class="fig">
+    <svg id="traceSvg" viewBox="0 0 720 330" role="img" aria-label="Trace plot of four MCMC chains against iteration, with a dashed line at the target mean, and a right-hand panel showing the pooled histogram of draws against the target density."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Autocorrelation &rho;: <span id="f1rhoV">0.60</span></span>
+      <input id="f1rho" type="range" min="-0.9" max="0.99" step="0.01" value="0.6"></label>
+    <label><span class="vlabel">Starting point, in &sigma; from &mu;: <span id="f1startV">0</span></span>
+      <input id="f1start" type="range" min="0" max="20" step="0.5" value="0"></label>
+    <label><span class="vlabel">Draws per chain: <span id="f1nV">500</span></span>
+      <input id="f1n" type="range" min="100" max="1000" step="50" value="500"></label>
+    <label><span class="vlabel">Number of chains: <span id="f1mV">4</span></span>
+      <input id="f1m" type="range" min="1" max="6" step="1" value="4"></label>
+  </div>
+  <div class="presets" id="f1pre">
+    <button>well mixed</button>
+    <button>sticky</button>
+    <button>still in warmup</button>
+    <button>antithetic</button>
+  </div>
+  <div class="readout">
+    <span class="chip" id="c1rhatChip">split-R̂ (rank normalised) = <b id="c1rhat">—</b></span>
+    <span class="chip">bulk ESS = <b id="c1ess">—</b></span>
+    <span class="chip">MCSE of the mean = <b id="c1mcse">—</b></span>
+    <span class="chip">trustworthy decimals = <b id="c1dig">—</b></span>
+  </div>
+  <p class="figcap">Draws shown include the whole run. Nothing is discarded as warmup, which is why the starting point still matters. The MCSE chip uses the effective sample size for the mean on the untransformed draws, which is the quantity the MCSE section works with. Bulk ESS rank normalises first, so the two chips differ a little. The R̂ chip is the version MCMCChains.jl reports, built from the plain definition of the next section by splitting and rank normalising first.</p>
+  <div class="key">At &rho; = 0.6 the trace is the hairy caterpillar the session asks for. Push &rho; past 0.95 and the same 500 draws per chain become a slow wander that visits the tails once or twice. The histogram is the better check. It goes lumpy and asymmetric, because the chains have not had time to average out their own excursions.</div>
+</section>
+
+<!-- ============ R-HAT ============ -->
+<section id="rhat">
+  <h2>R̂ compares two estimates of the same variance</h2>
+  <p class="tagline">W within, B between, and the ratio that only equals one when the chains agree</p>
+  <p>Gelman and Rubin (1992) built the statistic from two variance estimates. Take <i>m</i> chains of length <i>n</i>. Compute the variance inside each chain and average those, giving <b style="color:var(--obs)">W</b>. Compute the variance of the <i>m</i> chain means and multiply by <i>n</i>, giving <b style="color:var(--miss)">B</b>. Both estimate the posterior variance, and while the chains are still spread out they fail in opposite directions. W only sees where each chain has already been, so it comes out too small. The pooled estimate <span style="white-space:nowrap">V̂</span> mixes the two and comes out too large, because B is inflated by the disagreement:</p>
+
+  <div class="formula"><span class="obs">W</span> = <span class="frac"><span>1</span><span>m</span></span> &Sigma;<sub>j</sub> s<sub>j</sub>&sup2;
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    <span class="miss">B</span> = <span class="frac"><span>n</span><span>m&minus;1</span></span> &Sigma;<sub>j</sub> (x̄<sub>j</sub> &minus; x̄)&sup2;</div>
+  <div class="formula"><span class="tot">V̂</span> = <span class="frac"><span>n&minus;1</span><span>n</span></span> <span class="obs">W</span> + <span class="frac"><span>1</span><span>n</span></span> <span class="miss">B</span>
+    &nbsp;&nbsp;&nbsp;&nbsp;
+    R̂ = &radic;<span style="border-top:1px solid #e2e8f0">&nbsp;<span class="frac"><span class="tot">V̂</span><span class="obs">W</span></span>&nbsp;</span></div>
+
+  <p>B is <i>n</i> times a variance, so its size is not comparable with W directly. The comparison happens through B/n. In the figure each chain carries a band of &plusmn; its own standard deviation, and W is the average of those squared half-widths. The bracket on the right spans &plusmn; the standard deviation of the chain means, which is &radic;(B/n). Once the chains have converged, a chain mean varies by about &radic;(W&tau;/n), where &tau; is the integrated autocorrelation time defined in the ESS section. So B comes out at about &tau; times W, and R̂ approaches 1 because B/n stays far smaller than W. The general form is R̂ = &radic;(1 + (&tau;&minus;1)/n), which is 1.003 at the default settings, where &tau; is about 4. Drag the chains apart and the bracket grows while the bands do not.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--obs);opacity:.28"></i> &plusmn; s<sub>j</sub>, the within-chain spread (W)</span>
+    <span><i class="swbox" style="background:var(--miss);opacity:.55"></i> &plusmn; &radic;(B/n), the spread of chain means</span>
+  </div>
+
+  <div class="fig">
+    <svg id="wbSvg" viewBox="0 0 720 300" role="img" aria-label="Traces of several chains, each with a shaded band of plus or minus its own standard deviation, and a bracket at the right showing the spread of the chain means."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Separation of chain targets, in &sigma;: <span id="f2sepV">0.00</span></span>
+      <input id="f2sep" type="range" min="0" max="1.2" step="0.02" value="0"></label>
+    <label><span class="vlabel">Number of chains: <span id="f2mV">4</span></span>
+      <input id="f2m" type="range" min="1" max="6" step="1" value="4"></label>
+  </div>
+  <div class="presets" id="f2pre">
+    <button>chains agree</button>
+    <button>slight separation</button>
+    <button>clearly apart</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">W = <b id="c2W">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">B = <b id="c2B">—</b></span>
+    <span class="chip">V̂ = <b id="c2V">—</b></span>
+    <span class="chip" id="c2rhatChip">R̂ (this definition) = <b id="c2rhat">—</b></span>
+    <span class="chip">split, rank normalised = <b id="c2rn">—</b></span>
+    <span class="chip">spread of the chain means = <b id="c2sdm">—</b> &times; &radic;W</span>
+  </div>
+  <div class="key amber"><b>What a given R̂ is worth in the units you care about.</b> Since B/n is the variance of the chain means and V̂ &asymp; W + B/n, the ratio is close to R̂&sup2; &asymp; 1 + var(x̄<sub>j</sub>)/W. Invert it. R̂ = 1.01 means the chain means are spread by about 0.14 posterior standard deviations, and R̂ = 1.1 means about 0.46 of one. Drag the separation slider and read the two numbers together to check. That is the argument for the 1.01 threshold recommended by Vehtari, Gelman, Simpson, Carpenter and Bürkner (2021). A run passing at 1.1 has chains disagreeing about the centre by half a posterior standard deviation, which is enough to change what you would write down.</div>
+  <p>The value reported by <code>rhat()</code> in MCMCChains.jl differs from the definition above in two ways. It splits each chain in half first, which the next section covers. It also rank normalises the draws, replacing each value by the normal quantile of its rank among all the draws pooled, and takes the larger of R̂ on the rank normalised draws and R̂ on the folded draws |x − median|. Rank normalising makes R̂ defined even when the posterior has no finite variance, and folding lets it catch chains that share a centre but differ in scale.</p>
+</section>
+
+<!-- ============ SPLIT R-HAT ============ -->
+<section id="split">
+  <h2>Splitting each chain in half</h2>
+  <p class="tagline">The version that catches a chain still going somewhere</p>
+  <p>R̂ as defined above asks whether the chains agree with each other. It has nothing to say about a chain that disagrees with itself. Here every chain starts in the same place and drifts the same way, which is what a run that has not finished its warmup looks like. The chain means stay close together, so B stays small and R̂ sits at 1.00. Split each chain into a first half and a second half, treat the halves as separate chains, and the drift becomes a disagreement between chains.</p>
+  <p>Splitting is also what makes R̂ usable at all on a single chain. With one chain there is no between-chain variance to compute, so the definition in the previous section returns nothing. Two halves of one chain give it something to compare.</p>
+
+  <div class="fig">
+    <svg id="splitSvg" viewBox="0 0 720 260" role="img" aria-label="Four chains started from the same point and drifting together, with a vertical line at the halfway point and the mean of each half drawn as a horizontal segment."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Drift over the run, in &sigma;: <span id="f3driftV">0.0</span></span>
+      <input id="f3drift" type="range" min="0" max="3" step="0.05" value="0"></label>
+  </div>
+  <div class="presets" id="f3pre">
+    <button>no drift</button>
+    <button>drift of 1&sigma;</button>
+    <button>drift of 3&sigma;</button>
+  </div>
+  <div class="readout">
+    <span class="chip">R̂ without splitting = <b id="c3plain">—</b></span>
+    <span class="chip">split-R̂ = <b id="c3split">—</b></span>
+    <span class="chip" id="c3verdictChip">verdict: <b id="c3verdict">—</b></span>
+    <span class="chip">pooled mean = <b id="c3mean">—</b></span>
+  </div>
+  <p class="figcap">The two halves of each chain are shown with their own mean. The full-chain mean, which is what the unsplit R̂ compares, is the average of the two.</p>
+  <div class="key red">A drift of one posterior standard deviation across the run leaves the unsplit R̂ where it was, at 1.003, and pushes split-R̂ past 1.01. Watch the pooled mean at the same time. It moves with the drift, so the diagnostic that passes is passing a chain whose answer is wrong.</div>
+  <p>The unsplit value can settle slightly <i>below</i> 1. V̂ is a weighted average of W and B, so chains whose means agree more closely than their own spread implies give V̂ &lt; W. Reading 0.999 as reassurance is a mistake. It means the between-chain comparison has found nothing, which is exactly what a shared drift produces.</p>
+</section>
+
+<!-- ============ ESS ============ -->
+<section id="ess">
+  <h2>ESS comes out of the autocorrelation</h2>
+  <p class="tagline">One sum, truncated where the estimated correlations become noise</p>
+  <p>The variance of the mean of <i>N</i> independent draws is &sigma;&sup2;/N. For a correlated chain it is &sigma;&sup2;&tau;/N, where &tau; is the integrated autocorrelation time. The effective sample size is the number of independent draws that would have given the same variance:</p>
+
+  <div class="formula"><span class="tot">ESS</span> = <span class="frac"><span>N</span><span>&tau;</span></span>, &nbsp;&nbsp;&nbsp; &tau; = 1 + 2 &Sigma;<sub>k=1</sub><sup>&nbsp;K</sup> &rho;<sub>k</sub></div>
+
+  <p>The upper limit <i>K</i> is where the honest version differs from the one usually quoted. Written as an infinite sum this does not work. Each &rho;<sub>k</sub> is estimated from the same finite chain, so at large lags the estimates are noise around zero, and adding thousands of them adds noise rather than signal. Geyer (1992) supplies the fix used by Stan and by MCMCChains.jl. Add the autocorrelations in consecutive pairs, &rho;<sub>2k</sub> + &rho;<sub>2k+1</sub>, and stop at the first pair whose sum goes negative. For a reversible chain those pair sums are positive and decreasing in theory, so the first negative one is the point at which the estimate has stopped tracking the truth. The sequence is then forced to be decreasing before the sum is taken.</p>
+  <p>The bars are the autocorrelations that the estimator actually uses, computed from the split chains and pooled across them. Bars past the truncation lag are drawn in grey and contribute nothing. The dashed line is &rho;<sup>k</sup>, the exact autocorrelation of the AR(1) process the chains came from, so you can see how much of the wobble in the bars is estimation error.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--fc);opacity:.85"></i> used in the sum</span>
+    <span><i class="swbox" style="background:#cbd5e1"></i> past the truncation point</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> &rho;<sup>k</sup>, the true AR(1) autocorrelation</span>
+  </div>
+
+  <div class="fig">
+    <svg id="acfSvg" viewBox="0 0 720 300" role="img" aria-label="Bar chart of the estimated autocorrelation against lag, with a red line at the truncation lag chosen by the initial positive sequence rule and a dashed curve showing the true autocorrelation of the generating process."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">Autocorrelation &rho;: <span id="f4rhoV">0.60</span></span>
+      <input id="f4rho" type="range" min="-0.9" max="0.99" step="0.01" value="0.6"></label>
+    <label><span class="vlabel">Draws per chain: <span id="f4nV">500</span></span>
+      <input id="f4n" type="range" min="100" max="1000" step="50" value="500"></label>
+  </div>
+  <div class="presets" id="f4pre">
+    <button>independent</button>
+    <button>correlated</button>
+    <button>very sticky</button>
+    <button>antithetic</button>
+  </div>
+  <div class="readout">
+    <span class="chip">&tau; = <b id="c4tau">—</b></span>
+    <span class="chip">truncated at lag K = <b id="c4K">—</b></span>
+    <span class="chip">ESS = <b id="c4ess">—</b></span>
+    <span class="chip">AR(1) truth, N(1&minus;&rho;)/(1+&rho;) = <b id="c4theory">—</b></span>
+  </div>
+  <div class="readout">
+    <span class="chip">bulk ESS = <b id="c4bulk">—</b></span>
+    <span class="chip">tail ESS = <b id="c4tail">—</b></span>
+    <span class="chip" id="c4warnChip" style="display:none">note: <b id="c4warn">—</b></span>
+  </div>
+
+  <h3>Why ESS can exceed the number of draws</h3>
+  <p>Set &rho; negative. The chain now overshoots on every step, so a draw above the mean is usually followed by one below it. The odd autocorrelations are negative, &tau; drops below 1, and ESS comes out larger than the number of draws. At &rho; = &minus;0.5 the sum gives &tau; = 1/3 and about three times as many effective draws as actual ones. Nothing has gone wrong. The chain is averaging out its own error faster than independent draws would, which is what the session refers to when it says NUTS sometimes produces mildly anti-correlated draws. NUTS produces them because the trajectory it builds moves away from the current point before a draw is taken from it, so consecutive draws sit on opposite sides of the typical set more often than chance would give (Hoffman and Gelman 2014). The <a href="nuts.html">NUTS page</a> builds that trajectory step by step.</p>
+  <p>The reported value is capped at <i>S</i> log<sub>10</sub><i>S</i> for <i>S</i> total draws, because the estimator itself becomes unreliable when &tau; is very small. Push &rho; to &minus;0.8 and the cap binds, so the number stops rising even though the theoretical ESS keeps going.</p>
+
+  <h3>Bulk and tail</h3>
+  <p>Bulk ESS applies everything above to the rank normalised draws, so it describes how well the centre of the distribution is estimated. Tail ESS is the smaller of the effective sample sizes for the 5% and 95% quantile indicators, which is what the endpoint of a credible interval depends on. Check it before quoting an interval. On this page, while &rho; is positive, tail ESS comes out <i>larger</i> than bulk ESS, because an indicator of a Gaussian AR(1) crossing a fixed threshold decorrelates faster than the draws themselves do. Click <b>antithetic</b> and the order reverses, since the negative correlation is what bulk ESS picks up. It also reverses for the posteriors that motivate the statistic, where a heavy tail or a funnel is visited rarely and left slowly. Vehtari et al. (2021) recommend at least 100 effective draws per chain, so 400 with the usual four chains, before either the ESS or the R̂ estimate is worth trusting.</p>
+</section>
+
+<!-- ============ MCSE ============ -->
+<section id="mcse">
+  <h2>MCSE is the number you report against</h2>
+  <p class="tagline">How many of the digits in your posterior mean are yours to keep</p>
+  <p>ESS on its own does not say whether a run was long enough. It becomes actionable through the Monte Carlo standard error, the standard deviation of the posterior mean estimate over hypothetical repeat runs of the same sampler:</p>
+
+  <div class="formula"><span class="tot">MCSE</span> &asymp; <span class="frac"><span>posterior SD</span><span>&radic;ESS</span></span></div>
+
+  <p>A digit at the <i>d</i>-th decimal place is worth writing down when MCSE is smaller than half of 10<sup>&minus;d</sup>, because a rerun would then leave that digit alone. Below, the digits that survive that test are in black and the rest are in grey. Rounding at that place gives the value in the last chip, which is what you would write down. Press <b>draw a new run</b> to reseed the generator. The mean lands somewhere else each time, and the dots record where. The grey digits are the ones that move.</p>
+
+  <div class="fig">
+    <svg id="mcseSvg" viewBox="0 0 720 150" role="img" aria-label="A number line centred on the target mean, showing the current posterior mean estimate with an interval of plus or minus two Monte Carlo standard errors, and dots marking the posterior means from previous reruns."></svg>
+  </div>
+  <div class="digits">posterior mean = <span id="mcDigits">—</span></div>
+  <div class="controls">
+    <label><span class="vlabel">Autocorrelation &rho;: <span id="f5rhoV">0.60</span></span>
+      <input id="f5rho" type="range" min="-0.9" max="0.99" step="0.01" value="0.6"></label>
+    <label><span class="vlabel">Draws per chain: <span id="f5nV">500</span></span>
+      <input id="f5n" type="range" min="100" max="1000" step="50" value="500"></label>
+  </div>
+  <div class="presets" id="f5btns">
+    <button id="f5new">draw a new run</button>
+    <button id="f5clear">clear the dots</button>
+  </div>
+  <div class="readout">
+    <span class="chip">ESS = <b id="c5ess">—</b></span>
+    <span class="chip">MCSE = <b id="c5mcse">—</b></span>
+    <span class="chip">decimal places you can claim = <b id="c5dig">—</b></span>
+    <span class="chip">spread of the reruns = <b id="c5spread">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">write down <b id="c5quote">—</b></span>
+  </div>
+  <p class="figcap">The spread of the reruns is the standard deviation of the dots. It should sit close to the MCSE once there are a handful of them, because that is what MCSE predicts.</p>
+  <div class="key blue">MCSE turns "run it longer" into a stopping rule. Halving it costs four times the draws, since ESS grows in proportion to the run length and MCSE falls with its square root. Decide the precision you need first. Quoting R<sub>0</sub> = 2.31 when the MCSE is 0.05 claims a second decimal place that belongs to the random number generator.</div>
+  <p>MCSE measures noise and says nothing about bias. Set the starting point in the first figure far from the target and the dots keep the same spread while sitting to one side of the target mean. A tight MCSE around the wrong number is still the wrong number.</p>
+</section>
+
+<!-- ============ LIMITS ============ -->
+<section id="limits">
+  <h2>What the diagnostics cannot see</h2>
+  <p class="tagline">They report on the sampler, and only on the part of the target it reached</p>
+  <p>R̂ and ESS compare draws with other draws. Both are answers about the sampler, and about the region of the target the sampler visited. If every chain starts in the same mode of a bimodal posterior and none of them crosses, they agree with each other and with themselves, so R̂ stays at 1.00 and ESS stays high while half the posterior is missing. Dispersed starting points and more chains raise the chance of noticing, and they do not turn it into a guarantee.</p>
+  <p>Neither number knows anything about whether the model is the right model for the data. A converged, well-mixed fit of a model that omits the mechanism that generated your epidemic gives clean diagnostics and wrong answers. That question belongs to the posterior predictive checks in the model checking session.</p>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <h2>Common questions</h2>
+  <p class="tagline">The ones worth asking after the practical</p>
+
+  <details><summary>How many chains should I run?</summary>
+  <p>Four is the usual default and the smallest number that makes R̂ informative in practice. More chains give the between-chain variance more to work with, and starting them from dispersed points is what lets R̂ detect a warmup that has not finished.</p></details>
+
+  <details><summary>Is thinning ever worth it?</summary>
+  <p>Not for estimating a posterior mean. Discarding draws throws away information and raises the Monte Carlo error slightly, even when the draws are highly correlated. Thin when storage or the cost of whatever you do with each draw is the binding constraint, and accept the small loss.</p></details>
+
+  <details><summary>Should I use bulk ESS or tail ESS?</summary>
+  <p>Both. Bulk ESS covers the centre and governs the MCSE of the mean, and tail ESS covers the 5% and 95% quantiles and governs the endpoints of a credible interval. On a posterior with a heavy tail or a funnel, tail ESS is the smaller of the two, so the interval is less well estimated than the mean it surrounds.</p></details>
+
+  <details><summary>My R̂ is fine and the trace still looks bad. What now?</summary>
+  <p>Trust the trace. Chains that share a starting region and drift together pass the between-chain comparison, which is the case split-R̂ exists to catch. Check split-R̂, check ESS per chain, and disperse the starting points before rerunning.</p></details>
+
+  <details><summary>ESS is low. Should I just run for longer?</summary>
+  <p>Running longer raises ESS in proportion to the extra draws, so it fixes the noise. It does not fix the geometry that caused &tau; to be large. If &tau; is in the hundreds, reparametrising or changing sampler buys far more than another zero on the iteration count.</p></details>
+
+</section>
+
+<footer>Built as a teaching aid for the MFIIDD MCMC diagnostics session. Every figure is computed in the page from a seeded generator, so the same settings give the same numbers.<br>
+Gelman and Rubin (1992), <i>Statistical Science</i> 7(4), 457–472 · Geyer (1992), <i>Statistical Science</i> 7(4), 473–483 · Hoffman and Gelman (2014), <i>JMLR</i> 15, 1593–1623 · Vehtari, Gelman, Simpson, Carpenter and Bürkner (2021), <i>Bayesian Analysis</i> 16(2), 667–718.</footer>
+
+</div>
+
+<script>
+/* ================= shared numerics ================= */
+const MU = 2.5, SD = 0.25;
+const CHAINCOL = ["#4f46e5","#0d9488","#f59e0b","#db2777","#7c3aed","#0891b2"];
+const SVGNS = "http://www.w3.org/2000/svg";
+function el(tag, attrs){
+  const e = document.createElementNS(SVGNS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  return e;
+}
+function clear(svg){ while (svg.firstChild) svg.removeChild(svg.firstChild); }
+function txt(svg, attrs, s){ const t = el("text", attrs); t.textContent = s; svg.appendChild(t); return t; }
+
+function mulberry32(a){
+  return function(){
+    a = (a + 0x6D2B79F5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+function gaussFrom(u){
+  let spare = null;
+  return function(){
+    if (spare !== null){ const s = spare; spare = null; return s; }
+    let a = 0; while (a <= 1e-12) a = u();
+    const b = u(), r = Math.sqrt(-2 * Math.log(a)), th = 2 * Math.PI * b;
+    spare = r * Math.sin(th);
+    return r * Math.cos(th);
+  };
+}
+/* inverse normal CDF, Acklam's rational approximation */
+function normQuantile(p){
+  if (p <= 0) return -Infinity;
+  if (p >= 1) return Infinity;
+  const a=[-3.969683028665376e+01,2.209460984245205e+02,-2.759285104469687e+02,1.383577518672690e+02,-3.066479806614716e+01,2.506628277459239e+00];
+  const b=[-5.447609879822406e+01,1.615858368580409e+02,-1.556989798598866e+02,6.680131188771972e+01,-1.328068155288572e+01];
+  const c=[-7.784894002430293e-03,-3.223964580411365e-01,-2.400758277161838e+00,-2.549732539343734e+00,4.374664141464968e+00,2.938163982698783e+00];
+  const d=[7.784695709041462e-03,3.224671290700398e-01,2.445134137142996e+00,3.754408661907416e+00];
+  const pl = 0.02425;
+  let q;
+  if (p < pl){
+    q = Math.sqrt(-2*Math.log(p));
+    return (((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+  if (p > 1-pl){
+    q = Math.sqrt(-2*Math.log(1-p));
+    return -(((((c[0]*q+c[1])*q+c[2])*q+c[3])*q+c[4])*q+c[5])/((((d[0]*q+d[1])*q+d[2])*q+d[3])*q+1);
+  }
+  q = p - 0.5;
+  const r = q*q;
+  return (((((a[0]*r+a[1])*r+a[2])*r+a[3])*r+a[4])*r+a[5])*q/(((((b[0]*r+b[1])*r+b[2])*r+b[3])*r+b[4])*r+1);
+}
+function meanOf(x){ let s=0; for (let i=0;i<x.length;i++) s+=x[i]; return s/x.length; }
+function varOf(x){
+  const m = meanOf(x); let s = 0;
+  for (let i=0;i<x.length;i++){ const d = x[i]-m; s += d*d; }
+  return s/Math.max(x.length-1, 1);
+}
+function quantileOf(sorted, p){
+  const n = sorted.length;
+  if (n === 0) return NaN;
+  const h = (n-1)*p, lo = Math.floor(h), hi = Math.ceil(h);
+  return sorted[lo] + (h-lo)*(sorted[hi]-sorted[lo]);
+}
+function normPdf(x, mu, sd){
+  const z = (x-mu)/sd;
+  return Math.exp(-0.5*z*z)/(sd*Math.sqrt(2*Math.PI));
+}
+
+/* AR(1) chains, optionally with per-chain target offsets and a shared drift */
+function makeChains(o){
+  const n = o.n, m = o.m, rho = o.rho;
+  const sig = SD*Math.sqrt(Math.max(1-rho*rho, 1e-9));
+  const out = [];
+  for (let c=0;c<m;c++){
+    const z = gaussFrom(mulberry32((o.seed|0)*7919 + c*104729 + 11));
+    const off = m>1 ? (c-(m-1)/2)/((m-1)/2) : 1;
+    const centre = MU + o.sep*SD*off;
+    const x0 = MU + o.start*SD*(o.common ? 1 : off);
+    const arr = new Array(n);
+    let dev = x0 - centre;
+    for (let t=0;t<n;t++){
+      if (t>0) dev = rho*dev + sig*z();
+      arr[t] = centre + o.drift*SD*(n>1 ? t/(n-1) : 0) + dev;
+    }
+    out.push(arr);
+  }
+  return out;
+}
+function splitChains(ch){
+  const out = [];
+  for (let i=0;i<ch.length;i++){
+    const c = ch[i], h = Math.floor(c.length/2);
+    if (h < 2){ out.push(c.slice()); continue; }
+    out.push(c.slice(0, h));
+    out.push(c.slice(c.length-h));
+  }
+  return out;
+}
+function wb(ch){
+  const n = ch[0].length, m = ch.length;
+  const means = ch.map(meanOf), vars = ch.map(varOf);
+  const W = meanOf(vars);
+  /* with one chain there are no chain means to take a variance of, so B and
+     everything built on it are undefined rather than zero */
+  const B = m>1 ? n*varOf(means) : NaN;
+  return {n:n, m:m, means:means, vars:vars, W:W, B:B, varPlus:((n-1)/n)*W + B/n};
+}
+function rhatPlain(ch){
+  const s = wb(ch);
+  return s.W > 0 ? Math.sqrt(s.varPlus/s.W) : NaN;
+}
+function rankNormalise(ch){
+  const all = [];
+  for (let ci=0;ci<ch.length;ci++)
+    for (let i=0;i<ch[ci].length;i++) all.push([ch[ci][i], ci, i]);
+  all.sort(function(p,q){ return p[0]-q[0]; });
+  const S = all.length;
+  const out = ch.map(function(c){ return new Array(c.length); });
+  let k = 0;
+  while (k < S){
+    let j = k;
+    while (j+1 < S && all[j+1][0] === all[k][0]) j++;
+    const r = (k+j)/2 + 1, zz = normQuantile((r-3/8)/(S-1/4));
+    for (let q=k;q<=j;q++) out[all[q][1]][all[q][2]] = zz;
+    k = j+1;
+  }
+  return out;
+}
+/* rank normalised split-R-hat, the maximum of the bulk and folded versions */
+function rhatRank(ch){
+  const s = splitChains(ch);
+  const bulk = rhatPlain(rankNormalise(s));
+  const pooled = [].concat.apply([], s).sort(function(a,b){ return a-b; });
+  const med = quantileOf(pooled, 0.5);
+  const folded = s.map(function(c){ return c.map(function(v){ return Math.abs(v-med); }); });
+  const tail = rhatPlain(rankNormalise(folded));
+  return Math.max(bulk, tail);
+}
+/* ESS with Geyer's initial positive and monotone sequence truncation */
+function essDetail(ch){
+  const m = ch.length, n = ch[0].length, S = m*n;
+  const st = wb(ch), W = st.W, vp = st.varPlus;
+  if (!(W > 0) || !(vp > 0)) return {ess:NaN, tau:NaN, K:0, rhoAt:function(){ return 0; }, capped:false, ran:false};
+  const mus = ch.map(meanOf), cache = [];
+  const maxLag = Math.min(n-1, 256);
+  function acov(t){
+    if (cache[t] !== undefined) return cache[t];
+    let acc = 0;
+    for (let c=0;c<m;c++){
+      const x = ch[c], mu = mus[c];
+      let s = 0;
+      for (let i=0;i+t<n;i++) s += (x[i]-mu)*(x[i+t]-mu);
+      acc += s/n;
+    }
+    cache[t] = acc/m;
+    return cache[t];
+  }
+  function rhoAt(t){ return t === 0 ? 1 : (t > maxLag ? 0 : 1-(W-acov(t))/vp); }
+  const keep = [];
+  keep[0] = 1;
+  keep[1] = rhoAt(1);
+  let even = 1, odd = keep[1], s = 1;
+  while (s < maxLag-4 && (even+odd) > 0){
+    even = rhoAt(s+1);
+    odd = rhoAt(s+2);
+    if (even+odd >= 0){ keep[s+1] = even; keep[s+2] = odd; }
+    s += 2;
+  }
+  const maxS = s;
+  for (let t=0;t<=maxS+1;t++) if (keep[t] === undefined) keep[t] = 0;
+  if (even > 0) keep[maxS+1] = even;
+  for (let t=1;t<=maxS-3;t+=2){
+    if (keep[t+1]+keep[t+2] > keep[t-1]+keep[t]){
+      keep[t+1] = (keep[t-1]+keep[t])/2;
+      keep[t+2] = keep[t+1];
+    }
+  }
+  let sum = 0;
+  for (let t=0;t<maxS;t++) sum += keep[t];
+  let tau = -1 + 2*sum + keep[maxS+1];
+  const floor = 1/Math.log10(S);
+  const capped = tau < floor;
+  tau = Math.max(tau, floor);
+  return {ess:S/tau, tau:tau, K:maxS, rhoAt:rhoAt, capped:capped, ran:maxS >= maxLag-5};
+}
+function tailEss(ch){
+  const pooled = [].concat.apply([], ch).sort(function(a,b){ return a-b; });
+  const q05 = quantileOf(pooled, 0.05), q95 = quantileOf(pooled, 0.95);
+  const e1 = essDetail(splitChains(ch.map(function(c){ return c.map(function(v){ return v <= q05 ? 1 : 0; }); }))).ess;
+  const e2 = essDetail(splitChains(ch.map(function(c){ return c.map(function(v){ return v <= q95 ? 1 : 0; }); }))).ess;
+  return Math.min(e1, e2);
+}
+/* decimal places whose digit a rerun would leave alone */
+function trustworthyDecimals(mcse){
+  if (!(mcse > 0)) return 6;
+  return Math.floor(-Math.log10(2*mcse));
+}
+
+/* ================= shared state ================= */
+const S = {rho:0.6, n:500, m:4, start:0, sep:0, drift:0, seed:7};
+const FIGS = [];
+let FRAME = null;
+
+function buildFrame(){
+  const common = {rho:S.rho, n:S.n, m:S.m, start:S.start, seed:S.seed};
+  const base = makeChains(Object.assign({}, common, {sep:0, drift:0, common:false}));
+  const sepSet = makeChains(Object.assign({}, common, {sep:S.sep, drift:0, common:false}));
+  const driftSet = makeChains(Object.assign({}, common, {sep:0, drift:S.drift, common:true}));
+  const baseSplit = splitChains(base);
+  const detail = essDetail(baseSplit);
+  const pooled = [].concat.apply([], base);
+  const sd = Math.sqrt(varOf(pooled));
+  const mcse = sd/Math.sqrt(detail.ess);
+  return {
+    base:base, sepSet:sepSet, driftSet:driftSet, baseSplit:baseSplit,
+    detail:detail,
+    mean:meanOf(pooled), sd:sd, mcse:mcse,
+    digits:trustworthyDecimals(mcse),
+    bulk:essDetail(rankNormalise(baseSplit)).ess,
+    tail:tailEss(base),
+    rhatRank:rhatRank(base)
+  };
+}
+function render(){
+  FRAME = buildFrame();
+  for (let i=0;i<FIGS.length;i++) FIGS[i](FRAME);
+}
+function syncRange(id, labId, val, fmt){
+  const e = document.getElementById(id);
+  if (e && +e.value !== val) e.value = val;
+  const l = document.getElementById(labId);
+  if (l) l.textContent = fmt ? fmt(val) : val;
+}
+function bindRange(id, key, before){
+  const e = document.getElementById(id);
+  e.addEventListener("input", function(){
+    S[key] = +e.value;
+    if (before) before();
+    render();
+  });
+}
+function wirePresets(boxId, sets, before){
+  const box = document.getElementById(boxId);
+  const btns = Array.prototype.slice.call(box.querySelectorAll("button"));
+  btns.forEach(function(b, i){
+    b.addEventListener("click", function(){
+      Object.assign(S, sets[i]);
+      btns.forEach(function(x){ x.classList.toggle("active", x === b); });
+      if (before) before();
+      render();
+    });
+  });
+}
+function fmt(v, d){ return (isFinite(v) ? v.toFixed(d) : "—"); }
+function asInt(v){ return isFinite(v) ? Math.round(v) : "—"; }
+function setChip(id, s){ const e = document.getElementById(id); if (e) e.textContent = s; }
+function passFail(id, ok){
+  const e = document.getElementById(id);
+  if (!e) return;
+  e.classList.toggle("pass", ok);
+  e.classList.toggle("fail", !ok);
+}
+
+/* shared drawing helpers */
+function rangeOf(chains, padFrac){
+  let lo = Infinity, hi = -Infinity;
+  for (let c=0;c<chains.length;c++){
+    const x = chains[c];
+    for (let i=0;i<x.length;i++){ if (x[i] < lo) lo = x[i]; if (x[i] > hi) hi = x[i]; }
+  }
+  const pad = (hi-lo)*(padFrac || 0.06) || 1;
+  return {lo:lo-pad, hi:hi+pad};
+}
+function scales(g, n, lo, hi){
+  return {
+    px:function(i){ return g.x0 + (n>1 ? i/(n-1) : 0)*(g.x1-g.x0); },
+    py:function(v){ return g.y1 - (v-lo)/(hi-lo)*(g.y1-g.y0); }
+  };
+}
+function drawFrame(svg, g, sc, lo, hi, xlab){
+  for (let k=0;k<=4;k++){
+    const v = lo + (hi-lo)*k/4, y = sc.py(v);
+    svg.appendChild(el("line", {x1:g.x0, y1:y, x2:g.x1, y2:y, stroke:"#eef2f7"}));
+    txt(svg, {x:g.x0-7, y:y+3.5, "text-anchor":"end", "font-size":10, fill:"#6b7280"}, v.toFixed(2));
+  }
+  svg.appendChild(el("line", {x1:g.x0, y1:g.y1, x2:g.x1, y2:g.y1, stroke:"#cbd5e1"}));
+  if (xlab) txt(svg, {x:(g.x0+g.x1)/2, y:g.y1+30, "text-anchor":"middle", "font-size":12, fill:"#374151"}, xlab);
+}
+function drawTraces(svg, chains, g, sc, opt){
+  const o = opt || {};
+  for (let c=0;c<chains.length;c++){
+    const x = chains[c], pts = [];
+    for (let i=0;i<x.length;i++) pts.push(sc.px(i).toFixed(1)+" "+sc.py(x[i]).toFixed(1));
+    svg.appendChild(el("path", {
+      d:"M "+pts.join(" L "), fill:"none",
+      stroke:CHAINCOL[c%CHAINCOL.length],
+      "stroke-width":o.width || 0.75,
+      opacity:o.opacity || 0.8,
+      "stroke-linejoin":"round"
+    }));
+  }
+}
+
+/* ================= FIGURE 1 : the trace you can break ================= */
+FIGS.push(function(F){
+  const svg = document.getElementById("traceSvg");
+  clear(svg);
+  syncRange("f1rho", "f1rhoV", S.rho, function(v){ return v.toFixed(2); });
+  syncRange("f1start", "f1startV", S.start, function(v){ return v.toFixed(1); });
+  syncRange("f1n", "f1nV", S.n);
+  syncRange("f1m", "f1mV", S.m);
+
+  const g = {x0:52, x1:552, y0:30, y1:262};
+  const r = rangeOf(F.base, 0.07);
+  const lo = Math.min(r.lo, MU-3.4*SD), hi = Math.max(r.hi, MU+3.4*SD);
+  const sc = scales(g, S.n, lo, hi);
+  drawFrame(svg, g, sc, lo, hi, "iteration");
+  txt(svg, {x:g.x0, y:18, "font-size":12.5, "font-weight":700, fill:"#1f2933"},
+    (S.m === 1 ? "one chain" : S.m + " chains") + ", every draw kept");
+  drawTraces(svg, F.base, g, sc, {width:0.75, opacity:0.8});
+  svg.appendChild(el("line", {x1:g.x0, y1:sc.py(MU), x2:g.x1, y2:sc.py(MU),
+    stroke:"#64748b", "stroke-width":1.4, "stroke-dasharray":"6 4", opacity:0.85}));
+  txt(svg, {x:g.x0+4, y:sc.py(MU)-5, "font-size":10.5, fill:"#475569", "font-weight":600}, "target mean 2.5");
+  for (let k=0;k<=4;k++){
+    const i = Math.round((S.n-1)*k/4);
+    txt(svg, {x:sc.px(i), y:g.y1+16, "text-anchor":"middle", "font-size":10, fill:"#6b7280"}, i);
+  }
+
+  /* pooled histogram against the target density */
+  const hx0 = 574, hx1 = 706;
+  txt(svg, {x:hx0, y:18, "font-size":12.5, "font-weight":700, fill:"#1f2933"}, "pooled draws");
+  const nb = 42, counts = new Array(nb).fill(0);
+  const bw = (hi-lo)/nb;
+  let total = 0;
+  for (let c=0;c<F.base.length;c++){
+    const x = F.base[c];
+    for (let i=0;i<x.length;i++){
+      const b = Math.floor((x[i]-lo)/bw);
+      if (b >= 0 && b < nb){ counts[b]++; total++; }
+    }
+  }
+  let dmax = normPdf(MU, MU, SD);
+  for (let b=0;b<nb;b++) dmax = Math.max(dmax, counts[b]/(total*bw));
+  for (let b=0;b<nb;b++){
+    const d = counts[b]/(total*bw);
+    const yTop = sc.py(lo+(b+1)*bw), yBot = sc.py(lo+b*bw);
+    svg.appendChild(el("rect", {x:hx0, y:yTop, width:Math.max((d/dmax)*(hx1-hx0), 0),
+      height:Math.max(yBot-yTop-0.5, 0.5), fill:"#4f46e5", opacity:0.3}));
+  }
+  let dp = "";
+  for (let v=lo; v<=hi; v+=(hi-lo)/160){
+    const d = normPdf(v, MU, SD);
+    dp += (dp ? " L " : "M ")+(hx0+(d/dmax)*(hx1-hx0)).toFixed(1)+" "+sc.py(v).toFixed(1);
+  }
+  svg.appendChild(el("path", {d:dp, fill:"none", stroke:"#64748b", "stroke-width":1.8, opacity:0.85}));
+  svg.appendChild(el("line", {x1:hx0, y1:g.y0, x2:hx0, y2:g.y1, stroke:"#cbd5e1"}));
+  txt(svg, {x:hx0, y:g.y1+16, "font-size":10, fill:"#6b7280"}, "target");
+  txt(svg, {x:(g.x0+g.x1)/2, y:g.y1+52, "text-anchor":"middle", "font-size":11.5, fill:"#6b7280"},
+    "τ = " + fmt(F.detail.tau, 2) + " draws are needed for one effective draw");
+
+  setChip("c1rhat", fmt(F.rhatRank, 3));
+  passFail("c1rhatChip", F.rhatRank < 1.01);
+  setChip("c1ess", asInt(F.bulk));
+  setChip("c1mcse", fmt(F.mcse, 4));
+  setChip("c1dig", F.digits > 0 ? F.digits : "none");
+});
+bindRange("f1rho", "rho", clearRuns);
+bindRange("f1start", "start", clearRuns);
+bindRange("f1n", "n", clearRuns);
+bindRange("f1m", "m", clearRuns);
+wirePresets("f1pre", [
+  {rho:0.2, start:0, n:500},
+  {rho:0.96, start:0, n:500},
+  {rho:0.9, start:14, n:300},
+  {rho:-0.5, start:0, n:500}
+], clearRuns);
+
+/* ================= FIGURE 2 : W, B and R-hat ================= */
+FIGS.push(function(F){
+  const svg = document.getElementById("wbSvg");
+  clear(svg);
+  syncRange("f2sep", "f2sepV", S.sep, function(v){ return v.toFixed(2); });
+  syncRange("f2m", "f2mV", S.m);
+
+  const ch = F.sepSet, st = wb(ch);
+  const g = {x0:52, x1:596, y0:30, y1:240};
+  const r = rangeOf(ch, 0.1);
+  const sc = scales(g, S.n, r.lo, r.hi);
+  drawFrame(svg, g, sc, r.lo, r.hi, "iteration");
+  txt(svg, {x:g.x0, y:18, "font-size":12.5, "font-weight":700, fill:"#1f2933"},
+    "each band is ± that chain's own standard deviation");
+
+  /* within-chain bands, then the traces on top */
+  for (let c=0;c<ch.length;c++){
+    const mj = st.means[c], sj = Math.sqrt(st.vars[c]);
+    const yTop = sc.py(mj+sj), yBot = sc.py(mj-sj);
+    svg.appendChild(el("rect", {x:g.x0, y:yTop, width:g.x1-g.x0, height:Math.max(yBot-yTop, 1),
+      fill:"#0d9488", opacity:0.11}));
+    svg.appendChild(el("line", {x1:g.x0, y1:sc.py(mj), x2:g.x1, y2:sc.py(mj),
+      stroke:CHAINCOL[c%CHAINCOL.length], "stroke-width":1.6, opacity:0.9}));
+  }
+  drawTraces(svg, ch, g, sc, {width:0.6, opacity:0.5});
+  for (let k=0;k<=4;k++){
+    const i = Math.round((S.n-1)*k/4);
+    txt(svg, {x:sc.px(i), y:g.y1+16, "text-anchor":"middle", "font-size":10, fill:"#6b7280"}, i);
+  }
+
+  /* between-chain bracket; with one chain there is nothing to bracket */
+  const gm = meanOf(st.means), sdm = Math.sqrt(st.B/st.n);
+  const bx = 630;
+  if (st.m > 1){
+    const yTop = sc.py(gm+sdm), yBot = sc.py(gm-sdm);
+    svg.appendChild(el("rect", {x:bx-12, y:yTop, width:24, height:Math.max(yBot-yTop, 1.5),
+      fill:"#f59e0b", opacity:0.5, rx:3}));
+    svg.appendChild(el("line", {x1:bx-16, y1:yTop, x2:bx+16, y2:yTop, stroke:"#b45309", "stroke-width":1.6}));
+    svg.appendChild(el("line", {x1:bx-16, y1:yBot, x2:bx+16, y2:yBot, stroke:"#b45309", "stroke-width":1.6}));
+  } else {
+    txt(svg, {x:bx, y:sc.py(gm)-10, "text-anchor":"middle", "font-size":10.5,
+      "font-weight":600, fill:"#b45309"}, "one mean,");
+    txt(svg, {x:bx, y:sc.py(gm)+22, "text-anchor":"middle", "font-size":10.5,
+      "font-weight":600, fill:"#b45309"}, "nothing to compare");
+  }
+  for (let c=0;c<ch.length;c++){
+    svg.appendChild(el("circle", {cx:bx, cy:sc.py(st.means[c]), r:3.4,
+      fill:CHAINCOL[c%CHAINCOL.length]}));
+  }
+  txt(svg, {x:bx, y:g.y0-12, "text-anchor":"middle", "font-size":10.5, "font-weight":600, fill:"#b45309"},
+    st.m > 1 ? "√(B/n)" : "B undefined");
+  txt(svg, {x:bx, y:g.y1+16, "text-anchor":"middle", "font-size":10, fill:"#6b7280"},
+    st.m > 1 ? "chain means" : "chain mean");
+
+  const one = st.m === 1;
+  const rp = rhatPlain(ch);
+  setChip("c2W", fmt(st.W, 4));
+  setChip("c2B", one ? "undefined with one chain" : fmt(st.B, 3));
+  setChip("c2V", one ? "undefined" : fmt(st.varPlus, 4));
+  setChip("c2rhat", one ? "undefined" : fmt(rp, 3));
+  const rhatChip = document.getElementById("c2rhatChip");
+  if (one){ rhatChip.classList.remove("pass"); rhatChip.classList.remove("fail"); }
+  else passFail("c2rhatChip", rp < 1.01);
+  setChip("c2rn", fmt(rhatRank(ch), 3));
+  setChip("c2sdm", one ? "undefined" : fmt(sdm/Math.sqrt(st.W), 3));
+});
+bindRange("f2sep", "sep");
+bindRange("f2m", "m", clearRuns);
+wirePresets("f2pre", [{sep:0, m:4}, {sep:0.12, m:4}, {sep:0.6, m:4}], clearRuns);
+
+/* ================= FIGURE 3 : split-R-hat ================= */
+FIGS.push(function(F){
+  const svg = document.getElementById("splitSvg");
+  clear(svg);
+  syncRange("f3drift", "f3driftV", S.drift, function(v){ return v.toFixed(2); });
+
+  const ch = F.driftSet;
+  const g = {x0:52, x1:690, y0:28, y1:200};
+  const r = rangeOf(ch, 0.1);
+  const sc = scales(g, S.n, r.lo, r.hi);
+  drawFrame(svg, g, sc, r.lo, r.hi, "iteration");
+  txt(svg, {x:g.x0, y:16, "font-size":12.5, "font-weight":700, fill:"#1f2933"},
+    "every chain starts in the same place and drifts the same way");
+  drawTraces(svg, ch, g, sc, {width:0.7, opacity:0.55});
+
+  const half = Math.floor(S.n/2);
+  for (let c=0;c<ch.length;c++){
+    const a = meanOf(ch[c].slice(0, half)), b = meanOf(ch[c].slice(ch[c].length-half));
+    const col = CHAINCOL[c%CHAINCOL.length];
+    svg.appendChild(el("line", {x1:sc.px(0), y1:sc.py(a), x2:sc.px(half-1), y2:sc.py(a),
+      stroke:col, "stroke-width":2.2, opacity:0.95}));
+    svg.appendChild(el("line", {x1:sc.px(S.n-half), y1:sc.py(b), x2:sc.px(S.n-1), y2:sc.py(b),
+      stroke:col, "stroke-width":2.2, opacity:0.95}));
+  }
+  const xs = sc.px(half);
+  svg.appendChild(el("line", {x1:xs, y1:g.y0-6, x2:xs, y2:g.y1, stroke:"#dc2626",
+    "stroke-width":1.8, "stroke-dasharray":"5 4"}));
+  txt(svg, {x:xs+5, y:g.y0+4, "font-size":10.5, "font-weight":600, fill:"#dc2626"}, "split here");
+  for (let k=0;k<=4;k++){
+    const i = Math.round((S.n-1)*k/4);
+    txt(svg, {x:sc.px(i), y:g.y1+16, "text-anchor":"middle", "font-size":10, fill:"#6b7280"}, i);
+  }
+
+  const plain = rhatPlain(ch), split = rhatPlain(splitChains(ch));
+  setChip("c3plain", ch.length === 1 ? "undefined with one chain" : fmt(plain, 3));
+  setChip("c3split", fmt(split, 3));
+  setChip("c3mean", fmt(meanOf([].concat.apply([], ch)), 3));
+  const missed = plain < 1.01 && split >= 1.01;
+  setChip("c3verdict", missed ? "splitting caught it" : (split < 1.01 ? "both pass" : "both flag it"));
+  passFail("c3verdictChip", split < 1.01);
+});
+bindRange("f3drift", "drift");
+wirePresets("f3pre", [{drift:0}, {drift:1}, {drift:3}]);
+
+/* ================= FIGURE 4 : autocorrelation and ESS ================= */
+FIGS.push(function(F){
+  const svg = document.getElementById("acfSvg");
+  clear(svg);
+  syncRange("f4rho", "f4rhoV", S.rho, function(v){ return v.toFixed(2); });
+  syncRange("f4n", "f4nV", S.n);
+
+  const d = F.detail, L = 40;
+  const g = {x0:52, x1:700, y0:26, y1:236};
+  let lo = -0.35, hi = 1.05;
+  for (let k=0;k<=L;k++) lo = Math.min(lo, d.rhoAt(k)-0.05);
+  const py = function(v){ return g.y1 - (v-lo)/(hi-lo)*(g.y1-g.y0); };
+  for (let v=Math.ceil(lo*4)/4; v<=1.0001; v+=0.25){
+    svg.appendChild(el("line", {x1:g.x0, y1:py(v), x2:g.x1, y2:py(v), stroke:"#eef2f7"}));
+    txt(svg, {x:g.x0-7, y:py(v)+3.5, "text-anchor":"end", "font-size":10, fill:"#6b7280"}, v.toFixed(2));
+  }
+  const y0 = py(0);
+  svg.appendChild(el("line", {x1:g.x0, y1:y0, x2:g.x1, y2:y0, stroke:"#cbd5e1"}));
+  txt(svg, {x:g.x0, y:16, "font-size":12.5, "font-weight":700, fill:"#1f2933"},
+    "autocorrelation of the split chains, and where the sum stops");
+
+  const bw = (g.x1-g.x0)/(L+1);
+  for (let k=0;k<=L;k++){
+    const v = d.rhoAt(k), used = k < d.K;
+    const x = g.x0 + k*bw;
+    svg.appendChild(el("rect", {x:x+1.2, y:Math.min(y0, py(v)), width:Math.max(bw-2.4, 1),
+      height:Math.max(Math.abs(py(v)-y0), 0.6),
+      fill:used ? "#4f46e5" : "#cbd5e1", opacity:used ? 0.85 : 0.9, rx:1.5}));
+  }
+  let tp = "";
+  for (let k=0;k<=L;k++){
+    const v = Math.pow(S.rho, k);
+    tp += (tp ? " L " : "M ")+(g.x0+k*bw+bw/2).toFixed(1)+" "+py(v).toFixed(1);
+  }
+  svg.appendChild(el("path", {d:tp, fill:"none", stroke:"#64748b", "stroke-width":1.6,
+    "stroke-dasharray":"5 3", opacity:0.9}));
+  if (d.K <= L){
+    const xk = g.x0 + d.K*bw;
+    svg.appendChild(el("line", {x1:xk, y1:g.y0-4, x2:xk, y2:g.y1, stroke:"#dc2626",
+      "stroke-width":1.8, "stroke-dasharray":"5 4"}));
+    txt(svg, {x:Math.min(xk+5, g.x1-96), y:g.y0+6, "font-size":10.5, "font-weight":600, fill:"#dc2626"},
+      "K = "+d.K+", sum stops");
+  } else {
+    txt(svg, {x:g.x1-4, y:g.y0+6, "text-anchor":"end", "font-size":10.5, "font-weight":600, fill:"#dc2626"},
+      "K = "+d.K+", past the right-hand edge of this plot");
+  }
+  for (let k=0;k<=L;k+=5)
+    txt(svg, {x:g.x0+k*bw+bw/2, y:g.y1+16, "text-anchor":"middle", "font-size":10, fill:"#6b7280"}, k);
+  txt(svg, {x:(g.x0+g.x1)/2, y:g.y1+34, "text-anchor":"middle", "font-size":12, fill:"#374151"}, "lag k");
+  txt(svg, {x:(g.x0+g.x1)/2, y:g.y1+56, "text-anchor":"middle", "font-size":11.5, fill:"#6b7280"},
+    "τ = 1 + 2 × (sum of the blue bars past lag 0) = " + fmt(d.tau, 2));
+
+  const Stot = S.n*S.m;
+  setChip("c4tau", fmt(d.tau, 2));
+  setChip("c4K", d.K);
+  setChip("c4ess", asInt(d.ess));
+  setChip("c4theory", asInt(Stot*(1-S.rho)/(1+S.rho)));
+  setChip("c4bulk", asInt(F.bulk));
+  setChip("c4tail", asInt(F.tail));
+  const warnChip = document.getElementById("c4warnChip");
+  if (d.capped){
+    warnChip.style.display = "";
+    setChip("c4warn", "capped at S log₁₀S = " + asInt(Stot*Math.log10(Stot)));
+  } else if (d.ran){
+    warnChip.style.display = "";
+    setChip("c4warn", "the correlations had not decayed by the last lag computed, so this ESS is optimistic");
+  } else if (d.ess < 100*S.m){
+    warnChip.style.display = "";
+    setChip("c4warn", "below 100 effective draws per chain, so the estimate itself is unreliable");
+  } else {
+    warnChip.style.display = "none";
+  }
+});
+bindRange("f4rho", "rho", clearRuns);
+bindRange("f4n", "n", clearRuns);
+wirePresets("f4pre", [{rho:0}, {rho:0.9}, {rho:0.98}, {rho:-0.5}], clearRuns);
+
+/* ================= FIGURE 5 : MCSE and reportable digits ================= */
+let RUNS = [];
+function clearRuns(){ RUNS = []; }
+FIGS.push(function(F){
+  const svg = document.getElementById("mcseSvg");
+  clear(svg);
+  syncRange("f5rho", "f5rhoV", S.rho, function(v){ return v.toFixed(2); });
+  syncRange("f5n", "f5nV", S.n);
+
+  const g = {x0:52, x1:690, y:74};
+  let half = Math.max(3*F.mcse, Math.abs(F.mean-MU) + 2.5*F.mcse, SD*0.04);
+  for (let i=0;i<RUNS.length;i++) half = Math.max(half, Math.abs(RUNS[i]-MU)*1.15);
+  const lo = MU-half, hi = MU+half;
+  const px = function(v){
+    return Math.max(g.x0, Math.min(g.x1, g.x0 + (v-lo)/(hi-lo)*(g.x1-g.x0)));
+  };
+
+  svg.appendChild(el("line", {x1:g.x0, y1:g.y, x2:g.x1, y2:g.y, stroke:"#cbd5e1"}));
+  for (let k=0;k<=4;k++){
+    const v = lo + (hi-lo)*k/4;
+    svg.appendChild(el("line", {x1:px(v), y1:g.y-5, x2:px(v), y2:g.y+5, stroke:"#cbd5e1"}));
+    txt(svg, {x:px(v), y:g.y+22, "text-anchor":"middle", "font-size":10.5, fill:"#6b7280"}, v.toFixed(3));
+  }
+  svg.appendChild(el("line", {x1:px(MU), y1:g.y-40, x2:px(MU), y2:g.y+10, stroke:"#64748b",
+    "stroke-width":1.6, "stroke-dasharray":"5 4"}));
+  txt(svg, {x:px(MU), y:g.y-46, "text-anchor":"middle", "font-size":11, "font-weight":600, fill:"#475569"},
+    "target mean 2.5");
+  svg.appendChild(el("rect", {x:px(F.mean-2*F.mcse), y:g.y-13,
+    width:Math.max(px(F.mean+2*F.mcse)-px(F.mean-2*F.mcse), 1), height:26,
+    fill:"#4f46e5", opacity:0.16, rx:4}));
+  svg.appendChild(el("line", {x1:px(F.mean), y1:g.y-15, x2:px(F.mean), y2:g.y+15,
+    stroke:"#4f46e5", "stroke-width":2.6}));
+  txt(svg, {x:px(F.mean), y:g.y-21, "text-anchor":"middle", "font-size":11, "font-weight":600, fill:"#4f46e5"},
+    "± 2 MCSE");
+  for (let i=0;i<RUNS.length;i++){
+    svg.appendChild(el("circle", {cx:px(RUNS[i]), cy:g.y+40, r:4,
+      fill:"#0d9488", opacity:i === RUNS.length-1 ? 0.95 : 0.4}));
+  }
+  txt(svg, {x:g.x0, y:g.y+62, "font-size":11, fill:"#6b7280"},
+    RUNS.length ? "previous runs: " + RUNS.length : "press “draw a new run” to reseed");
+  txt(svg, {x:g.x0, y:18, "font-size":12.5, "font-weight":700, fill:"#1f2933"},
+    "where the posterior mean lands, run after run");
+
+  const dg = Math.max(F.digits, 0);
+  const full = F.mean.toFixed(6);
+  const dot = full.indexOf(".");
+  const cut = dg > 0 ? dot+1+dg : dot;
+  const box = document.getElementById("mcDigits");
+  while (box.firstChild) box.removeChild(box.firstChild);
+  const a = document.createElement("span");
+  a.className = "solid";
+  a.textContent = full.slice(0, cut);
+  const b = document.createElement("span");
+  b.className = "noise";
+  b.textContent = full.slice(cut);
+  box.appendChild(a);
+  box.appendChild(b);
+
+  setChip("c5ess", asInt(F.detail.ess));
+  setChip("c5mcse", fmt(F.mcse, 4));
+  setChip("c5dig", F.digits > 0 ? F.digits : "none");
+  setChip("c5spread", RUNS.length > 2 ? fmt(Math.sqrt(varOf(RUNS)), 4) : "—");
+  setChip("c5quote", F.mean.toFixed(dg) + " ± " + fmt(F.mcse, Math.max(dg+1, 2)));
+});
+bindRange("f5rho", "rho", clearRuns);
+bindRange("f5n", "n", clearRuns);
+document.getElementById("f5new").addEventListener("click", function(){
+  RUNS.push(FRAME.mean);
+  if (RUNS.length > 40) RUNS.shift();
+  S.seed = (S.seed*31 + 17) % 100000;
+  render();
+});
+document.getElementById("f5clear").addEventListener("click", function(){ clearRuns(); render(); });
+
+render();
+</script>
+<script>
+/* embed mode: ?embed=sectionId[,id2,...] strips the page chrome AND the
+   explanatory prose/maths from the kept sections, leaving only the interactive
+   figures, for inlining in an <iframe> in the course site. Reports height so the
+   host page can auto-size the iframe. */
+(function(){
+  var q=new URLSearchParams(location.search), e=q.get('embed');
+  var KEEP={fig:1,controls:1,readout:1,legend:1,presets:1,figcap:1,digits:1};
+  if(e){
+    var keep=e.split(',').map(function(s){return s.trim();}).filter(Boolean);
+    ['header.hero','nav.toc','footer'].forEach(function(sel){
+      Array.prototype.forEach.call(document.querySelectorAll(sel),function(n){n.style.display='none';});
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('body > div'),function(d){
+      if(!d.classList.contains('wrap')) d.style.display='none';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(sec){
+      if(keep.indexOf(sec.id)===-1){ sec.style.display='none'; return; }
+      sec.style.margin='0'; sec.style.border='none'; sec.style.boxShadow='none'; sec.style.padding='2px 2px 8px';
+      Array.prototype.forEach.call(sec.children,function(c){
+        var k=false, cl=c.classList; if(cl){ for(var key in KEEP){ if(cl.contains(key)){k=true;break;} } }
+        if(!k) c.style.display='none';
+      });
+    });
+    var wrap=document.querySelector('.wrap'); if(wrap) wrap.style.padding='0 8px 10px';
+    document.body.style.background='#fff'; document.documentElement.style.background='#fff';
+  }
+  function postH(){ try{ parent.postMessage({nfiddEmbedHeight: Math.ceil(document.body.getBoundingClientRect().height)}, '*'); }catch(_){} }
+  window.addEventListener('load', postH);
+  window.addEventListener('resize', postH);
+  document.addEventListener('input', function(){ setTimeout(postH,60); });
+  document.addEventListener('click', function(){ setTimeout(postH,120); });
+  setTimeout(postH,250); setTimeout(postH,1000);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Observation models — the likelihood as a distance function</title>
+<style>
+  :root{
+    --fc:#4f46e5;     /* negative binomial / indigo */
+    --obs:#0891b2;    /* data / teal */
+    --miss:#f59e0b;   /* Gaussian / amber */
+    --now:#dc2626;    /* Poisson / red */
+    --true:#64748b;   /* fitted or true mean / slate */
+    --ink:#1f2933;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --bg:#fbfbfd;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 22px 120px}
+  header.hero{
+    padding:54px 22px 30px; text-align:center;
+    background:linear-gradient(180deg,#eef2ff 0%, var(--bg) 100%);
+    border-bottom:1px solid var(--line);
+  }
+  header.hero h1{font-size:30px; margin:0 0 8px; letter-spacing:-.4px}
+  header.hero p{max-width:710px; margin:0 auto; color:var(--muted)}
+  nav.toc{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    margin:22px auto 0; max-width:780px;
+  }
+  nav.toc a{
+    text-decoration:none; color:var(--fc); font-weight:600; font-size:14px;
+    border:1px solid #c7d2fe; background:#fff; padding:6px 13px; border-radius:999px;
+  }
+  nav.toc a:hover{background:#eef2ff}
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:26px 28px; margin:30px 0; box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  section > h2{margin:0 0 4px; font-size:23px; letter-spacing:-.3px}
+  .tagline{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{margin:26px 0 8px; font-size:17px}
+  p{margin:10px 0}
+  .fig{
+    border:1px solid var(--line); border-radius:12px; padding:16px 14px 10px;
+    margin:18px 0 6px; background:#fff;
+  }
+  .fig svg{display:block; width:100%; height:auto}
+  .figcap{font-size:13.5px; color:var(--muted); margin:8px 4px 2px}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:16px 26px; align-items:center;
+    margin:8px 4px 2px; padding:12px 14px; background:#f8fafc;
+    border:1px solid var(--line); border-radius:10px; font-size:14px;
+  }
+  .controls label{display:flex; flex-direction:column; gap:2px; min-width:160px}
+  .controls .vlabel{font-weight:600}
+  .controls input[type=range]{width:170px; accent-color:var(--fc)}
+  .readout{
+    display:inline-flex; gap:14px; flex-wrap:wrap; margin:12px 4px 0;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .chip{
+    background:#f1f5f9; border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:14px;
+  }
+  .readout .chip b{font-size:16px}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; margin:14px 4px 0; align-items:center}
+  .presets button{
+    font:600 13px inherit; border:1px solid #c7d2fe; background:#fff; color:var(--fc);
+    padding:6px 13px; border-radius:8px; cursor:pointer;
+  }
+  .presets button:hover{background:#eef2ff}
+  .presets button.active{background:var(--fc); color:#fff; border-color:var(--fc)}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; margin:4px 4px 8px}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .swbox{width:16px; height:14px; border-radius:3px; display:inline-block; vertical-align:middle}
+  .key{background:#ecfeff; border-left:4px solid var(--obs); padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0}
+  .key.amber{background:#fffbeb; border-color:var(--miss)}
+  .key.blue{background:#eef2ff; border-color:var(--fc)}
+  .key.red{background:#fef2f2; border-color:var(--now)}
+  .formula{
+    background:#0f172a; color:#e2e8f0; border-radius:10px; padding:14px 18px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:15px; overflow-x:auto; margin:14px 0; line-height:2.1;
+  }
+  .formula .obs{color:#5eead4} .formula .miss{color:#fcd34d} .formula .tot{color:#a5b4fc}
+  .frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .25em}
+  .frac > span:first-child{border-bottom:1px solid currentColor; padding:0 .35em}
+  .frac > span:last-child{padding:0 .35em}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+  th{background:#f8fafc}
+  ul{margin:10px 0; padding-left:22px}
+  li{margin:5px 0}
+  code{background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:14px}
+  details{border:1px solid var(--line); border-radius:10px; padding:11px 15px; margin:10px 0; background:#fff}
+  details[open]{background:#fcfdff}
+  summary{font-weight:600; cursor:pointer}
+  details p{margin:9px 0 2px}
+  footer{text-align:center; color:var(--muted); font-size:13px; margin-top:40px}
+  a{color:var(--fc)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>Observation models: a likelihood is a distance</h1>
+  <p>Naming an observation model fixes a rule for scoring how far each observation sits from the prediction. The rule decides how wide your posterior comes out, where its centre lands, and what happens when the model is wrong about the mean. This page draws the rule.</p>
+  <nav class="toc">
+    <a href="#distance">The distance curve</a>
+    <a href="#variance">Variance and mean</a>
+    <a href="#posterior">What it does to the posterior</a>
+    <a href="#misspecification">Dispersion absorbs a wrong mean</a>
+    <a href="#next">Choosing the distance directly</a>
+    <a href="#faq">Common questions</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+<!-- ============ DISTANCE ============ -->
+<section id="distance">
+  <h2>The negative log-likelihood, drawn as a distance</h2>
+  <p class="tagline">Fix the prediction, vary the observation, and read off what each family charges</p>
+
+  <p>Fitting maximises the log-likelihood, so it minimises the negative log-likelihood. Written out for one observation <i>y</i> against one prediction <i>&lambda;</i>, that quantity is a function of how far <i>y</i> sits from <i>&lambda;</i>. It is a distance in the loose sense that matters here: a number that is small when prediction and data agree and grows as they separate.</p>
+
+  <div class="formula">Poisson: &nbsp; &minus;log p(y | &lambda;) = <span class="tot">&lambda; &minus; y log &lambda; + log y!</span></div>
+  <div class="formula">Negative binomial (mean &mu;, dispersion &phi;): &nbsp; &minus;log p(y | &mu;, &phi;) = <span class="tot">&minus;log &Gamma;(y+&phi;) + log &Gamma;(&phi;) + log y! &minus; &phi; log <span class="frac"><span>&phi;</span><span>&phi;+&mu;</span></span> &minus; y log <span class="frac"><span>&mu;</span><span>&phi;+&mu;</span></span></span></div>
+  <div class="formula">Gaussian (fixed &sigma;): &nbsp; &minus;log p(y | &mu;, &sigma;) = <span class="tot"><span class="frac"><span>(y &minus; &mu;)&sup2;</span><span>2&sigma;&sup2;</span></span> + log &sigma; + &frac12; log 2&pi;</span></div>
+
+  <p>The Gaussian one is a squared error divided by a constant. Fitting a mean with a Gaussian likelihood at fixed <i>&sigma;</i> is least squares, exactly. Estimating <i>&sigma;</i> as well does not change which mean wins, because the profile over <i>&sigma;</i> leaves the residual sum of squares as the only term that depends on the mean. So least squares is an observation model, and it is the one that says the noise has the same size at every count.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--now)"></i> Poisson(&lambda;)</span>
+    <span><i class="swatch" style="border-color:var(--fc)"></i> negative binomial(&lambda;, &phi;)</span>
+    <span><i class="swatch" style="border-color:var(--miss);border-top-style:dashed"></i> Gaussian(&lambda;, &sigma;)</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dotted"></i> the prediction &lambda;</span>
+  </div>
+
+  <div class="fig">
+    <svg id="distSvg" viewBox="0 0 720 400" role="img" aria-label="Negative log-likelihood plotted as a penalty curve. In observation mode the horizontal axis is the observed count and the prediction is fixed; in prediction mode the horizontal axis is the predicted mean and the observation is fixed. Three curves are drawn: Poisson, negative binomial and Gaussian."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">prediction &lambda;: <span id="dLval">10.0</span></span>
+      <input id="dL" type="range" min="1" max="40" step="0.5" value="10"></label>
+    <label><span class="vlabel">dispersion &phi;: <span id="dPval">5.0</span></span>
+      <input id="dP" type="range" min="0" max="100" step="1" value="51"></label>
+    <label><span class="vlabel">Gaussian &sigma;: <span id="dSval">5.0</span></span>
+      <input id="dS" type="range" min="1" max="25" step="0.5" value="5"></label>
+    <label><span class="vlabel">marked observation y*: <span id="dYval">25</span></span>
+      <input id="dY" type="range" min="0" max="60" step="1" value="25"></label>
+  </div>
+  <div class="presets" id="dMode">
+    <span style="font-size:13.5px;color:var(--muted);align-self:center">horizontal axis:</span>
+    <button data-mode="obs" class="active">vary the observation</button>
+    <button data-mode="pred">vary the prediction</button>
+  </div>
+  <div class="presets" id="dPre">
+    <button data-pre="tdc">Tristan da Cunha, day 7</button>
+    <button data-pre="fine">Poisson is defensible</button>
+    <button data-pre="ls">least squares</button>
+    <button data-pre="zoom">y-axis: zoom low</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">Poisson penalty at y* = <b id="dRp">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">negative binomial = <b id="dRn">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">Gaussian = <b id="dRg">&mdash;</b></span>
+    <span class="chip">Poisson &divide; neg. bin. = <b id="dRr">&mdash;</b></span>
+  </div>
+  <p class="figcap">Each curve has its own minimum subtracted, so the vertical axis reads as the extra log-likelihood cost of that observation against the best case for the same family. Subtracting is what makes the three comparable: the Poisson and negative binomial return a probability mass and the Gaussian a probability density, so their raw heights live on different scales and only differences within a family carry meaning. The session plots the raw values, which is fine for reading shapes and misleading if you compare heights across families.</p>
+
+  <div class="key red">Press <b>Tristan da Cunha, day 7</b>. The fitted single-wave model predicts about 5 cases that day and 47 were reported. Under Poisson that observation costs about 64 log-likelihood units against the best case for the same prediction. Under a negative binomial with &phi; = 0.5 it costs about 7, and under a Gaussian with &sigma; = 5 about 35. One day is deciding the fit under Poisson and is merely a bad day under the negative binomial.</div>
+
+  <p>Switch the axis to <b>vary the prediction</b> to see the shape inference actually walks over. With <i>y</i> held at the observed value, the Poisson curve rises steeply on the left, because a prediction near zero makes a large count essentially impossible, and rises gently on the right. The Gaussian curve is a parabola, symmetric about <i>y</i> and the same width whether the counts are 3 or 300. The negative binomial is the flattest of the three. It lies below the Poisson everywhere on this axis and rises towards it as <i>&phi;</i> grows, and below the Gaussian too except at the far left, where a prediction near zero is costly under any count model.</p>
+</section>
+
+<!-- ============ VARIANCE ============ -->
+<section id="variance">
+  <h2>Variance against the mean, and how to check it</h2>
+  <p class="tagline">Poisson forces one relationship. The data are free to disagree, and here they do</p>
+
+  <p>The Poisson has one parameter, so its spread is not a free choice. The negative binomial adds a second, and the variance becomes</p>
+
+  <div class="formula">Poisson: &nbsp; Var = <span class="obs">&mu;</span> &nbsp;&nbsp;&nbsp;&nbsp; negative binomial: &nbsp; Var = <span class="obs">&mu;</span> + <span class="tot">&mu;&sup2;/&phi;</span></div>
+
+  <p>As <i>&phi;</i> grows the second term vanishes and the Poisson is recovered. As <i>&phi;</i> falls the variance grows with the square of the mean, so the spread widens fastest exactly where the counts are largest. This is the parameterisation Julia's <code>NegativeBinomial(r, p)</code> reaches through <code>r = &phi;</code> and <code>p = &phi;/(&phi;+&mu;)</code>, and the one written <i>&theta;</i> in <code>MASS::glm.nb</code> and <i>k</i> in much of the epidemiological literature. It is often called NB2, after the power of <i>&mu;</i> in the second term (Cameron and Trivedi, <i>Regression Analysis of Count Data</i>).</p>
+
+  <p>The distribution is also a Poisson whose rate is itself gamma distributed, with mean <i>&mu;</i> and shape <i>&phi;</i>, which is where the mixture reading comes from (Greenwood and Yule, 1920). That is the closest thing to a mechanism the negative binomial has: reporting intensity varies from day to day and the counts are Poisson given the intensity of the day.</p>
+
+  <p>The top panel puts a 95% predictive interval around the fitted mean for the Tristan da Cunha data. The model fitted throughout this page is the single-wave SIR of the model checking session, so its posterior mean for <i>R</i><sub>0</sub> comes out near 2. The mean is held fixed at the Poisson posterior mean fit, so moving <i>&phi;</i> changes only the observation model. The bottom panel is the diagnostic: each day contributes a point at its fitted mean and its squared residual, which estimates the variance at that mean, and the two lines are what the two families claim the variance should be.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--obs)"></i> observed cases, 1971</span>
+    <span><i class="swatch" style="border-color:var(--true)"></i> fitted mean under the Poisson fit</span>
+    <span><i class="swbox" style="background:var(--fc);opacity:.22"></i> 95% predictive interval, negative binomial</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> 95% predictive interval, Poisson</span>
+  </div>
+
+  <div class="fig">
+    <svg id="varSvg" viewBox="0 0 720 620" role="img" aria-label="Top: daily observed cases for Tristan da Cunha 1971 with the fitted mean and a shaded 95% predictive interval that widens as the dispersion parameter falls. Bottom: log-log scatter of squared residual against fitted mean for each day, with the Poisson variance line and the negative binomial variance curve overlaid, and binned averages marked."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">dispersion &phi;: <span id="vPval">0.50</span></span>
+      <input id="vP" type="range" min="0" max="100" step="1" value="19"></label>
+  </div>
+  <div class="presets" id="vPre">
+    <button data-pre="pois">&phi; &rarr; &infin;, Poisson</button>
+    <button data-pre="mid">&phi; = 5</button>
+    <button data-pre="fit" class="active">&phi; = 0.5, what the data say</button>
+  </div>
+  <div class="readout">
+    <span class="chip">residual variance &divide; mean prediction = <b id="vRatio">&mdash;</b></span>
+    <span class="chip">Poisson demands <b>1</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">days inside the 95% interval = <b id="vCov">&mdash;</b></span>
+    <span class="chip">Var at the fitted peak = <b id="vPeak">&mdash;</b></span>
+  </div>
+  <p class="figcap">The axes are logarithmic because the quantities have no common scale: the fitted mean runs from 0.016 to 12.2 across the outbreak, and the squared residuals from 0.0003 to 1762. Squared residuals are noisy estimates of variance one day at a time, so the larger diamonds average them within bins of similar fitted mean. Every bin sits above the Poisson line.</p>
+
+  <div class="key">The ratio in the first chip is the check the session runs, and it comes out near 25 where the Poisson demands 1. Two different things push it up. Some is genuine observation noise, because two islanders infected in the same household are not independent draws and reporting was not uniform. Most of it here is that a single-wave SIR fitted to a two-wave outbreak is wrong about the mean, and everything it gets wrong about the mean lands in the residuals. The check tells you the Poisson is untenable. It does not tell you which of the two is responsible. The <a href="stochastic-models.html">stochastic models page</a> takes up the process noise half of the question, running a two-wave SEITL model at <i>R</i><sub>0</sub> = 10 on the same 59 days.</div>
+
+  <p>Notice what widening the interval does and does not fix. At <i>&phi;</i> = 0.5 most days fall inside the band, so the model has stopped calling the data impossible. The band is still centred on a curve with one peak, and the second wave from day 19 onwards still sits on the shoulder of a trajectory that has already burnt out. A wide interval around the wrong mean is a wide interval around the wrong mean.</p>
+</section>
+
+<!-- ============ POSTERIOR ============ -->
+<section id="posterior">
+  <h2>What the choice does to the posterior</h2>
+  <p class="tagline">It widens the interval, and it moves the answer</p>
+
+  <p>The usual account is that a likelihood which is too tight makes the posterior overconfident. Every departure from the trajectory is scored as strong evidence, so the parameters get pinned down harder than the data warrant. That much is true and the figure shows it. The second effect is the one worth carrying away: the posterior mean moves as well.</p>
+
+  <p>The curves are marginal posteriors for <i>R</i><sub>0</sub> from the same SIR model fitted to the same 59 days, differing only in the observation model. The red curve is Poisson. The indigo curve is negative binomial at the <i>&phi;</i> you set.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--now)"></i> Poisson posterior</span>
+    <span><i class="swatch" style="border-color:var(--fc)"></i> negative binomial posterior at &phi;</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> posterior means</span>
+  </div>
+
+  <div class="fig">
+    <svg id="postSvg" viewBox="0 0 720 340" role="img" aria-label="Two marginal posterior densities for the basic reproduction number, one under a Poisson observation model and one under a negative binomial at the selected dispersion, with vertical lines at their posterior means."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">dispersion &phi;: <span id="pPval">0.50</span></span>
+      <input id="pP" type="range" min="0" max="100" step="1" value="12"></label>
+  </div>
+  <div class="presets" id="pPre">
+    <button data-pre="hi">&phi; = 200, nearly Poisson</button>
+    <button data-pre="mid">&phi; = 20</button>
+    <button data-pre="fit" class="active">&phi; = 0.5, what the data say</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">Poisson: mean <b id="pPm">&mdash;</b>, sd <b id="pPs">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">neg. bin.: mean <b id="pNm">&mdash;</b>, sd <b id="pNs">&mdash;</b></span>
+    <span class="chip">sd ratio = <b id="pRatio">&mdash;</b></span>
+    <span class="chip">mean shift = <b id="pShift">&mdash;</b></span>
+    <span class="chip">reporting rate &rho;, Poisson &rarr; neg. bin. = <b id="pRho">&mdash;</b></span>
+    <span class="chip">infectious period, Poisson &rarr; neg. bin. = <b id="pDinf">&mdash;</b></span>
+  </div>
+  <p class="figcap">Computed on a grid rather than by sampling, so the curves are exact for the stated priors and do not move between page loads. <i>R</i><sub>0</sub> runs over 140 points on [1, 8], and the infectious period and reporting rate are integrated out on grids of 28 and 15 points over the session's uniform priors on [1, 10] and [0.1, 1]. Two deliberate simplifications. The session gives <i>&phi;</i> an Exponential(10) prior and samples it, whereas the negative binomial posterior here is conditional on the <i>&phi;</i> you choose. The session's uniform prior for <i>R</i><sub>0</sub> also runs to 20 rather than 8, which changes nothing visible, because less than 10<sup>&minus;15</sup> of the posterior mass sits above <i>R</i><sub>0</sub> = 5 at any dispersion on the slider.</p>
+
+  <div class="key blue">At <b>&phi; = 0.5</b> the posterior mean for <i>R</i><sub>0</sub> moves from 1.84 to 2.66, and the standard deviation grows from 0.19 to 0.50. Those two means are 4.4 Poisson standard deviations apart. The two observation models do not merely disagree about the uncertainty. They disagree about the answer.</div>
+
+  <h3>Why the mean moves</h3>
+  <p>The misfit is concentrated in the first wave. Day 7 reported 47 cases against about 5 predicted, and the first eighteen days carry roughly nine tenths of the squared residual. The Poisson fit cannot raise its peak to reach those days, because a single SIR curve has one peak to spend and days 19 to 59 still carry 109 of the 312 reported cases. Raising <i>R</i><sub>0</sub> makes the epidemic burn out sooner, and the Poisson likelihood then gives those later observations almost no probability at all.</p>
+  <p>The negative binomial charges much less for missing a day, so the later observations stop vetoing a faster epidemic. The fit settles on a longer infectious period and a larger <i>R</i><sub>0</sub>, and on a larger predicted total. Watch the reporting rate while you do this. Under both models it is pinned against the upper bound of its Uniform(0.1, 1.0) prior, because the model starts with 279 susceptibles and can never produce the 312 cases that were reported. A parameter stuck at the edge of its prior that still cannot close the gap is a structural failure, and no observation model repairs it.</p>
+</section>
+
+<!-- ============ MISSPECIFICATION ============ -->
+<section id="misspecification">
+  <h2>An observation model will volunteer to explain a wrong mean</h2>
+  <p class="tagline">Two different worlds, one fitted dispersion, no way to tell them apart from &phi; alone</p>
+
+  <p>The dispersion parameter measures the scatter left over once the mean has been fitted as well as it can be. It has no way of knowing where that scatter came from. Here are two worlds where it comes from opposite places.</p>
+
+  <ul>
+    <li><b>Noisy reporting.</b> The mean is a single SIR wave, exactly the shape being fitted, and the counts are drawn from a negative binomial around it at a dispersion you set. The model is right about the mean and the data really are overdispersed.</li>
+    <li><b>Wrong mean.</b> The counts are drawn from a <i>Poisson</i>, so the reporting is as clean as reporting gets, but the mean is two waves and the model being fitted has one. Nothing about the observation process is overdispersed.</li>
+  </ul>
+
+  <p>Both datasets are then fitted with the same single-wave SIR and a negative binomial likelihood. The lower panel is the profile log-likelihood for <i>&phi;</i>, maximised over the reproduction number, infectious period and reporting rate at each value, with each curve shifted so its own maximum is zero.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--obs)"></i> simulated counts</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> the mean they were drawn from</span>
+    <span><i class="swatch" style="border-color:var(--fc)"></i> best-fitting single-wave mean</span>
+  </div>
+
+  <div class="fig">
+    <svg id="missSvg" viewBox="0 0 720 520" role="img" aria-label="Top left: counts drawn from a single-wave mean with negative binomial noise, with the true mean and the fitted single-wave mean. Top right: counts drawn from a two-wave mean with Poisson noise, fitted with the same single-wave model. Bottom: profile log-likelihood curves for the dispersion parameter from both fits, peaking at similar values."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">world 1, true dispersion &phi;: <span id="mAval">1.40</span></span>
+      <input id="mA" type="range" min="0" max="100" step="1" value="33"></label>
+    <label><span class="vlabel">world 2, size of the second wave: <span id="mBval">1.00</span></span>
+      <input id="mB" type="range" min="0" max="120" step="5" value="80"></label>
+  </div>
+  <div class="presets" id="mPre">
+    <button data-pre="match" class="active">matched: same &phi; from both</button>
+    <button data-pre="none">no second wave at all</button>
+    <button data-pre="split">worlds that do differ</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">world 1, fitted &phi; = <b id="mRa">&mdash;</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">world 2, fitted &phi; = <b id="mRb">&mdash;</b></span>
+    <span class="chip">world 1 true &phi; = <b id="mTa">&mdash;</b></span>
+    <span class="chip">world 2 true &phi; = <b>&infin;</b> (Poisson)</span>
+  </div>
+  <p class="figcap">Both datasets use one fixed random seed, so the figure is reproducible and the sliders move the data smoothly. The fit maximises over a grid of 26 reproduction numbers on [1, 8], 16 infectious periods on [1.5, 6] days and 11 reporting rates on [0.1, 1], at each of 44 dispersions log-spaced on [0.1, 300]. A fitted &phi; shown as &ge; 300 has run into the top of that grid, which means the data called for no overdispersion at all.</p>
+
+  <div class="key amber">Press <b>matched</b>. World 1 has genuinely overdispersed reporting at a true &phi; of about 1.4. World 2 has perfectly Poisson reporting around a mean the model cannot represent, so its true &phi; is infinite. Both come back with a fitted &phi; of 1.13, and the two profile curves peak in the same place. A small fitted &phi; is not evidence of messy surveillance. It is evidence of scatter, and a misspecified mean produces scatter.</div>
+
+  <p>Press <b>no second wave at all</b> to see the control. World 2 then is the model that generated it, the Poisson reporting is correctly specified, and the fitted <i>&phi;</i> runs off the top of the grid because no overdispersion is needed. Slide the second wave back up and <i>&phi;</i> collapses within a few steps. The structural error and the noise enter the likelihood through the same door.</p>
+
+  <p>This is why posterior predictive checks come before the choice of observation model. A check that looks at the <i>shape</i> of the residuals over time, rather than at their spread, separates the two cases: a misspecified mean leaves residuals that are correlated in time and change sign in runs, whereas genuine overdispersion leaves them scattered. Neither the fitted <i>&phi;</i> nor the variance-to-mean ratio can make that distinction, because both discard the time ordering.</p>
+</section>
+
+<!-- ============ NEXT ============ -->
+<section id="next">
+  <h2>Choosing the distance directly</h2>
+  <p class="tagline">Where this leads</p>
+
+  <p>Every figure on this page treats the negative log-likelihood as a rule for scoring the gap between prediction and data. Choosing Poisson over negative binomial over Gaussian is choosing between three such rules, and the choice was made by naming a distribution before seeing how it scored anything. If the rule is the object that matters, the distribution is a roundabout way of specifying it.</p>
+  <p>So you could pick the rule yourself. Simulate from the model, measure the distance between each simulation and the data with a function you wrote down, and keep the parameters whose simulations land close enough. That is Approximate Bayesian Computation, and it is the next session. It also buys something the likelihood approach cannot: for many models the likelihood cannot be written down at all, and a simulator is all there is.</p>
+  <div class="key blue">Worth deciding before you get there: which features of the Tristan da Cunha data would you choose to match? The peak height, the timing, the total, the shape of the tail? Naming Poisson was a way of answering that question without being asked it.</div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <h2>Common questions</h2>
+  <p class="tagline">The ones that come up in the practical</p>
+
+  <details><summary>How do I choose between Poisson and negative binomial?</summary>
+  <p>Start with the negative binomial for surveillance counts and let the data pull <i>&phi;</i> upwards if no overdispersion is there. The cost of one extra parameter is small and the cost of a wrongly narrow posterior is not. Reach for Poisson when you have a reason to expect independent reporting at a stable rate, and check the variance against the mean rather than assuming it.</p></details>
+
+  <details><summary>What does &phi; actually mean, and which parameterisation is it?</summary>
+  <p>See <a href="#variance">the variance section</a> for the parameterisation and the Julia mapping. The trap is that some software instead reports 1/<i>&phi;</i>, so check which way round your output runs before quoting a number.</p></details>
+
+  <details><summary>My fitted &phi; is tiny. Is my surveillance system bad?</summary>
+  <p>Not necessarily, and the <a href="#misspecification">fourth section</a> is that question. A small <i>&phi;</i> says there is scatter around the fitted mean, and a mean that is structurally wrong produces scatter just as reliably as noisy reporting does. Check the residuals for runs and sign changes over time before you blame the data.</p></details>
+
+  <details><summary>Is the &phi; here the same as the k in superspreading papers?</summary>
+  <p>No. The <i>k</i> in Lloyd-Smith et al. (2005) is the dispersion of the offspring distribution, a property of transmission. The <i>&phi;</i> here is the dispersion of the reporting process around a predicted mean. Both are negative binomial dispersions and they answer different questions, so a small one does not imply the other.</p></details>
+
+  <details><summary>Can I just use least squares?</summary>
+  <p>You already are choosing an observation model if you do: least squares is the Gaussian likelihood at fixed <i>&sigma;</i>. It assumes the noise is the same size at 3 cases and at 300, which for counts is usually wrong, and it puts probability on negative counts. It is defensible when counts are large and roughly constant in scale, and it is a poor default across an epidemic curve where the mean moves by two orders of magnitude.</p></details>
+
+  <details><summary>What if my data are underdispersed?</summary>
+  <p>The negative binomial cannot help, because Var = <i>&mu;</i> + <i>&mu;</i>&sup2;/<i>&phi;</i> is bounded below by <i>&mu;</i>. A binomial fits when there is a known denominator, such as tests performed. Otherwise the Conway-Maxwell-Poisson (Shmueli et al., 2005) covers both directions at the cost of an awkward normalising constant. Underdispersion in surveillance data more often points at rounding, capping or a reporting quota than at the biology.</p></details>
+
+  <details><summary>Should the reporting delay go in the observation model or the transmission model?</summary>
+  <p>Neither of the families here handles delay, because they change how much spread you allow and not what day an observation belongs to. A delay needs a distribution between the event and its report, which is a change to the structure of the model. The same holds for a reporting rate that changes over time: fitting a fixed <i>&rho;</i> to data from a system whose testing capacity tripled will make the model infer a change in transmission that never happened.</p></details>
+
+  <details><summary>Does the negative binomial fix the fit, or just the intervals?</summary>
+  <p>On these data it does neither cleanly. It widens the intervals honestly, and it moves the posterior mean of <i>R</i><sub>0</sub> from 1.84 to 2.66, but the fitted trajectory still has one peak against an outbreak with two. Loosening the observation model buys permission to misfit. It does not buy a better mean.</p></details>
+
+  <footer>Built as a teaching aid for the MFIIDD observation models session. All figures are computed in the page and self-contained. Data: the Tristan da Cunha influenza outbreak, 13 August to 10 October 1971, 59 daily counts, island population 284.</footer>
+</section>
+
+</div>
+
+<script>
+/* ================= shared numerics ================= */
+const SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+function txt(svg,attrs,s){ const t=el("text",attrs); t.textContent=s; svg.appendChild(t); return t; }
+
+/* Lanczos log-gamma, good to about 1e-13 relative for the arguments used here */
+const LGC=[676.5203681218851,-1259.1392167224028,771.32342877765313,-176.61502916214059,
+           12.507343278686905,-0.13857109526572012,9.9843695780195716e-6,1.5056327351493116e-7];
+function lgamma(z){
+  if(z<0.5) return Math.log(Math.PI/Math.sin(Math.PI*z))-lgamma(1-z);
+  z-=1; let x=0.99999999999980993;
+  for(let i=0;i<8;i++) x+=LGC[i]/(z+i+1);
+  const t=z+7.5;
+  return 0.5*Math.log(2*Math.PI)+(z+0.5)*Math.log(t)-t+Math.log(x);
+}
+const LFMAX=4000, LF=new Float64Array(LFMAX+1);
+for(let k=1;k<=LFMAX;k++) LF[k]=LF[k-1]+Math.log(k);
+const logfact=y=> y<=LFMAX ? LF[y] : lgamma(y+1);
+
+/* negative log-likelihood of one observation */
+function nllPois(y,lam){ lam=Math.max(lam,1e-12); return lam-y*Math.log(lam)+logfact(y); }
+function nllNB(y,mu,phi){                     /* Var = mu + mu^2/phi */
+  mu=Math.max(mu,1e-12);
+  return -(lgamma(y+phi)-lgamma(phi)-logfact(y)
+           +phi*Math.log(phi/(phi+mu))+y*Math.log(mu/(phi+mu)));
+}
+const LOG2PI=Math.log(2*Math.PI);
+function nllNorm(y,mu,sd){ const z=(y-mu)/sd; return 0.5*z*z+Math.log(sd)+0.5*LOG2PI; }
+
+/* upper/lower quantiles by forward recursion on the pmf */
+function qPois(p,lam){
+  if(lam<=0) return 0;
+  let pk=Math.exp(-lam), c=pk;
+  for(let y=0;y<4000;y++){ if(c>=p) return y; pk*=lam/(y+1); c+=pk; }
+  return 4000;
+}
+function qNB(p,mu,phi){
+  if(mu<=0) return 0;
+  const q=mu/(mu+phi);
+  let pk=Math.exp(phi*Math.log(phi/(phi+mu))), c=pk;
+  for(let y=0;y<4000;y++){ if(c>=p) return y; pk*=q*(y+phi)/(y+1); c+=pk; }
+  return 4000;
+}
+
+/* SIR incidence, RK4. inc[i] is S(i) - S(i+1), the incidence over observation day i+1 */
+function sirInc(R0,Dinf,nday,s0,i0,N,sub){
+  sub=sub||8;
+  const beta=R0/Dinf, gam=1/Dinf, h=1/sub;
+  let S=s0, I=i0;
+  const inc=new Float64Array(nday);
+  for(let day=0; day<nday; day++){
+    const Sprev=S;
+    for(let k=0;k<sub;k++){
+      let f=beta*S*I/N;               const a1=-f, b1=f-gam*I;
+      let S2=S+h/2*a1, I2=I+h/2*b1;   f=beta*S2*I2/N; const a2=-f, b2=f-gam*I2;
+      S2=S+h/2*a2;   I2=I+h/2*b2;     f=beta*S2*I2/N; const a3=-f, b3=f-gam*I2;
+      S2=S+h*a3;     I2=I+h*b3;       f=beta*S2*I2/N; const a4=-f, b4=f-gam*I2;
+      S+=h/6*(a1+2*a2+2*a3+a4);
+      I+=h/6*(b1+2*b2+2*b3+b4);
+    }
+    inc[day]=Math.max(Sprev-S,0);
+  }
+  return inc;
+}
+
+/* seeded PRNG and exact count samplers */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0;
+  let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t;
+  return ((t^t>>>14)>>>0)/4294967296; }; }
+function rpoisSmall(rng,lam){ const L=Math.exp(-lam); let k=0,p=1; do{ k++; p*=rng(); } while(p>L); return k-1; }
+function rpois(rng,lam){                       /* exact: split large rates into chunks */
+  if(lam<=0) return 0;
+  let out=0;
+  while(lam>20){ out+=rpoisSmall(rng,20); lam-=20; }
+  return out+rpoisSmall(rng,lam);
+}
+function rnorm(rng){ let u=0,v=0; while(u===0)u=rng(); while(v===0)v=rng();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v); }
+function rgamma(rng,shape,scale){              /* Marsaglia and Tsang 2000 */
+  if(shape<1) return rgamma(rng,1+shape,scale)*Math.pow(rng(),1/shape);
+  const d=shape-1/3, c=1/Math.sqrt(9*d);
+  for(;;){ const x=rnorm(rng); let v=1+c*x; if(v<=0) continue; v=v*v*v; const u=rng();
+    if(u<1-0.0331*x*x*x*x) return d*v*scale;
+    if(Math.log(u)<0.5*x*x+d*(1-v+Math.log(v))) return d*v*scale; }
+}
+function rnb(rng,mu,phi){ return rpois(rng,rgamma(rng,phi,mu/phi)); }
+
+/* the course data: Tristan da Cunha influenza, 1971, 59 daily counts */
+const OBS=[0,1,0,10,6,32,47,37,29,11,13,8,2,2,2,0,2,1,2,2,5,2,3,2,3,5,7,8,5,7,4,12,
+           7,5,3,4,1,0,5,2,2,0,6,1,1,2,0,0,0,0,2,0,0,0,0,0,0,0,1];
+const NDAY=OBS.length, POP=284, S_0=279, I_0=2;
+
+/* a slider position 0..100 mapped onto a log scale */
+function logSlider(v,lo,hi){ return Math.exp(Math.log(lo)+(Math.log(hi)-Math.log(lo))*v/100); }
+function logSliderInv(x,lo,hi){ return 100*(Math.log(x)-Math.log(lo))/(Math.log(hi)-Math.log(lo)); }
+function fmtPhi(p){ return p>=100 ? p.toFixed(0) : p>=10 ? p.toFixed(1) : p.toFixed(2); }
+function setActive(container,btn){
+  Array.prototype.forEach.call(container.querySelectorAll("button"),
+    function(b){ b.classList.toggle("active", b===btn); });
+}
+
+/* ================= FIGURE 1 : the distance curve ================= */
+(function(){
+  const svg=document.getElementById("distSvg");
+  const W=720,H=400, m={l:58,r:18,t:34,b:52};
+  const ids={L:document.getElementById("dL"),P:document.getElementById("dP"),
+             S:document.getElementById("dS"),Y:document.getElementById("dY")};
+  let mode="obs", zoom=false;
+
+  function draw(){
+    const lam=+ids.L.value, phi=logSlider(+ids.P.value,0.1,200), sd=+ids.S.value;
+    const yStar=Math.round(+ids.Y.value);
+    document.getElementById("dLval").textContent=lam.toFixed(1);
+    document.getElementById("dPval").textContent=fmtPhi(phi);
+    document.getElementById("dSval").textContent=sd.toFixed(1);
+    document.getElementById("dYval").textContent=yStar;
+    clear(svg);
+
+    /* build the three curves over the chosen horizontal axis */
+    let xs=[], cP=[], cN=[], cG=[], xLab, refLab, refX;
+    if(mode==="obs"){
+      const xMax=Math.max(Math.ceil(3*lam+15), yStar+8);
+      for(let y=0;y<=xMax;y++){
+        xs.push(y); cP.push(nllPois(y,lam)); cN.push(nllNB(y,lam,phi)); cG.push(nllNorm(y,lam,sd));
+      }
+      xLab="observed count y"; refLab="prediction λ"; refX=lam;
+    } else {
+      const xMax=Math.max(Math.ceil(2*yStar+12), Math.ceil(lam*2));
+      for(let l=0.25;l<=xMax;l+=xMax/300){
+        xs.push(l); cP.push(nllPois(yStar,l)); cN.push(nllNB(yStar,l,phi)); cG.push(nllNorm(yStar,l,sd));
+      }
+      xLab="predicted mean λ"; refLab="observation y*"; refX=yStar;
+    }
+    /* each curve relative to its own minimum, so the families are comparable */
+    const rel=a=>{ const mn=Math.min.apply(null,a); return a.map(v=>v-mn); };
+    const rP=rel(cP), rN=rel(cN), rG=rel(cG);
+
+    const x0=xs[0], x1=xs[xs.length-1];
+    let yMax = zoom
+      ? Math.max(Math.max.apply(null,rN), Math.max.apply(null,rG))*1.15
+      : Math.max(Math.max.apply(null,rP), Math.max.apply(null,rN), Math.max.apply(null,rG))*1.06;
+    yMax=Math.max(yMax,4);
+    const sx=v=>m.l+(v-x0)/(x1-x0)*(W-m.l-m.r);
+    const sy=v=>H-m.b-(Math.min(v,yMax)/yMax)*(H-m.t-m.b);
+
+    /* axes */
+    const step=Math.pow(10,Math.floor(Math.log10(yMax/4)));
+    const gs=[1,2,5,10].map(k=>k*step).find(k=>yMax/k<=6)||step*10;
+    for(let g=0; g<=yMax; g+=gs){
+      svg.appendChild(el("line",{x1:m.l,y1:sy(g),x2:W-m.r,y2:sy(g),stroke:"#eef2f7"}));
+      txt(svg,{x:m.l-8,y:sy(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},
+          gs<1?g.toFixed(1):g.toFixed(0));
+    }
+    svg.appendChild(el("line",{x1:m.l,y1:H-m.b,x2:W-m.r,y2:H-m.b,stroke:"#cbd5e1"}));
+    const nTick=8;
+    for(let i=0;i<=nTick;i++){
+      const v=x0+(x1-x0)*i/nTick;
+      txt(svg,{x:sx(v),y:H-m.b+17,"text-anchor":"middle","font-size":10,fill:"#6b7280"},
+          (x1-x0)>12?v.toFixed(0):v.toFixed(1));
+    }
+    txt(svg,{x:(m.l+W-m.r)/2,y:H-10,"text-anchor":"middle","font-size":12,fill:"#374151"},xLab);
+    const ylab=el("text",{x:15,y:(m.t+H-m.b)/2,"text-anchor":"middle","font-size":11.5,fill:"#374151",
+      transform:"rotate(-90 15 "+((m.t+H-m.b)/2)+")"});
+    ylab.textContent="penalty above the best case (log-likelihood units)"; svg.appendChild(ylab);
+    txt(svg,{x:m.l,y:m.t-14,"font-size":13,"font-weight":700,fill:"#1f2933"},
+        mode==="obs" ? "Prediction fixed at λ = "+lam.toFixed(1)+": what each family charges for an observation y"
+                     : "Observation fixed at y* = "+yStar+": what each family charges for a prediction λ");
+
+    /* the reference line: lambda in observation mode, y* in prediction mode */
+    if(refX>=x0 && refX<=x1){
+      svg.appendChild(el("line",{x1:sx(refX),y1:m.t,x2:sx(refX),y2:H-m.b,
+        stroke:"#64748b","stroke-width":1.4,"stroke-dasharray":"2 4",opacity:.85}));
+      txt(svg,{x:sx(refX)+5,y:m.t+11,"font-size":10.5,fill:"#475569","font-weight":600},refLab);
+    }
+
+    function path(arr,colour,dash){
+      let d="";
+      function flush(){
+        if(d) svg.appendChild(el("path",{d:d,fill:"none",stroke:colour,"stroke-width":2.4,
+          "stroke-dasharray":dash||"none","stroke-linejoin":"round"}));
+        d="";
+      }
+      for(let i=0;i<xs.length;i++){
+        if(arr[i]>yMax){ flush(); continue; }   /* break the line where it leaves the panel */
+        d+=(d?" L ":"M ")+sx(xs[i]).toFixed(2)+" "+sy(arr[i]).toFixed(2);
+      }
+      flush();
+    }
+    path(rG,"#f59e0b","7 4");
+    path(rN,"#4f46e5");
+    path(rP,"#dc2626");
+
+    /* marker on the observation axis */
+    if(mode==="obs" && yStar>=x0 && yStar<=x1){
+      svg.appendChild(el("line",{x1:sx(yStar),y1:m.t,x2:sx(yStar),y2:H-m.b,
+        stroke:"#0891b2","stroke-width":1.6,"stroke-dasharray":"5 3",opacity:.9}));
+      txt(svg,{x:sx(yStar)-5,y:m.t+11,"text-anchor":"end","font-size":10.5,fill:"#0e7490","font-weight":600},"y*");
+      [[rP[yStar],"#dc2626"],[rN[yStar],"#4f46e5"],[rG[yStar],"#f59e0b"]].forEach(function(pr){
+        if(pr[0]<=yMax) svg.appendChild(el("circle",{cx:sx(yStar),cy:sy(pr[0]),r:4.2,
+          fill:"#fff",stroke:pr[1],"stroke-width":2.2}));
+      });
+    }
+    /* the curve leaving the top of the panel is worth saying out loud */
+    const pTop=Math.max.apply(null,rP);
+    if(pTop>yMax){
+      txt(svg,{x:W-m.r,y:m.t+12,"text-anchor":"end","font-size":10.5,fill:"#dc2626","font-weight":600},
+          "Poisson runs to "+pTop.toFixed(0)+", off the top");
+    }
+
+    /* readouts: always the cost of observing y* when predicting lam, relative to
+       the cheapest observation the same family could have produced */
+    function relPenalty(f){
+      const top=Math.max(Math.ceil(3*lam+15), yStar+8);
+      let mn=Infinity;
+      for(let y=0;y<=top;y++){ const v=f(y); if(v<mn) mn=v; }
+      return f(yStar)-mn;
+    }
+    const pp=relPenalty(y=>nllPois(y,lam));
+    const pn=relPenalty(y=>nllNB(y,lam,phi));
+    const pg=relPenalty(y=>nllNorm(y,lam,sd));
+    document.getElementById("dRp").textContent=pp.toFixed(1);
+    document.getElementById("dRn").textContent=pn.toFixed(1);
+    document.getElementById("dRg").textContent=pg.toFixed(1);
+    document.getElementById("dRr").textContent=(pn>0.05? (pp/pn).toFixed(1)+"×" : "—");
+  }
+
+  Object.keys(ids).forEach(function(k){ ids[k].addEventListener("input",function(){
+    setActive(document.getElementById("dPre"),null); draw(); }); });
+  Array.prototype.forEach.call(document.querySelectorAll("#dMode button"),function(b){
+    b.addEventListener("click",function(){ mode=b.dataset.mode;
+      setActive(document.getElementById("dMode"),b); draw(); });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll("#dPre button"),function(b){
+    b.addEventListener("click",function(){
+      const p=b.dataset.pre;
+      if(p==="zoom"){ zoom=!zoom; b.textContent=zoom?"y-axis: fit all curves":"y-axis: zoom low";
+        b.classList.toggle("active",zoom); draw(); return; }
+      if(p==="tdc"){ ids.L.value=5; ids.P.value=logSliderInv(0.5,0.1,200); ids.S.value=5; ids.Y.value=47; }
+      if(p==="fine"){ ids.L.value=20; ids.P.value=logSliderInv(120,0.1,200); ids.S.value=4.5; ids.Y.value=26; }
+      if(p==="ls"){ ids.L.value=10; ids.P.value=logSliderInv(3,0.1,200); ids.S.value=12; ids.Y.value=30; }
+      Array.prototype.forEach.call(document.querySelectorAll("#dPre button"),function(x){
+        if(x.dataset.pre!=="zoom") x.classList.toggle("active",x===b); });
+      draw();
+    });
+  });
+  draw();
+})();
+
+/* ================= grid posterior, shared by figures 2 and 3 ================= */
+const GRID=(function(){
+  const nR=140,nD=28,nRho=15, R0lo=1,R0hi=8, Dlo=1,Dhi=10, rlo=0.1,rhi=1.0;
+  const R0s=[],Ds=[],rhos=[];
+  for(let a=0;a<nR;a++) R0s.push(R0lo+(R0hi-R0lo)*a/(nR-1));
+  for(let b=0;b<nD;b++) Ds.push(Dlo+(Dhi-Dlo)*b/(nD-1));
+  for(let c=0;c<nRho;c++) rhos.push(rlo+(rhi-rlo)*c/(nRho-1));
+  const logRho=rhos.map(Math.log);
+  const INC=[],LOGINC=[];
+  for(let a=0;a<nR;a++) for(let b=0;b<nD;b++){
+    const v=sirInc(R0s[a],Ds[b],NDAY,S_0,I_0,POP);
+    const l=new Float64Array(NDAY);
+    for(let i=0;i<NDAY;i++) l[i]=Math.log(Math.max(v[i],1e-12));
+    INC.push(v); LOGINC.push(l);
+  }
+  const CONST_P=OBS.reduce((s,y)=>s-logfact(y),0);
+
+  /* log-likelihood of the whole series for one grid cell */
+  function llCell(a,b,c,phi){
+    const inc=INC[a*nD+b], li=LOGINC[a*nD+b], rho=rhos[c], lr=logRho[c];
+    if(phi===null){
+      let s=CONST_P;
+      for(let i=0;i<NDAY;i++){ const mu=Math.max(rho*inc[i],1e-12); s+=-mu+OBS[i]*(lr+li[i]); }
+      return s;
+    }
+    let s=0;
+    for(let i=0;i<NDAY;i++){
+      const mu=Math.max(rho*inc[i],1e-12);
+      s+=OBS[i]*(lr+li[i])-(OBS[i]+phi)*Math.log(phi+mu);
+    }
+    return s;
+  }
+  /* the parts of the negative binomial log-likelihood that do not depend on the cell */
+  function nbConst(phi){
+    const lgp=lgamma(phi); let c=NDAY*phi*Math.log(phi);
+    for(let i=0;i<NDAY;i++) c+=lgamma(OBS[i]+phi)-lgp-logfact(OBS[i]);
+    return c;
+  }
+  /* marginal posterior for R0, integrating D_inf and rho out on their uniform priors */
+  function marginal(phi){
+    const cs = phi===null ? 0 : nbConst(phi);
+    const lp=new Float64Array(nR);
+    const acc=new Float64Array(nD*nRho);
+    for(let a=0;a<nR;a++){
+      let k=0;
+      for(let b=0;b<nD;b++) for(let c=0;c<nRho;c++) acc[k++]=cs+llCell(a,b,c,phi);
+      let mx=-Infinity; for(let j=0;j<k;j++) if(acc[j]>mx) mx=acc[j];
+      let s=0; for(let j=0;j<k;j++) s+=Math.exp(acc[j]-mx);
+      lp[a]=mx+Math.log(s);
+    }
+    let mx=-Infinity; for(let a=0;a<nR;a++) if(lp[a]>mx) mx=lp[a];
+    const w=[]; let tot=0;
+    for(let a=0;a<nR;a++){ const v=Math.exp(lp[a]-mx); w.push(v); tot+=v; }
+    const p=w.map(v=>v/tot);
+    const mean=R0s.reduce((s,x,i)=>s+x*p[i],0);
+    const m2=R0s.reduce((s,x,i)=>s+x*x*p[i],0);
+    const dx=R0s[1]-R0s[0];
+    return {xs:R0s, p:p, dens:p.map(v=>v/dx), mean:mean, sd:Math.sqrt(Math.max(m2-mean*mean,0))};
+  }
+  /* posterior means of all three parameters, used for the fitted trajectory in figure 2 */
+  function posteriorMeans(phi){
+    const cs = phi===null ? 0 : nbConst(phi);
+    let mx=-Infinity;
+    const lls=new Float64Array(nR*nD*nRho); let k=0;
+    for(let a=0;a<nR;a++) for(let b=0;b<nD;b++) for(let c=0;c<nRho;c++){
+      const v=cs+llCell(a,b,c,phi); lls[k++]=v; if(v>mx) mx=v;
+    }
+    let tot=0,mR=0,mD=0,mRho=0; k=0;
+    for(let a=0;a<nR;a++) for(let b=0;b<nD;b++) for(let c=0;c<nRho;c++){
+      const w=Math.exp(lls[k++]-mx); tot+=w; mR+=w*R0s[a]; mD+=w*Ds[b]; mRho+=w*rhos[c];
+    }
+    return {R0:mR/tot, Dinf:mD/tot, rho:mRho/tot};
+  }
+  return {marginal:marginal, posteriorMeans:posteriorMeans, R0s:R0s};
+})();
+
+/* the Poisson fit, computed once: it anchors figures 2 and 3 */
+const POIS_POST=GRID.marginal(null);
+const POIS_FIT=GRID.posteriorMeans(null);
+const FITTED_MEAN=(function(){
+  const inc=sirInc(POIS_FIT.R0,POIS_FIT.Dinf,NDAY,S_0,I_0,POP);
+  return Array.from(inc,v=>POIS_FIT.rho*v);
+})();
+
+/* ================= FIGURE 2 : variance against the mean ================= */
+(function(){
+  const svg=document.getElementById("varSvg");
+  const W=720;
+  const A={l:52,r:16,y0:38,y1:268};                 /* top: series with predictive band */
+  const B={l:52,r:16,y0:340,y1:560};                /* bottom: variance diagnostic */
+  const slider=document.getElementById("vP");
+
+  /* the residual variance to mean check the session runs */
+  const meanPred=FITTED_MEAN.reduce((a,b)=>a+b,0)/NDAY;
+  const resid=OBS.map((y,i)=>y-FITTED_MEAN[i]);
+  const rbar=resid.reduce((a,b)=>a+b,0)/NDAY;
+  const residVar=resid.reduce((s,r)=>s+(r-rbar)*(r-rbar),0)/(NDAY-1);
+  document.getElementById("vRatio").textContent=(residVar/meanPred).toFixed(1);
+
+  /* bins of similar fitted mean, for the averaged diamonds */
+  const order=FITTED_MEAN.map((v,i)=>i).sort((i,j)=>FITTED_MEAN[i]-FITTED_MEAN[j]);
+  const NBIN=6, per=Math.floor(NDAY/NBIN), BINS=[];
+  for(let b=0;b<NBIN;b++){
+    const sl=order.slice(b*per, b===NBIN-1?NDAY:(b+1)*per);
+    const mu=sl.reduce((s,i)=>s+FITTED_MEAN[i],0)/sl.length;
+    const v=sl.reduce((s,i)=>s+Math.pow(OBS[i]-FITTED_MEAN[i],2),0)/sl.length;
+    BINS.push({mu:mu, v:v, n:sl.length});
+  }
+
+  function draw(){
+    const phi=logSlider(+slider.value,0.1,500);
+    document.getElementById("vPval").textContent=fmtPhi(phi);
+    clear(svg);
+
+    /* ---------- top panel: data, fitted mean, predictive intervals ---------- */
+    const lo=[],hi=[],loP=[],hiP=[];
+    for(let i=0;i<NDAY;i++){
+      const mu=Math.max(FITTED_MEAN[i],1e-9);
+      lo.push(qNB(0.025,mu,phi)); hi.push(qNB(0.975,mu,phi));
+      loP.push(qPois(0.025,mu));  hiP.push(qPois(0.975,mu));
+    }
+    let yMax=Math.max(Math.max.apply(null,hi), Math.max.apply(null,OBS))*1.08;
+    yMax=Math.min(Math.max(yMax,55),140);
+    const ax=v=>A.l+(v-1)/(NDAY-1)*(W-A.l-A.r);
+    const ay=v=>A.y1-Math.min(v,yMax)/yMax*(A.y1-A.y0);
+
+    for(let g=0; g<=yMax; g+=20){
+      svg.appendChild(el("line",{x1:A.l,y1:ay(g),x2:W-A.r,y2:ay(g),stroke:"#eef2f7"}));
+      txt(svg,{x:A.l-8,y:ay(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},g);
+    }
+    svg.appendChild(el("line",{x1:A.l,y1:A.y1,x2:W-A.r,y2:A.y1,stroke:"#cbd5e1"}));
+    txt(svg,{x:A.l,y:A.y0-14,"font-size":13,"font-weight":700,fill:"#1f2933"},
+        "Tristan da Cunha 1971: the same fitted mean, two observation models around it");
+
+    let band="";
+    for(let i=0;i<NDAY;i++) band+=(i?" L ":"M ")+ax(i+1).toFixed(1)+" "+ay(hi[i]).toFixed(1);
+    for(let i=NDAY-1;i>=0;i--) band+=" L "+ax(i+1).toFixed(1)+" "+ay(lo[i]).toFixed(1);
+    svg.appendChild(el("path",{d:band+" Z",fill:"#4f46e5","fill-opacity":0.16,stroke:"none"}));
+    [["hi",hiP],["lo",loP]].forEach(function(pr){
+      let d="";
+      for(let i=0;i<NDAY;i++) d+=(i?" L ":"M ")+ax(i+1).toFixed(1)+" "+ay(pr[1][i]).toFixed(1);
+      svg.appendChild(el("path",{d:d,fill:"none",stroke:"#dc2626","stroke-width":1.5,
+        "stroke-dasharray":"5 4",opacity:.85}));
+    });
+    let mline="";
+    for(let i=0;i<NDAY;i++) mline+=(i?" L ":"M ")+ax(i+1).toFixed(1)+" "+ay(FITTED_MEAN[i]).toFixed(1);
+    svg.appendChild(el("path",{d:mline,fill:"none",stroke:"#64748b","stroke-width":2.2}));
+
+    let inside=0;
+    for(let i=0;i<NDAY;i++){
+      const within = OBS[i]>=lo[i] && OBS[i]<=hi[i];
+      if(within) inside++;
+      svg.appendChild(el("circle",{cx:ax(i+1),cy:ay(OBS[i]),r:3.2,
+        fill: within?"#0891b2":"#dc2626", opacity:.92}));
+    }
+    for(let t=1;t<=NDAY;t+=10)
+      txt(svg,{x:ax(t),y:A.y1+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},t);
+    txt(svg,{x:(A.l+W-A.r)/2,y:A.y1+34,"text-anchor":"middle","font-size":12,fill:"#374151"},
+        "day of the outbreak");
+    document.getElementById("vCov").textContent=inside+" of "+NDAY+" ("+(100*inside/NDAY).toFixed(0)+"%)";
+    const peakMu=Math.max.apply(null,FITTED_MEAN);
+    document.getElementById("vPeak").textContent=
+      (peakMu+peakMu*peakMu/phi).toFixed(0)+"  (Poisson: "+peakMu.toFixed(0)+")";
+
+    /* ---------- bottom panel: squared residual against fitted mean, log-log ---------- */
+    /* the axes hold every day: fitted means run 0.016 to 12.2, squared residuals
+       0.00034 to 1762, so nothing is clipped onto an edge */
+    const xlo=0.01, xhi=25, ylo=0.0002, yhi=4000;
+    const bx=v=>B.l+(Math.log(Math.max(v,xlo))-Math.log(xlo))/(Math.log(xhi)-Math.log(xlo))*(W-B.l-B.r);
+    const by=v=>B.y1-(Math.log(Math.min(Math.max(v,ylo),yhi))-Math.log(ylo))/(Math.log(yhi)-Math.log(ylo))*(B.y1-B.y0);
+    txt(svg,{x:B.l,y:B.y0-14,"font-size":13,"font-weight":700,fill:"#1f2933"},
+        "Is the variance the mean? One point per day, plus binned averages");
+    [0.001,0.01,0.1,1,10,100,1000].forEach(function(g){
+      if(g<ylo||g>yhi) return;
+      svg.appendChild(el("line",{x1:B.l,y1:by(g),x2:W-B.r,y2:by(g),stroke:"#eef2f7"}));
+      txt(svg,{x:B.l-8,y:by(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},
+          g<1?g.toString():g.toFixed(0));
+    });
+    [0.01,0.1,1,10].forEach(function(g){
+      svg.appendChild(el("line",{x1:bx(g),y1:B.y0,x2:bx(g),y2:B.y1,stroke:"#eef2f7"}));
+      txt(svg,{x:bx(g),y:B.y1+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},g);
+    });
+    svg.appendChild(el("line",{x1:B.l,y1:B.y1,x2:W-B.r,y2:B.y1,stroke:"#cbd5e1"}));
+    txt(svg,{x:(B.l+W-B.r)/2,y:B.y1+34,"text-anchor":"middle","font-size":12,fill:"#374151"},
+        "fitted mean μ for that day (log scale)");
+    const yl2=el("text",{x:14,y:(B.y0+B.y1)/2,"text-anchor":"middle","font-size":11.5,fill:"#374151",
+      transform:"rotate(-90 14 "+((B.y0+B.y1)/2)+")"});
+    yl2.textContent="squared residual (log scale)"; svg.appendChild(yl2);
+
+    let lp="",ln="";
+    for(let k=0;k<=120;k++){
+      const mu=Math.exp(Math.log(xlo)+(Math.log(xhi)-Math.log(xlo))*k/120);
+      lp+=(k?" L ":"M ")+bx(mu).toFixed(1)+" "+by(mu).toFixed(1);
+      ln+=(k?" L ":"M ")+bx(mu).toFixed(1)+" "+by(mu+mu*mu/phi).toFixed(1);
+    }
+    svg.appendChild(el("path",{d:lp,fill:"none",stroke:"#dc2626","stroke-width":2,"stroke-dasharray":"6 4"}));
+    svg.appendChild(el("path",{d:ln,fill:"none",stroke:"#4f46e5","stroke-width":2.2}));
+    txt(svg,{x:W-B.r-4,y:by(xhi)-8,"text-anchor":"end","font-size":10.5,fill:"#dc2626","font-weight":600},
+        "Poisson: Var = μ");
+    txt(svg,{x:W-B.r-4,y:Math.max(by(xhi+xhi*xhi/phi)-8,B.y0+12),"text-anchor":"end",
+        "font-size":10.5,fill:"#4f46e5","font-weight":600},"neg. bin.: Var = μ + μ²/φ");
+    for(let i=0;i<NDAY;i++){
+      const r2=Math.pow(OBS[i]-FITTED_MEAN[i],2);
+      svg.appendChild(el("circle",{cx:bx(FITTED_MEAN[i]),cy:by(r2),r:3,
+        fill:"#0891b2","fill-opacity":.5,stroke:"#0e7490","stroke-width":.6}));
+    }
+    BINS.forEach(function(b){
+      const x=bx(b.mu), y=by(b.v), s=5.5;
+      svg.appendChild(el("path",{d:"M "+x+" "+(y-s)+" L "+(x+s)+" "+y+" L "+x+" "+(y+s)+" L "+(x-s)+" "+y+" Z",
+        fill:"#0e7490",stroke:"#fff","stroke-width":1.4}));
+    });
+  }
+  slider.addEventListener("input",function(){ setActive(document.getElementById("vPre"),null); draw(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#vPre button"),function(b){
+    b.addEventListener("click",function(){
+      const p=b.dataset.pre;
+      slider.value=logSliderInv(p==="pois"?500:p==="mid"?5:0.5,0.1,500);
+      setActive(document.getElementById("vPre"),b); draw();
+    });
+  });
+  slider.value=logSliderInv(0.5,0.1,500);        /* agree with the preset marked active */
+  draw();
+})();
+
+/* ================= FIGURE 3 : the posterior for R0 ================= */
+(function(){
+  const svg=document.getElementById("postSvg");
+  const W=720,H=340, m={l:52,r:18,t:34,b:50};
+  const slider=document.getElementById("pP");
+  const xLo=1, xHi=5;
+  const sx=v=>m.l+(v-xLo)/(xHi-xLo)*(W-m.l-m.r);
+
+  document.getElementById("pPm").textContent=POIS_POST.mean.toFixed(2);
+  document.getElementById("pPs").textContent=POIS_POST.sd.toFixed(2);
+
+  function draw(){
+    const phi=logSlider(+slider.value,0.2,500);
+    document.getElementById("pPval").textContent=fmtPhi(phi);
+    const NB=GRID.marginal(phi);
+    clear(svg);
+
+    const yMax=Math.max(Math.max.apply(null,POIS_POST.dens),
+                        Math.max.apply(null,NB.dens))*1.12;
+    const sy=v=>H-m.b-(v/yMax)*(H-m.t-m.b);
+
+    for(let g=0; g<=yMax; g+=0.5){
+      svg.appendChild(el("line",{x1:m.l,y1:sy(g),x2:W-m.r,y2:sy(g),stroke:"#eef2f7"}));
+      txt(svg,{x:m.l-8,y:sy(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},g.toFixed(1));
+    }
+    svg.appendChild(el("line",{x1:m.l,y1:sy(0),x2:W-m.r,y2:sy(0),stroke:"#cbd5e1"}));
+    for(let v=xLo; v<=xHi+1e-9; v+=0.5)
+      txt(svg,{x:sx(v),y:H-m.b+17,"text-anchor":"middle","font-size":10,fill:"#6b7280"},v.toFixed(1));
+    txt(svg,{x:(m.l+W-m.r)/2,y:H-10,"text-anchor":"middle","font-size":12,fill:"#374151"},
+        "basic reproduction number R₀");
+    const yl=el("text",{x:14,y:(m.t+H-m.b)/2,"text-anchor":"middle","font-size":11.5,fill:"#374151",
+      transform:"rotate(-90 14 "+((m.t+H-m.b)/2)+")"});
+    yl.textContent="marginal posterior density"; svg.appendChild(yl);
+    txt(svg,{x:m.l,y:m.t-14,"font-size":13,"font-weight":700,fill:"#1f2933"},
+        "Same model, same data, two observation models");
+
+    function drawPost(post,colour,op){
+      let d="M "+sx(post.xs[0]).toFixed(1)+" "+sy(0).toFixed(1);
+      for(let i=0;i<post.xs.length;i++){
+        if(post.xs[i]<xLo-0.2||post.xs[i]>xHi+0.2) continue;
+        d+=" L "+sx(post.xs[i]).toFixed(1)+" "+sy(post.dens[i]).toFixed(1);
+      }
+      d+=" L "+sx(xHi).toFixed(1)+" "+sy(0).toFixed(1)+" Z";
+      svg.appendChild(el("path",{d:d,fill:colour,"fill-opacity":op,stroke:colour,"stroke-width":2.2,
+        "stroke-linejoin":"round"}));
+      svg.appendChild(el("line",{x1:sx(post.mean),y1:sy(0),x2:sx(post.mean),y2:m.t+6,
+        stroke:colour,"stroke-width":1.6,"stroke-dasharray":"4 3"}));
+    }
+    drawPost(POIS_POST,"#dc2626",0.14);
+    drawPost(NB,"#4f46e5",0.16);
+    txt(svg,{x:sx(POIS_POST.mean),y:m.t+2,"text-anchor":"middle","font-size":10.5,
+      fill:"#dc2626","font-weight":600},"Poisson "+POIS_POST.mean.toFixed(2));
+    txt(svg,{x:Math.min(sx(NB.mean),W-m.r-40),y:m.t+2,"text-anchor":"middle","font-size":10.5,
+      fill:"#4f46e5","font-weight":600},"neg. bin. "+NB.mean.toFixed(2));
+
+    document.getElementById("pNm").textContent=NB.mean.toFixed(2);
+    document.getElementById("pNs").textContent=NB.sd.toFixed(2);
+    document.getElementById("pRatio").textContent=(NB.sd/POIS_POST.sd).toFixed(1)+"×";
+    document.getElementById("pShift").textContent=
+      "+"+(NB.mean-POIS_POST.mean).toFixed(2)+" ("+((NB.mean-POIS_POST.mean)/POIS_POST.sd).toFixed(1)
+      +" Poisson sd)";
+    const nbFit=GRID.posteriorMeans(phi);
+    document.getElementById("pRho").textContent=
+      POIS_FIT.rho.toFixed(3)+" → "+nbFit.rho.toFixed(3);
+    document.getElementById("pDinf").textContent=
+      POIS_FIT.Dinf.toFixed(2)+" → "+nbFit.Dinf.toFixed(2)+" d";
+  }
+  slider.addEventListener("input",function(){ setActive(document.getElementById("pPre"),null); draw(); });
+  Array.prototype.forEach.call(document.querySelectorAll("#pPre button"),function(b){
+    b.addEventListener("click",function(){
+      const p=b.dataset.pre;
+      slider.value=logSliderInv(p==="hi"?200:p==="mid"?20:0.5,0.2,500);
+      setActive(document.getElementById("pPre"),b); draw();
+    });
+  });
+  slider.value=logSliderInv(0.5,0.2,500);        /* agree with the preset marked active */
+  draw();
+})();
+
+/* ================= FIGURE 4 : dispersion absorbs a misspecified mean ================= */
+(function(){
+  const svg=document.getElementById("missSvg");
+  const W=720;
+  const SEED=20250907, SHIFT=18;
+
+  /* the coarse grid the single-wave model is fitted on */
+  const nR=26,nD=16,nRho=11;
+  const R0s=[],Ds=[],rhos=[];
+  for(let a=0;a<nR;a++) R0s.push(1+(8-1)*a/(nR-1));
+  for(let b=0;b<nD;b++) Ds.push(1.5+(6-1.5)*b/(nD-1));
+  for(let c=0;c<nRho;c++) rhos.push(0.1+0.9*c/(nRho-1));
+  const logRho=rhos.map(Math.log);
+  const INC=[],LOGINC=[];
+  for(let a=0;a<nR;a++) for(let b=0;b<nD;b++){
+    const v=sirInc(R0s[a],Ds[b],NDAY,S_0,I_0,POP);
+    const l=new Float64Array(NDAY);
+    for(let i=0;i<NDAY;i++) l[i]=Math.log(Math.max(v[i],1e-12));
+    INC.push(v); LOGINC.push(l);
+  }
+  const NPHI=44, PHIS=[];
+  for(let i=0;i<NPHI;i++) PHIS.push(Math.exp(Math.log(0.1)+(Math.log(300)-Math.log(0.1))*i/(NPHI-1)));
+
+  /* profile log-likelihood over phi, maximised over R0, D_inf and rho at each phi */
+  function profile(y){
+    const prof=new Float64Array(NPHI);
+    let best={ll:-Infinity};
+    for(let k=0;k<NPHI;k++){
+      const phi=PHIS[k], lgp=lgamma(phi);
+      let cs=NDAY*phi*Math.log(phi);
+      for(let i=0;i<NDAY;i++) cs+=lgamma(y[i]+phi)-lgp-logfact(y[i]);
+      let bl=-Infinity, bp=null;
+      for(let a=0;a<nR;a++) for(let b=0;b<nD;b++){
+        const inc=INC[a*nD+b], li=LOGINC[a*nD+b];
+        for(let c=0;c<nRho;c++){
+          const rho=rhos[c], lr=logRho[c];
+          let s=cs;
+          for(let i=0;i<NDAY;i++){
+            const mu=Math.max(rho*inc[i],1e-12);
+            s+=y[i]*(lr+li[i])-(y[i]+phi)*Math.log(phi+mu);
+          }
+          if(s>bl){ bl=s; bp={R0:R0s[a],Dinf:Ds[b],rho:rhos[c]}; }
+        }
+      }
+      prof[k]=bl;
+      if(bl>best.ll) best={ll:bl, phi:phi, R0:bp.R0, Dinf:bp.Dinf, rho:bp.rho};
+    }
+    return {prof:prof, best:best};
+  }
+
+  /* the two truths. wave 1 is what the fitted model can represent; wave 2 is what it cannot */
+  const wave1=sirInc(2.6,3.0,NDAY,S_0,I_0,POP);
+  const wave2=sirInc(2.4,3.4,NDAY,150,2,154);
+  const meanA=Array.from(wave1);
+  function meanB(scale){
+    const m=new Float64Array(NDAY);
+    for(let i=0;i<NDAY;i++) m[i]=wave1[i]+(i>=SHIFT ? scale*wave2[i-SHIFT] : 0);
+    return m;
+  }
+  function dataA(phiTrue){
+    const rng=mulberry32(SEED);
+    return Array.from(meanA,mu=>rnb(rng,Math.max(mu,1e-6),phiTrue));
+  }
+  function dataB(scale){
+    const rng=mulberry32(SEED), mu=meanB(scale);
+    return Array.from(mu,v=>rpois(rng,Math.max(v,1e-6)));
+  }
+
+  const sA=document.getElementById("mA"), sB=document.getElementById("mB");
+  let cache={};
+
+  function panel(x0,x1,y0,y1,title,y,truth,fit,colour){
+    const yMax=Math.max(Math.max.apply(null,y), Math.max.apply(null,truth))*1.12+1;
+    const px=v=>x0+(v-1)/(NDAY-1)*(x1-x0);
+    const py=v=>y1-Math.min(v,yMax)/yMax*(y1-y0);
+    txt(svg,{x:x0,y:y0-12,"font-size":12.5,"font-weight":700,fill:"#1f2933"},title);
+    const gs=yMax>80?40:yMax>40?20:10;
+    for(let g=0; g<=yMax; g+=gs){
+      svg.appendChild(el("line",{x1:x0,y1:py(g),x2:x1,y2:py(g),stroke:"#eef2f7"}));
+      txt(svg,{x:x0-6,y:py(g)+4,"text-anchor":"end","font-size":9.5,fill:"#6b7280"},g);
+    }
+    svg.appendChild(el("line",{x1:x0,y1:py(0),x2:x1,y2:py(0),stroke:"#cbd5e1"}));
+    const bw=Math.max((x1-x0)/NDAY-1,1.2);
+    for(let i=0;i<NDAY;i++){
+      if(y[i]<=0) continue;
+      svg.appendChild(el("rect",{x:px(i+1)-bw/2,y:py(y[i]),width:bw,
+        height:Math.max(py(0)-py(y[i]),0),fill:"#0891b2",opacity:.55,rx:1}));
+    }
+    let dt="",df="";
+    for(let i=0;i<NDAY;i++){
+      dt+=(i?" L ":"M ")+px(i+1).toFixed(1)+" "+py(truth[i]).toFixed(1);
+      df+=(i?" L ":"M ")+px(i+1).toFixed(1)+" "+py(fit[i]).toFixed(1);
+    }
+    svg.appendChild(el("path",{d:dt,fill:"none",stroke:"#64748b","stroke-width":1.8,"stroke-dasharray":"6 4"}));
+    svg.appendChild(el("path",{d:df,fill:"none",stroke:colour,"stroke-width":2.2}));
+    for(let t=1;t<=NDAY;t+=20)
+      txt(svg,{x:px(t),y:y1+15,"text-anchor":"middle","font-size":9.5,fill:"#6b7280"},t);
+  }
+
+  function draw(which){
+    const phiTrue=logSlider(+sA.value,0.3,30);
+    const scale=(+sB.value)/100;
+    document.getElementById("mAval").textContent=fmtPhi(phiTrue);
+    document.getElementById("mBval").textContent=scale.toFixed(2);
+    document.getElementById("mTa").textContent=fmtPhi(phiTrue);
+
+    if(which!=="B" || !cache.A){ const y=dataA(phiTrue); cache.A={y:y, res:profile(y), truth:meanA}; }
+    if(which!=="A" || !cache.B){ const y=dataB(scale);   cache.B={y:y, res:profile(y), truth:meanB(scale)}; }
+    clear(svg);
+
+    const fitCurve=b=>{
+      const inc=sirInc(b.R0,b.Dinf,NDAY,S_0,I_0,POP);
+      return Array.from(inc,v=>b.rho*v);
+    };
+    panel(52,352,42,222,"World 1: right mean, overdispersed reporting",
+          cache.A.y, cache.A.truth, fitCurve(cache.A.res.best), "#4f46e5");
+    panel(404,704,42,222,"World 2: wrong mean, Poisson reporting",
+          cache.B.y, cache.B.truth, fitCurve(cache.B.res.best), "#4f46e5");
+    txt(svg,{x:378,y:246,"text-anchor":"middle","font-size":11.5,fill:"#374151"},"day of the outbreak");
+
+    /* ---------- profile log-likelihood in phi ---------- */
+    const P={l:52,r:16,y0:312,y1:474};
+    const px=v=>P.l+(Math.log(v)-Math.log(PHIS[0]))/(Math.log(PHIS[NPHI-1])-Math.log(PHIS[0]))*(W-P.l-P.r);
+    const DROP=12;                                   /* show 12 log-likelihood units below the peak */
+    const py=function(v){ const u=Math.max(Math.min(v,0),-DROP); return P.y0+(-u/DROP)*(P.y1-P.y0); };
+    txt(svg,{x:P.l,y:P.y0-14,"font-size":12.5,"font-weight":700,fill:"#1f2933"},
+        "Profile log-likelihood for φ, each curve shifted so its own maximum is zero");
+    for(let g=0; g>=-DROP; g-=3){
+      svg.appendChild(el("line",{x1:P.l,y1:py(g),x2:W-P.r,y2:py(g),stroke:"#eef2f7"}));
+      txt(svg,{x:P.l-8,y:py(g)+4,"text-anchor":"end","font-size":10,fill:"#6b7280"},g);
+    }
+    [0.1,0.3,1,3,10,30,100,300].forEach(function(v){
+      svg.appendChild(el("line",{x1:px(v),y1:P.y0,x2:px(v),y2:P.y1,stroke:"#eef2f7"}));
+      txt(svg,{x:px(v),y:P.y1+16,"text-anchor":"middle","font-size":10,fill:"#6b7280"},v);
+    });
+    svg.appendChild(el("line",{x1:P.l,y1:P.y1,x2:W-P.r,y2:P.y1,stroke:"#cbd5e1"}));
+    txt(svg,{x:(P.l+W-P.r)/2,y:P.y1+34,"text-anchor":"middle","font-size":12,fill:"#374151"},
+        "dispersion φ, log scale; the right-hand edge is effectively Poisson");
+
+    [["A","#0891b2"],["B","#dc2626"]].forEach(function(pr){
+      const r=cache[pr[0]].res, mx=r.best.ll;
+      let d="";
+      for(let k=0;k<NPHI;k++){
+        const v=r.prof[k]-mx;
+        if(v<-DROP){ if(d){ svg.appendChild(el("path",{d:d,fill:"none",stroke:pr[1],"stroke-width":2.4})); d=""; } continue; }
+        d+=(d?" L ":"M ")+px(PHIS[k]).toFixed(1)+" "+py(v).toFixed(1);
+      }
+      if(d) svg.appendChild(el("path",{d:d,fill:"none",stroke:pr[1],"stroke-width":2.4}));
+      svg.appendChild(el("line",{x1:px(r.best.phi),y1:py(0),x2:px(r.best.phi),y2:P.y0+4,
+        stroke:pr[1],"stroke-width":1.5,"stroke-dasharray":"4 3"}));
+      svg.appendChild(el("circle",{cx:px(r.best.phi),cy:py(0),r:4.5,fill:"#fff",stroke:pr[1],"stroke-width":2.4}));
+    });
+    txt(svg,{x:W-P.r,y:P.y0+12,"text-anchor":"end","font-size":10.5,fill:"#0891b2","font-weight":600},
+        "world 1");
+    txt(svg,{x:W-P.r,y:P.y0+26,"text-anchor":"end","font-size":10.5,fill:"#dc2626","font-weight":600},
+        "world 2");
+
+    const fa=cache.A.res.best.phi, fb=cache.B.res.best.phi;
+    const show=p=> p>=PHIS[NPHI-1]-1e-9 ? "≥ 300" : fmtPhi(p);
+    document.getElementById("mRa").textContent=show(fa);
+    document.getElementById("mRb").textContent=show(fb);
+  }
+
+  sA.addEventListener("input",function(){ setActive(document.getElementById("mPre"),null); draw("A"); });
+  sB.addEventListener("input",function(){ setActive(document.getElementById("mPre"),null); draw("B"); });
+  Array.prototype.forEach.call(document.querySelectorAll("#mPre button"),function(b){
+    b.addEventListener("click",function(){
+      const p=b.dataset.pre;
+      if(p==="match"){ sA.value=33;  sB.value=80; }
+      if(p==="none"){  sA.value=33;  sB.value=0; }
+      if(p==="split"){ sA.value=100; sB.value=120; }
+      setActive(document.getElementById("mPre"),b); draw();
+    });
+  });
+  draw();
+})();
+</script>
+<script>
+/* embed mode: ?embed=sectionId[,id2,...] strips the page chrome AND the
+   explanatory prose/maths from the kept sections, leaving only the interactive
+   figures, for inlining in an <iframe> in the course site. Reports height so the
+   host page can auto-size the iframe. */
+(function(){
+  var q=new URLSearchParams(location.search), e=q.get('embed');
+  var KEEP={fig:1,controls:1,readout:1,legend:1,presets:1,figcap:1};
+  if(e){
+    var keep=e.split(',').map(function(s){return s.trim();}).filter(Boolean);
+    ['header.hero','nav.toc','footer'].forEach(function(sel){
+      Array.prototype.forEach.call(document.querySelectorAll(sel),function(n){n.style.display='none';});
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('body > div'),function(d){
+      if(!d.classList.contains('wrap')) d.style.display='none';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(sec){
+      if(keep.indexOf(sec.id)===-1){ sec.style.display='none'; return; }
+      sec.style.margin='0'; sec.style.border='none'; sec.style.boxShadow='none'; sec.style.padding='2px 2px 8px';
+      Array.prototype.forEach.call(sec.children,function(c){
+        var k=false, cl=c.classList; if(cl){ for(var key in KEEP){ if(cl.contains(key)){k=true;break;} } }
+        if(!k) c.style.display='none';
+      });
+    });
+    var wrap=document.querySelector('.wrap'); if(wrap) wrap.style.padding='0 8px 10px';
+    document.body.style.background='#fff'; document.documentElement.style.background='#fff';
+  }
+  function postH(){ try{ parent.postMessage({nfiddEmbedHeight: Math.ceil(document.body.getBoundingClientRect().height)}, '*'); }catch(_){} }
+  window.addEventListener('load', postH);
+  window.addEventListener('resize', postH);
+  document.addEventListener('input', function(){ setTimeout(postH,60); });
+  document.addEventListener('click', function(){ setTimeout(postH,120); });
+  setTimeout(postH,250); setTimeout(postH,1000);
+})();
+</script>
+</body>
+</html>

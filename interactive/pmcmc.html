@@ -1,0 +1,1153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Particle MCMC — an exact algorithm with a noisy likelihood</title>
+<style>
+  :root{
+    --fc:#4f46e5;     /* pseudo-marginal chain / primary */
+    --obs:#0d9488;    /* exact likelihood, exact chain / teal */
+    --miss:#f59e0b;   /* the estimate and its noise / amber */
+    --now:#dc2626;    /* the stuck chain, the lucky value / red */
+    --true:#64748b;   /* truth, exact posterior / slate */
+    --ink:#1f2933;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --bg:#fbfbfd;
+    --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font:16px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  .wrap{max-width:920px; margin:0 auto; padding:0 22px 120px}
+  header.hero{
+    padding:54px 22px 30px; text-align:center;
+    background:linear-gradient(180deg,#eef2ff 0%, var(--bg) 100%);
+    border-bottom:1px solid var(--line);
+  }
+  header.hero h1{font-size:30px; margin:0 0 8px; letter-spacing:-.4px}
+  header.hero p{max-width:710px; margin:0 auto; color:var(--muted)}
+  nav.toc{
+    display:flex; gap:8px; flex-wrap:wrap; justify-content:center;
+    margin:22px auto 0; max-width:780px;
+  }
+  nav.toc a{
+    text-decoration:none; color:var(--fc); font-weight:600; font-size:14px;
+    border:1px solid #c7d2fe; background:#fff; padding:6px 13px; border-radius:999px;
+  }
+  nav.toc a:hover{background:#eef2ff}
+  section{
+    background:var(--card); border:1px solid var(--line); border-radius:16px;
+    padding:26px 28px; margin:30px 0; box-shadow:0 1px 2px rgba(15,23,42,.04);
+  }
+  section > h2{margin:0 0 4px; font-size:23px; letter-spacing:-.3px}
+  .tagline{color:var(--muted); margin:0 0 18px; font-size:15px}
+  h3{margin:26px 0 8px; font-size:17px}
+  p{margin:10px 0}
+  .fig{
+    border:1px solid var(--line); border-radius:12px; padding:16px 14px 10px;
+    margin:18px 0 6px; background:#fff;
+  }
+  .fig svg{display:block; width:100%; height:auto}
+  .figcap{font-size:13.5px; color:var(--muted); margin:8px 4px 2px}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:16px 26px; align-items:center;
+    margin:8px 4px 2px; padding:12px 14px; background:#f8fafc;
+    border:1px solid var(--line); border-radius:10px; font-size:14px;
+  }
+  .controls label{display:flex; flex-direction:column; gap:2px; min-width:160px}
+  .controls .vlabel{font-weight:600}
+  .controls input[type=range]{width:170px; accent-color:var(--fc)}
+  .readout{
+    display:inline-flex; gap:14px; flex-wrap:wrap; margin:12px 4px 0;
+    font-variant-numeric:tabular-nums;
+  }
+  .readout .chip{
+    background:#f1f5f9; border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:14px;
+  }
+  .readout .chip b{font-size:16px}
+  .presets{display:flex; gap:8px; flex-wrap:wrap; margin:14px 4px 0; align-items:center}
+  .presets button{
+    font:600 13px inherit; border:1px solid #c7d2fe; background:#fff; color:var(--fc);
+    padding:6px 13px; border-radius:8px; cursor:pointer;
+  }
+  .presets button:hover{background:#eef2ff}
+  .presets button.active{background:var(--fc); color:#fff; border-color:var(--fc)}
+  .presets .plabel{font-size:13.5px; color:var(--muted); align-self:center}
+  .legend{display:flex; gap:18px; flex-wrap:wrap; font-size:13.5px; margin:4px 4px 8px}
+  .legend span{display:inline-flex; align-items:center; gap:7px}
+  .swatch{width:22px; height:0; border-top-width:3px; border-top-style:solid; display:inline-block}
+  .swbox{width:16px; height:14px; border-radius:3px; display:inline-block; vertical-align:middle}
+  .key{background:#f0fdfa; border-left:4px solid var(--obs); padding:12px 16px; border-radius:0 8px 8px 0; margin:16px 0}
+  .key.amber{background:#fffbeb; border-color:var(--miss)}
+  .key.blue{background:#eef2ff; border-color:var(--fc)}
+  .key.red{background:#fef2f2; border-color:var(--now)}
+  .formula{
+    background:#0f172a; color:#e2e8f0; border-radius:10px; padding:14px 18px;
+    font-family:"SFMono-Regular",Consolas,"Liberation Mono",Menlo,monospace;
+    font-size:15px; overflow-x:auto; margin:14px 0; line-height:2.1;
+  }
+  .formula .obs{color:#5eead4} .formula .miss{color:#fcd34d} .formula .tot{color:#a5b4fc}
+  .formula .true{color:#e2e8f0; font-weight:700}
+  .formula .cmt{color:#7c8aa5}
+  .formula.code{line-height:1.75; font-size:14px; white-space:pre}
+  .frac{display:inline-flex; flex-direction:column; text-align:center; vertical-align:middle; margin:0 .25em}
+  .frac > span:first-child{border-bottom:1px solid currentColor; padding:0 .35em}
+  .frac > span:last-child{padding:0 .35em}
+  table{border-collapse:collapse; width:100%; margin:16px 0; font-size:14.5px}
+  th,td{border:1px solid var(--line); padding:9px 12px; text-align:left; vertical-align:top}
+  th{background:#f8fafc}
+  ul{margin:10px 0; padding-left:22px}
+  li{margin:5px 0}
+  code{background:#f1f5f9; padding:1px 6px; border-radius:5px; font-size:14px}
+  details{border:1px solid var(--line); border-radius:10px; padding:10px 14px; margin:10px 0; background:#fff}
+  details summary{font-weight:600; cursor:pointer}
+  details p{margin:8px 0 2px}
+  footer{text-align:center; color:var(--muted); font-size:13px; margin-top:40px}
+  a{color:var(--fc)}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <h1>Particle MCMC with a noisy likelihood</h1>
+  <p>PMMH takes Metropolis-Hastings and replaces the likelihood with a particle filter's <b style="color:var(--miss)">estimate</b>. The chain still targets the <b style="color:var(--true)">exact</b> posterior, at any particle count. What it pays instead is a <b style="color:var(--now)">sticky</b> chain, and the two facts have the same cause.</p>
+  <nav class="toc">
+    <a href="#swap">The swap</a>
+    <a href="#exact">Why it is exact</a>
+    <a href="#sticky">Sticky chains</a>
+    <a href="#tuning">Choosing particles</a>
+    <a href="#nuts">Why not NUTS</a>
+    <a href="#faq">Questions</a>
+  </nav>
+</header>
+
+<div class="wrap">
+
+<!-- ============ THE SWAP ============ -->
+<section id="swap">
+  <h2>One line of Metropolis-Hastings changes</h2>
+  <p class="tagline">And one implementation detail, which is where the whole behaviour comes from</p>
+  <p>The particle filter takes a parameter value and returns a number: propagate particles, weight them against each observation, resample, and multiply the mean weights. Call that number <b style="color:var(--miss)">L̂(θ)</b>. Run the filter twice at the same θ and the two numbers differ.</p>
+  <p>Metropolis-Hastings with an exact likelihood accepts a proposal <i>θ*</i> with probability</p>
+
+  <div class="formula">r = min&thinsp;(1, <span class="frac"><span><span class="tot">p(y | θ*)</span> p(θ*) q(θ | θ*)</span><span><span class="tot">p(y | θ)</span> p(θ) q(θ* | θ)</span></span>)</div>
+
+  <p>PMMH puts the filter's estimate in both places:</p>
+
+  <div class="formula">r&#770; = min&thinsp;(1, <span class="frac"><span><span class="miss">L&#770;(θ*)</span> p(θ*) q(θ | θ*)</span><span><span class="miss">L&#770;(θ)</span> p(θ) q(θ* | θ)</span></span>)</div>
+
+  <p>Everything else in the algorithm is unchanged. The detail that matters is which of those two hats is recomputed.</p>
+
+  <div class="formula code"><span class="cmt">## initialise: one filter run, and keep the number</span>
+θ ← θ₀ ;  <span class="miss">ℓ ← log L&#770;(θ₀, u₀)</span>
+
+<span class="cmt">## each iteration: one filter run, at the proposal only</span>
+θ* ~ q(· | θ)
+<span class="miss">ℓ* ← log L&#770;(θ*, u*)</span>
+log r&#770; = [ log p(θ*) + <span class="miss">ℓ*</span> ] − [ log p(θ) + <span class="miss">ℓ</span> ] + log q(θ | θ*) − log q(θ* | θ)
+
+accept, with probability min(1, r&#770;):   θ ← θ* ,  <span class="miss">ℓ ← ℓ*</span>
+reject:                            θ and <span class="miss">ℓ</span> both unchanged</div>
+
+  <p>The stored number <b style="color:var(--miss)">ℓ</b> is part of the state of the chain, alongside θ. On a rejection it is carried forward untouched, so the same estimate sits in the denominator of the next acceptance ratio, and the one after that. A run of 300 rejections compares 300 honest proposals against one number that was drawn once.</p>
+  <p>This is a single filter run per iteration rather than two, which is also the cheaper option. Recomputing the current state's estimate is a real bug with a specific consequence, and <a href="#sticky">the third figure</a> shows what it does.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--fc)"></i> the chain, θ</span>
+    <span><i class="swbox" style="background:var(--miss)"></i> stored log-likelihood estimate</span>
+    <span><i class="swbox" style="background:var(--now)"></i> stored estimate that is running stale</span>
+  </div>
+
+  <div class="fig">
+    <svg id="swapSvg" viewBox="0 0 720 440" role="img" aria-label="One PMMH iteration. The current state carries a stored log-likelihood estimate and its age in iterations; the proposal gets a fresh estimate from one filter run. The acceptance ratio compares them, and a trace below shows the chain sticking while a stale stored value sits in the denominator."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">SD of the log-likelihood estimate: <span id="swSval">1.0</span></span>
+      <input id="swS" type="range" min="0" max="4" step="0.1" value="1.0"></label>
+  </div>
+  <div class="presets">
+    <button id="swRun">▶ run</button>
+    <button id="swStep">step ▸</button>
+    <button id="swReset">reset</button>
+    <span class="plabel">presets:</span>
+    <button class="swPre" data-s="0">exact likelihood</button>
+    <button class="swPre active" data-s="1">well tuned</button>
+    <button class="swPre" data-s="3">noisy filter</button>
+  </div>
+  <div class="readout">
+    <span class="chip">iteration <b id="swIter">0</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">acceptance = <b id="swAcc">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">stored estimate is <b id="swAge">—</b> iterations old</span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">it is <b id="swExc">—</b> too high</span>
+    <span class="chip">longest rejection run = <b id="swRun2">—</b></span>
+  </div>
+  <div class="key">Set the noise to zero and the chain accepts about 46% of proposals, close to the 44% a well-scaled random walk reaches in one dimension. Raise it and watch the <b>age</b> chip climb. The stored estimate does not go stale because it is old. It is old because it was lucky, and a lucky number is hard to beat.</div>
+</section>
+
+<!-- ============ WHY IT IS EXACT ============ -->
+<section id="exact">
+  <h2>Why the chain is still exact</h2>
+  <p class="tagline">The pseudo-marginal argument, on the enlarged space where the algorithm actually lives</p>
+  <p>Plugging a random number into an algorithm derived for a fixed one should break it. It does not, and the reason is not that the noise averages out over the run. It is that PMMH is an ordinary Metropolis-Hastings chain, on a space one step larger than the one you were looking at.</p>
+
+  <h3>The extended target</h3>
+  <p>Write <b>u</b> for every random number the filter draws in one run: the initial particles, the transitions, the resampling indices. It is drawn from a density <i>m(u)</i> that does not depend on θ. The estimate is a deterministic function of the pair, <b style="color:var(--miss)">L̂(θ, u)</b>, and it is non-negative. The one property required of it is unbiasedness, which the bootstrap filter has for every particle count <i>J</i> and every θ (<a href="https://doi.org/10.1007/978-1-4684-9393-1">Del Moral 2004</a>, Proposition 7.4.1):</p>
+
+  <div class="formula">∫ <span class="miss">L&#770;(θ, u)</span> m(u) du = <span class="tot">p(y | θ)</span> &nbsp;&nbsp;<span class="cmt">## for every θ, and every J ≥ 1</span></div>
+
+  <p>Now define a distribution over the pair (θ, u), by treating the estimate as though it were the likelihood:</p>
+
+  <div class="formula">π&#771;(θ, u) = <span class="frac"><span>p(θ) <span class="miss">L&#770;(θ, u)</span> m(u)</span><span>p(y)</span></span></div>
+
+  <p>Integrating u out of it uses the unbiasedness line above and nothing else:</p>
+
+  <div class="formula">∫ π&#771;(θ, u) du = <span class="frac"><span>p(θ) <span class="tot">p(y | θ)</span></span><span>p(y)</span></span> = <span class="true">π(θ | y)</span> &nbsp;&nbsp;<span class="cmt">## the posterior you wanted</span></div>
+
+  <p>So π̃ is a genuine distribution whose θ-margin is the posterior. The last step is to check that PMMH is Metropolis-Hastings for it. Propose the pair from <i>q(θ* | θ) m(u*)</i>, meaning propose θ* as usual and draw fresh filter randomness. The Metropolis-Hastings ratio for π̃ under that proposal is</p>
+
+  <div class="formula">r&#771; = <span class="frac"><span>p(θ*) <span class="miss">L&#770;(θ*, u*)</span> <s>m(u*)</s> · q(θ | θ*) <s>m(u)</s></span><span>p(θ) <span class="miss">L&#770;(θ, u)</span> <s>m(u)</s> · q(θ* | θ) <s>m(u*)</s></span></span> = <span class="frac"><span>p(θ*) <span class="miss">L&#770;(θ*, u*)</span> q(θ | θ*)</span><span>p(θ) <span class="miss">L&#770;(θ, u)</span> q(θ* | θ)</span></span></div>
+
+  <p>The <i>m</i> terms cancel because the filter's randomness is proposed from exactly the density it carries in the target. What is left is the ratio the code computes, which never mentions u at all. PMMH is therefore standard Metropolis-Hastings on (θ, u), it satisfies detailed balance for π̃, and its θ-margin is the posterior. <a href="https://doi.org/10.1214/07-AOS574">Andrieu &amp; Roberts (2009)</a> set this out as the pseudo-marginal method, and <a href="https://doi.org/10.1111/j.1467-9868.2009.00736.x">Andrieu, Doucet &amp; Holenstein (2010)</a> established it for particle filters.</p>
+
+  <div class="key blue"><b>Two things follow immediately.</b> The chain is exact at <i>any</i> particle count, including <i>J</i> = 1, where the filter is a single simulated trajectory. Particle count buys efficiency and nothing else. And the stored estimate is not an approximation being carried around. It is the u-half of the current state, and dropping it would mean leaving the state space the argument is built on.</div>
+
+  <h3>The cost is written into the target</h3>
+  <p>The extended target does not treat filter randomness evenly. It weights u by L̂(θ, u), so draws that happened to return a high estimate get more mass. Take the standard idealisation of the filter's error, a log-normal estimate with the mean correction that makes it unbiased,</p>
+
+  <div class="formula"><span class="miss">log L&#770;(θ, z)</span> = <span class="tot">log p(y | θ)</span> + σ z − σ²/2 ,&nbsp;&nbsp; z ~ N(0, 1)</div>
+
+  <p>Under π̃ the auxiliary variable is distributed as N(σ, 1) rather than N(0, 1). The chain sits, on average, at estimates that are σ²/2 log-units above the truth. That is the tilt the figure below draws, and it is the same tilt that <a href="#sticky">makes the chain stick</a>. Paying for exactness and getting stuck are one event described twice.</p>
+
+  <div class="legend">
+    <span><i class="swbox" style="background:var(--fc);opacity:.75"></i> π̃(θ, z), the extended target</span>
+    <span><i class="swatch" style="border-color:var(--fc)"></i> its θ-margin</span>
+    <span><i class="swatch" style="border-color:var(--true);border-top-style:dashed"></i> exact posterior</span>
+    <span><i class="swatch" style="border-color:var(--miss)"></i> z-margin under π̃</span>
+    <span><i class="swatch" style="border-color:var(--muted);border-top-style:dotted"></i> N(0,1), the density z is drawn from</span>
+  </div>
+
+  <div class="fig">
+    <svg id="extSvg" viewBox="0 0 720 450" role="img" aria-label="A heatmap of the extended target over the parameter and the filter's auxiliary variable, with the parameter margin drawn beneath it against the exact posterior, and the auxiliary margin drawn to the right against the standard normal it is proposed from."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">SD of the log-likelihood estimate: <span id="exSval">1.0</span></span>
+      <input id="exS" type="range" min="0.2" max="3" step="0.1" value="1.0"></label>
+    <label><span class="vlabel">systematic bias in the estimate, b: <span id="exBval">0.0</span></span>
+      <input id="exB" type="range" min="-3" max="3" step="0.25" value="0"></label>
+  </div>
+  <div class="presets">
+    <span class="plabel">presets:</span>
+    <button class="exPre active" data-s="1" data-b="0">unbiased, well tuned</button>
+    <button class="exPre" data-s="3" data-b="0">unbiased, very noisy</button>
+    <button class="exPre" data-s="1" data-b="2">biased estimate</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">E[L&#770;] / p(y|θ) = <b id="exBias">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">θ-margin mean = <b id="exMean">—</b></span>
+    <span class="chip">SD = <b id="exSd">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--true);padding-left:10px">exact posterior: 0.800, SD 0.447</span>
+    <span class="chip">mean z under π&#771; = <b id="exZ">—</b></span>
+  </div>
+  <div class="key amber"><b>Move the noise slider with b at zero.</b> The heatmap smears and shifts upward, the z-margin separates from the density z was drawn from, and the θ-margin stays exactly on the posterior. Now move <b>b</b>, which tilts the estimate by a factor e<sup>b(θ−0.8)</sup> and so breaks unbiasedness in a way that depends on θ. The θ-margin slides off the posterior by b × 0.2, the bias times the posterior variance. Unbiasedness is the whole requirement, and it is a requirement on the estimate of the likelihood, not of the log-likelihood.</div>
+  <p>A constant multiplicative bias would cancel between numerator and denominator and change nothing. A bias that varies with θ moves the answer. This is why averaging several filter runs must be done on the estimates rather than on their logarithms: the mean of the logarithms is not the logarithm of the mean, and the gap between them depends on how noisy the filter is at that θ.</p>
+</section>
+
+<!-- ============ STICKY CHAINS ============ -->
+<section id="sticky">
+  <h2>The price of exactness is a sticky chain</h2>
+  <p class="tagline">Run one, watch the stored estimate, and see where the plateaus come from</p>
+  <p>The chain below runs on a target with one parameter, a normal prior and a normal likelihood, so the exact posterior is available to check against: it is N(0.8, 0.447²). The likelihood estimate uses the log-normal noise model above, with SD σ set by the slider. Proposals are a random walk with a fixed step, and the exact-likelihood chain drawn behind uses the same proposals and the same uniforms, so any difference between the two traces comes from the noise alone.</p>
+  <p>Three panels. The trace, the excess carried in the denominator (log L̂ stored, minus the true log-likelihood at the current θ), and the pooled draws of eight chains against the exact posterior.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--fc)"></i> PMMH chain</span>
+    <span><i class="swatch" style="border-color:var(--true);opacity:.6"></i> exact-likelihood chain, same proposals</span>
+    <span><i class="swbox" style="background:var(--now);opacity:.16"></i> longest rejection run</span>
+    <span><i class="swatch" style="border-color:var(--miss)"></i> excess in the stored estimate</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> σ²/2, its average under π&#771;</span>
+  </div>
+
+  <div class="fig">
+    <svg id="stickSvg" viewBox="0 0 720 600" role="img" aria-label="Top: traces of a PMMH chain and an exact-likelihood chain sharing proposals, with the longest run of rejections shaded. Middle: the excess of the stored log-likelihood estimate over the truth, against its predicted average. Bottom: pooled draws from eight chains as a histogram against the exact posterior density."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">SD of the log-likelihood estimate: <span id="stSval">1.0</span></span>
+      <input id="stS" type="range" min="0" max="5" step="0.1" value="1.0"></label>
+  </div>
+  <div class="presets">
+    <span class="plabel">presets:</span>
+    <button class="stPre" data-s="0">exact likelihood</button>
+    <button class="stPre active" data-s="1">σ = 1, well tuned</button>
+    <button class="stPre" data-s="3">σ = 3, noisy</button>
+    <button class="stPre" data-s="5">σ = 5, degenerate</button>
+  </div>
+  <div class="presets">
+    <span class="plabel">stored estimate:</span>
+    <button id="stKeep" class="active">reused on rejection</button>
+    <button id="stFresh">recomputed every iteration</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">acceptance = <b id="stAcc">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">longest rejection run = <b id="stRun">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">mean excess = <b id="stExc">—</b></span>
+    <span class="chip"><span id="stPredLab">σ²/2</span> = <b id="stPred">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--true);padding-left:10px">posterior SD, pooled = <b id="stSd">—</b> (exact 0.447)</span>
+  </div>
+  <div class="key red"><b>The mechanism.</b> A proposal is accepted partly on its merit and partly on the luck of its filter run. Once a lucky run is accepted, its estimate becomes the number every later proposal has to beat, and a proposal has to be lucky in turn to displace it. The excess panel makes this visible: each plateau in the trace sits under a raised step in the excess. The average height of those steps approaches σ²/2, which is what the extended target predicts, so a filter twice as noisy leaves the chain defending a value four times further above the truth. That average needs accepted moves to average over, so at the noisy end of the slider it has not settled and the measured mean sits below the line.</div>
+  <p>Sweep σ upwards and the acceptance rate falls, the plateaus lengthen, and the pooled histogram stays on the exact posterior. At σ = 5 it turns ragged and the pooled SD reads nearer 0.40 than 0.447. Eight chains that accept one proposal in a hundred hold very few independent draws between them, so that gap is Monte Carlo error. Longer chains scatter either side of 0.447 rather than settling below it. The excess panel thins out at the same settings. Acceptance is 4.3% at σ = 3 and 0.9% at σ = 5, and the mean excess reads 3.7 and 4.6 against a line drawn at 4.5 and 12.5. Running a hundred times longer brings those to 4.3 and 8.9, so the gap is the running mean failing to settle rather than the prediction failing.</p>
+  <div class="key"><b>Now press "recomputed every iteration".</b> This is the version that evaluates the filter at the current θ as well as at the proposal, which looks like the obvious way to avoid holding a stale number. The plateaus disappear and the posterior inflates: at σ = 1 the pooled SD goes from 0.447 to about 0.54, at σ = 3 to about 0.77. Redrawing u at every step is an update of the u-half of the state that no accept-reject step accounts for, so the chain no longer preserves π̃. The proposal is offered a fresh chance to be lucky at every iteration and the current state is never allowed to hold on to one, so the chain wanders outward. Stickiness is not a flaw sitting next to the correctness argument. It is what the correctness argument costs.</div>
+</section>
+
+<!-- ============ TUNING ============ -->
+<section id="tuning">
+  <h2>How many particles</h2>
+  <p class="tagline">Linear cost against a variance that decides how far the chain moves</p>
+  <p>Each iteration runs the filter once, so the cost per iteration is proportional to the particle count <i>J</i>. The variance of the log-likelihood estimate falls roughly as 1/<i>J</i>, so its SD falls roughly as 1/√<i>J</i>. More particles buy movement per iteration and charge for it linearly. Somewhere in between sits a minimum.</p>
+  <p>The curve below is computed by running the toy chain at each particle count. Efficiency is measured by the expected squared jump distance per iteration, which is the criterion the asymptotic results in this area optimise, and cost is the particles spent per unit of movement, scaled so the best setting reads 1. Particle counts on the axis use the course's own calibration as the anchor: the <a href="particle-filters.html#likelihood">particle filters session</a> found an SD near 2 at 64 particles, and the SD scales as 1/√<i>J</i>, so <i>J</i> ≈ 256/σ².</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--fc)"></i> relative cost per unit of movement</span>
+    <span><i class="swatch" style="border-color:var(--obs)"></i> acceptance rate</span>
+    <span><i class="swbox" style="background:var(--miss);opacity:.18"></i> the course's target band, SD 1 to 3</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> SD 1.8, the asymptotic optimum</span>
+  </div>
+
+  <div class="fig">
+    <svg id="tuneSvg" viewBox="0 0 720 420" role="img" aria-label="Relative cost per unit of movement against particle count, a U-shaped curve with a flat bottom, with acceptance rate on a second axis, the course's target band shaded, and a marker at the currently selected particle count."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">particles J: <span id="tuJval">256</span></span>
+      <input id="tuJ" type="range" min="0" max="16" step="1" value="8"></label>
+  </div>
+  <div class="presets">
+    <span class="plabel">presets:</span>
+    <button class="tuPre" data-i="0">16, far too few</button>
+    <button class="tuPre" data-i="4">64, the course minimum</button>
+    <button class="tuPre active" data-i="8">256, the course setting</button>
+    <button class="tuPre" data-i="16">4096, wasteful</button>
+  </div>
+  <div class="readout">
+    <span class="chip">J = <b id="tuJ2">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">SD of log L&#770; = <b id="tuS">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">acceptance = <b id="tuAcc">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--fc);padding-left:10px">cost = <b id="tuCost">—</b>× the best</span>
+    <span class="chip">longest rejection run = <b id="tuRun">—</b></span>
+  </div>
+  <p class="figcap">Each point is 16 chains of 8,000 iterations, run in the page when it loads. Squared jump distance is noisy at the far left, where the chain accepts under 1% of proposals.</p>
+
+  <h3>What the published numbers say</h3>
+  <p>The guidance is stated as a target for the SD of the log-likelihood estimate, measured at a representative parameter value, because that is the quantity the efficiency depends on. Three figures get quoted and they do not conflict.</p>
+  <table>
+    <tr><th>Source</th><th>Target SD</th><th>Under what</th></tr>
+    <tr><td>This course, particle filters session</td><td>1 to 3</td><td>A working range, following <a href="https://doi.org/10.1016/j.jeconom.2012.06.004">Pitt et al. (2012)</a>. Calibrate at a parameter value near the posterior, and check it again once you have a posterior to check against.</td></tr>
+    <tr><td><a href="https://doi.org/10.1093/biomet/asu075">Doucet et al. (2015)</a></td><td>1.0 to 1.7, or 1.2</td><td>Minimising bounds on the computing time. Around 1.0 when the chain would be efficient with the exact likelihood, around 1.7 when it would not, and around 1.2 when you cannot tell, which is the usual case because the exact-likelihood chain cannot be run.</td></tr>
+    <tr><td><a href="https://doi.org/10.1214/14-AOS1278">Sherlock et al. (2015)</a></td><td>about 1.8, with acceptance near 7%</td><td>Maximising expected squared jump distance for pseudo-marginal random-walk Metropolis, in the limit of many parameters, with the noise variance taken as independent of θ.</td></tr>
+  </table>
+  <p>These are asymptotic results under stated assumptions. They are worth knowing because they say the optimum is a single-digit acceptance rate, which is far below anything you would tolerate in ordinary MCMC, and because they say the penalty for being somewhat off is small. They are not settings to copy. The 7% belongs to a many-parameter limit, and the toy target in the figure has one parameter, where a well-scaled chain with an exact likelihood accepts 44%, so its own minimum sits higher, near 15%.</p>
+  <div class="key blue"><b>Read the flat bottom, rather than the minimum.</b> In the figure the cost is within a factor of 1.5 of the best across roughly SD 1.2 to 2.8, and rises to 17× by the time the SD reaches 0.25. The band a real calibration should aim at is wide, and the expensive mistake is using far too many particles, which is quiet, because the chain looks healthy while wasting most of its time.</div>
+  <p>One caveat about the axis. The position of the minimum belongs to this toy target and its proposal, and the mapping to particle counts is borrowed from the course's SEIT4L calibration. Read the SD, calibrate your own filter, and treat the particle numbers as an illustration.</p>
+</section>
+
+<!-- ============ WHY NOT NUTS ============ -->
+<section id="nuts">
+  <h2>Why not NUTS</h2>
+  <p class="tagline">Two obstacles, and the second is the one that cannot be worked around</p>
+  <p>The first is that the likelihood is not differentiable. Resampling picks ancestor indices, the Gillespie simulator fires discrete events, and neither is a smooth function of the parameters. There is no gradient to hand to a gradient-based sampler.</p>
+  <p>The second is that the filter returns a different number every run. Hamiltonian methods integrate a trajectory along a fixed surface, using the gradient of the log-posterior at each step of the integrator. Here there is no fixed surface. Evaluate at the same θ twice and you are on two different surfaces, so the trajectory is not following anything.</p>
+  <p>The figure evaluates the estimated log-likelihood on a grid, three independent times, and takes a central finite difference at the marked point. The slider for the step size <i>h</i> shows the bind: the noise in the slope estimate is σ/(h√2), so shrinking <i>h</i> to control the discretisation error multiplies the noise.</p>
+
+  <div class="legend">
+    <span><i class="swatch" style="border-color:var(--obs)"></i> exact log-likelihood</span>
+    <span><i class="swatch" style="border-color:var(--miss)"></i> three independent filter passes</span>
+    <span><i class="swatch" style="border-color:var(--obs);border-top-style:dashed"></i> true slope</span>
+    <span><i class="swatch" style="border-color:var(--now);border-top-style:dashed"></i> slopes from finite differences</span>
+  </div>
+
+  <div class="fig">
+    <svg id="gradSvg" viewBox="0 0 720 400" role="img" aria-label="The exact log-likelihood as a smooth curve, with three independent noisy filter evaluations over the same grid, and the true tangent at a marked parameter value against five finite-difference slopes estimated from independent runs."></svg>
+  </div>
+  <div class="controls">
+    <label><span class="vlabel">particles J: <span id="grJval">256</span></span>
+      <input id="grJ" type="range" min="0" max="16" step="1" value="8"></label>
+    <label><span class="vlabel">finite-difference step h: <span id="grHval">0.10</span></span>
+      <input id="grH" type="range" min="0.02" max="0.5" step="0.01" value="0.10"></label>
+    <label><span class="vlabel">evaluate at θ = <span id="grTval">0.30</span></span>
+      <input id="grT" type="range" min="-0.2" max="2.0" step="0.05" value="0.30"></label>
+  </div>
+  <div class="presets">
+    <button id="grAgain">↻ run the filter again</button>
+    <span class="plabel">presets:</span>
+    <button class="grPre" data-j="4">64 particles</button>
+    <button class="grPre active" data-j="8">256 particles</button>
+    <button class="grPre" data-j="16">4096 particles</button>
+  </div>
+  <div class="readout">
+    <span class="chip" style="border-left:4px solid var(--miss);padding-left:10px">SD of log L&#770; = <b id="grS">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--obs);padding-left:10px">true slope = <b id="grTrue">—</b></span>
+    <span class="chip" style="border-left:4px solid var(--now);padding-left:10px">one estimate = <b id="grEst">—</b></span>
+    <span class="chip">SD of the estimate = <b id="grSd">—</b></span>
+    <span class="chip">noise ÷ signal = <b id="grRatio">—</b></span>
+  </div>
+  <div class="key amber"><b>What Metropolis-Hastings uses and Hamiltonian methods cannot.</b> The accept-reject step needs the estimate to be right <i>on average</i>, and the pseudo-marginal argument turns that into exactness. A gradient has no such rescue. The filter has no unbiased estimate of the log-likelihood to differentiate, and u is redrawn at every evaluation, so an integrator never sees the same surface twice. This is why the practical reaches for robust adaptive Metropolis (<a href="https://doi.org/10.1007/s11222-011-9269-5">Vihola 2012</a>), which learns the proposal covariance during warmup without ever asking for a derivative.</div>
+  <p class="figcap">The figure shows the second obstacle only. Non-differentiability is not visible here, because the toy target has a smooth exact likelihood and the noise is added to it. In a real filter the two arrive together.</p>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section id="faq">
+  <h2>Common questions</h2>
+  <p class="tagline">The ones that come up in the practical, and one that comes up as a bug</p>
+
+  <details><summary>Does the filter's noise bias my posterior?</summary>
+  <p>No. As long as the filter's estimate of the likelihood is unbiased, the chain targets the exact posterior at any particle count. The noise costs efficiency, which shows up as a low acceptance rate and long plateaus, and a chain that has not run long enough will look wrong for that reason rather than from bias.</p></details>
+
+  <details><summary>Why does my chain sit still for 300 iterations?</summary>
+  <p>Because the estimate stored at the current state was a lucky draw, and it stays in the denominator until something beats it. Under the target, the stored estimate sits σ²/2 log-units above the truth on average, so plateaus lengthen quickly as the filter gets noisier. Adding particles is the fix, not adding iterations.</p></details>
+
+  <details><summary>Should I use more particles or more iterations?</summary>
+  <p>Within the target band the total cost is flat, so once the filter is calibrated the rest of the budget goes on iterations. The <a href="particle-filters.html#faq">particle filters page</a> covers how to measure the SD and what to aim at.</p></details>
+
+  <details><summary>Can I recompute the likelihood estimate at the current state as well?</summary>
+  <p>No, and it is a common bug because it looks like an improvement. The current state's u is part of the state, and redrawing it with no accept-reject step leaves the chain no longer invariant for the extended target. The plateaus vanish and the posterior comes out too wide, which is easy to miss because the trace looks better.</p></details>
+
+  <details><summary>Can I fix the random seed so the filter is reproducible?</summary>
+  <p>Fixing the seed inside the likelihood makes L̂ a deterministic function of θ, so the chain becomes ordinary Metropolis-Hastings for that fixed function. It is exact for the wrong target: one perturbed realisation of the posterior, with the size of the perturbation set by the filter's variance. Seed the run as a whole for reproducibility, and let each filter call draw fresh randomness.</p></details>
+
+  <details><summary>Why robust adaptive Metropolis rather than plain Metropolis-Hastings?</summary>
+  <p>With six correlated parameters, a proposal that ignores the correlation aims most of its moves in directions the posterior does not extend, and hand-tuning six variances to fix that takes several pilot runs. RAM learns the proposal covariance during warmup and scales it towards a target acceptance rate. Adaptation stops at the end of warmup, so the chain that is kept is an ordinary Metropolis chain with a well-chosen proposal.</p></details>
+
+  <details><summary>What is particle Gibbs, and when would I want it?</summary>
+  <p>Particle Gibbs runs a conditional filter that keeps one reference trajectory from the previous iteration, then updates the parameters given that trajectory. It suits models where the parameters have conditional structure worth exploiting given the path, and it avoids PMMH's stickiness because the path is updated rather than accepted or rejected wholesale. Its own failure mode is path degeneracy, which leaves the early states of the reference trajectory barely changing, and ancestor sampling is the standard repair (<a href="https://jmlr.org/papers/v15/lindsten14a.html">Lindsten et al. 2014</a>).</p></details>
+
+  <details><summary>Does any of this depend on it being a bootstrap filter?</summary>
+  <p>No. The argument needs a non-negative, unbiased estimate of the likelihood, and auxiliary and guided filters supply one as long as the weights are correct. Better filters reduce the variance, which moves you along the cost curve, and leave the exactness argument untouched.</p></details>
+
+</section>
+
+<footer>Built for the MFIIDD particle MCMC session · self-contained, all figures computed in the page.</footer>
+
+</div>
+
+<script>
+/* ---------- small shared numerics ---------- */
+const SVGNS="http://www.w3.org/2000/svg";
+function el(tag,attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+function clear(svg){ while(svg.firstChild) svg.removeChild(svg.firstChild); }
+function txt(svg,x,y,s,attrs){
+  const a=Object.assign({x:x,y:y,"font-size":11,fill:"#6b7280"},attrs||{});
+  const t=el("text",a); t.textContent=s; svg.appendChild(t); return t;
+}
+/* mulberry32: small seeded PRNG, so every figure is reproducible */
+function mulberry32(a){
+  return function(){
+    a|=0; a=a+0x6D2B79F5|0;
+    var t=Math.imul(a^a>>>15,1|a);
+    t=t+Math.imul(t^t>>>7,61|t)^t;
+    return ((t^t>>>14)>>>0)/4294967296;
+  };
+}
+function gaussFrom(rnd){
+  let u=0,v=0;
+  while(u===0) u=rnd();
+  while(v===0) v=rnd();
+  return Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);
+}
+
+/* ---------- the toy target: normal prior, normal likelihood ----------
+   prior  theta ~ N(0, 1)
+   lik    log p(y|theta) = -0.5*((theta-1)/0.5)^2
+   so the posterior is N(0.8, 0.4472^2), available exactly.            */
+const PRIOR_SD=1, LIK_MU=1, LIK_SD=0.5;
+const POST_PREC=1/(PRIOR_SD*PRIOR_SD)+1/(LIK_SD*LIK_SD);
+const POST_MEAN=(LIK_MU/(LIK_SD*LIK_SD))/POST_PREC;
+const POST_SD=Math.sqrt(1/POST_PREC);
+const STEP=1.0;                                   /* random-walk proposal SD */
+function logPrior(t){ return -0.5*(t*t)/(PRIOR_SD*PRIOR_SD); }
+function logLik(t){ return -0.5*Math.pow((t-LIK_MU)/LIK_SD,2); }
+function postPdf(t){ return Math.exp(-0.5*Math.pow((t-POST_MEAN)/POST_SD,2))/(POST_SD*Math.sqrt(2*Math.PI)); }
+function normPdf(z){ return Math.exp(-0.5*z*z)/Math.sqrt(2*Math.PI); }
+/* particle count <-> SD of log-likelihood estimate, anchored on the course's
+   calibration: 64 particles gave an SD near 2, and SD scales as 1/sqrt(J).   */
+function sdFromJ(J){ return 16/Math.sqrt(J); }
+function jFromSd(s){ return 256/(s*s); }
+
+/* one PMMH run on the toy target. `refresh` recomputes the current state's
+   estimate every iteration, which is the bug the sticky figure demonstrates. */
+function pmmh(o){
+  const n=o.n, sig=o.sigma, refresh=!!o.refresh, keep=!!o.keep;
+  const rp=mulberry32(o.seedProp), rn=mulberry32(o.seedNoise);
+  let th=POST_MEAN;
+  let stored=logLik(th)+sig*gaussFrom(rn)-0.5*sig*sig;
+  const draws=keep?new Float64Array(n):null, excess=keep?new Float64Array(n):null;
+  const age=keep?new Int32Array(n):null;
+  let acc=0, esjd=0, run=0, maxRun=0, runEnd=0, since=0, sum=0, sumsq=0, sumExc=0;
+  for(let i=0;i<n;i++){
+    if(refresh){ stored=logLik(th)+sig*gaussFrom(rn)-0.5*sig*sig; since=0; }
+    /* the excess is the one that sits in the denominator of this iteration's
+       ratio, so it is recorded before the accept step. Recording it afterwards
+       conditions the accepted iterations on having been accepted, which skews
+       the average high and pulls it away from the value the target predicts. */
+    const ex=stored-logLik(th);
+    const prop=th+STEP*gaussFrom(rp);
+    const lp=logLik(prop)+sig*gaussFrom(rn)-0.5*sig*sig;
+    const la=(logPrior(prop)+lp)-(logPrior(th)+stored);
+    if(Math.log(rp())<la){
+      esjd+=(prop-th)*(prop-th); th=prop; stored=lp; acc++; since=0;
+      if(run>maxRun){ maxRun=run; runEnd=i; }
+      run=0;
+    } else { run++; since++; }
+    sum+=th; sumsq+=th*th; sumExc+=ex;
+    if(keep){ draws[i]=th; excess[i]=ex; age[i]=since; }
+  }
+  if(run>maxRun){ maxRun=run; runEnd=n-1; }
+  const mean=sum/n;
+  return {draws:draws, excess:excess, age:age, acc:acc/n, esjd:esjd/n,
+          maxRun:maxRun, runEnd:runEnd, mean:mean,
+          sd:Math.sqrt(Math.max(sumsq/n-mean*mean,0)), meanExcess:sumExc/n};
+}
+
+/* ================= FIGURE 1 : one iteration of the algorithm ================= */
+(function(){
+  const svg=document.getElementById("swapSvg");
+  const W=720, TRACE=110;                      /* iterations shown in the trace */
+  const sInp=document.getElementById("swS");
+  let sigma=1.0, rp=null, rn=null, timer=null;
+  let th, stored, iter, accepts, since, run, maxRun, hist, last;
+
+  function reset(){
+    stop();
+    sigma=+sInp.value;
+    rp=mulberry32(20240501); rn=mulberry32(917);
+    th=POST_MEAN;
+    stored=logLik(th)+sigma*gaussFrom(rn)-0.5*sigma*sigma;
+    iter=0; accepts=0; since=0; run=0; maxRun=0; hist=[th];
+    last={prop:null, lp:null, lr:null, accepted:null, curTh:null, curStored:null};
+    draw();
+  }
+  function step(){
+    const prop=th+STEP*gaussFrom(rp);
+    const lp=logLik(prop)+sigma*gaussFrom(rn)-0.5*sigma*sigma;
+    const lr=(logPrior(prop)+lp)-(logPrior(th)+stored);
+    const accepted=Math.log(rp())<lr;
+    const curTh=th, curStored=stored;
+    if(accepted){
+      th=prop; stored=lp; accepts++; since=0;
+      if(run>maxRun) maxRun=run;
+      run=0;
+    } else { since++; run++; if(run>maxRun) maxRun=run; }
+    iter++;
+    hist.push(th); if(hist.length>TRACE) hist.shift();
+    last={prop:prop, lp:lp, lr:lr, accepted:accepted, curTh:curTh, curStored:curStored};
+    draw();
+  }
+  function box(x,y,w,h,stroke,fill){
+    svg.appendChild(el("rect",{x:x,y:y,width:w,height:h,rx:10,fill:fill,stroke:stroke,"stroke-width":1.4}));
+  }
+  function draw(){
+    document.getElementById("swSval").textContent=sigma.toFixed(1);
+    clear(svg);
+    const stale=since>=8;
+    /* --- current state --- */
+    box(24,42,300,116,stale?"#dc2626":"#c7d2fe",stale?"#fef2f2":"#f8fafc");
+    txt(svg,40,64,"current state of the chain",{"font-size":12,"font-weight":700,fill:"#1f2933"});
+    txt(svg,40,90,"θ = "+th.toFixed(3),{"font-size":14,fill:"#4f46e5","font-weight":700});
+    txt(svg,40,114,"stored log L̂ = "+stored.toFixed(2),{"font-size":14,fill:stale?"#dc2626":"#b45309","font-weight":700});
+    txt(svg,40,138,"drawn "+since+" iteration"+(since===1?"":"s")+" ago, and "+
+        (stored-logLik(th)).toFixed(2)+" above the truth",{"font-size":11,fill:stale?"#dc2626":"#6b7280"});
+    /* --- proposal --- */
+    box(396,42,300,116,"#c7d2fe","#f8fafc");
+    txt(svg,412,64,"proposal",{"font-size":12,"font-weight":700,fill:"#1f2933"});
+    if(last.prop===null){
+      txt(svg,412,96,"press step to propose",{"font-size":13,fill:"#6b7280"});
+    } else {
+      txt(svg,412,90,"θ* = "+last.prop.toFixed(3),{"font-size":14,fill:"#4f46e5","font-weight":700});
+      txt(svg,412,114,"fresh log L̂* = "+last.lp.toFixed(2),{"font-size":14,fill:"#b45309","font-weight":700});
+      txt(svg,412,138,"one filter run, at the proposal only",{"font-size":11,fill:"#6b7280"});
+    }
+    /* --- arrow --- */
+    svg.appendChild(el("line",{x1:330,y1:100,x2:390,y2:100,stroke:"#94a3b8","stroke-width":1.6}));
+    svg.appendChild(el("path",{d:"M 390 100 L 381 96 L 381 104 Z",fill:"#94a3b8"}));
+    txt(svg,360,86,"propose",{"text-anchor":"middle","font-size":10.5,fill:"#64748b","font-weight":600});
+    /* --- ratio --- */
+    svg.appendChild(el("rect",{x:24,y:180,width:672,height:52,rx:9,fill:"#0f172a"}));
+    if(last.lr===null){
+      txt(svg,44,212,"log r̂ = [ log p(θ*) + log L̂* ] − [ log p(θ) + stored log L̂ ]",
+          {"font-size":13.5,fill:"#e2e8f0","font-family":"Menlo,Consolas,monospace"});
+    } else {
+      txt(svg,44,204,"log r̂ = [ "+logPrior(last.prop).toFixed(2)+" + "+last.lp.toFixed(2)+" ] − [ "+
+          logPrior(last.curTh).toFixed(2)+" + "+last.curStored.toFixed(2)+" ]",
+          {"font-size":13,fill:"#e2e8f0","font-family":"Menlo,Consolas,monospace"});
+      txt(svg,44,224,"       = "+last.lr.toFixed(2)+"   →   "+(last.accepted?"accepted":"rejected")+
+          (last.accepted?"" : ", so θ and the stored estimate both stay"),
+          {"font-size":13,fill:last.accepted?"#5eead4":"#fca5a5","font-family":"Menlo,Consolas,monospace"});
+    }
+    /* --- trace --- */
+    const m={l:54,r:20,t:270,b:40}, H=410;
+    const lo=-1.0, hi=2.6;
+    const sy=v=>H-(v-lo)/(hi-lo)*(H-m.t);
+    const sx=i=>m.l+(i/(TRACE-1))*(W-m.l-m.r);
+    txt(svg,m.l,m.t-14,"the last "+TRACE+" iterations",{"font-size":12,"font-weight":700,fill:"#1f2933"});
+    for(let g=0;g<=2;g++){
+      const v=g;
+      svg.appendChild(el("line",{x1:m.l,y1:sy(v),x2:W-m.r,y2:sy(v),stroke:"#eef2f7"}));
+      txt(svg,m.l-8,sy(v)+4,v.toFixed(0),{"text-anchor":"end"});
+    }
+    svg.appendChild(el("line",{x1:m.l,y1:sy(POST_MEAN),x2:W-m.r,y2:sy(POST_MEAN),
+      stroke:"#64748b","stroke-dasharray":"5 4",opacity:.6}));
+    txt(svg,W-m.r,sy(POST_MEAN)-6,"posterior mean",{"text-anchor":"end",fill:"#64748b"});
+    let d="";
+    const off=TRACE-hist.length;
+    hist.forEach((v,i)=>{ d+=(d?" L ":"M ")+sx(i+off)+" "+sy(v); });
+    if(d) svg.appendChild(el("path",{d:d,fill:"none",stroke:"#4f46e5","stroke-width":1.8}));
+    /* mark the stretch the stored estimate has survived */
+    if(since>0 && hist.length>1){
+      const x0=sx(Math.max(off+hist.length-1-since,0)), x1=sx(TRACE-1);
+      svg.appendChild(el("rect",{x:x0,y:m.t,width:Math.max(x1-x0,1.5),height:H-m.t,
+        fill:stale?"#dc2626":"#f59e0b",opacity:.12}));
+      svg.appendChild(el("line",{x1:x0,y1:m.t,x2:x0,y2:H,stroke:stale?"#dc2626":"#f59e0b",
+        "stroke-width":1.4,"stroke-dasharray":"4 3"}));
+      txt(svg,Math.min(x0+5,W-m.r-160),m.t+14,"stored estimate drawn here",
+        {"font-size":10.5,fill:stale?"#dc2626":"#b45309","font-weight":600});
+    }
+    if(hist.length>0) svg.appendChild(el("circle",{cx:sx(TRACE-1),cy:sy(hist[hist.length-1]),r:4,fill:"#4f46e5"}));
+    txt(svg,(m.l+W-m.r)/2,H+26,"iteration",{"text-anchor":"middle","font-size":12,fill:"#374151"});
+    /* --- readouts --- */
+    document.getElementById("swIter").textContent=iter;
+    document.getElementById("swAcc").textContent=iter?((100*accepts/iter).toFixed(1)+"%"):"—";
+    document.getElementById("swAge").textContent=since;
+    document.getElementById("swExc").textContent=(stored-logLik(th)).toFixed(2);
+    document.getElementById("swRun2").textContent=maxRun;
+  }
+  function stop(){ if(timer){ clearInterval(timer); timer=null; document.getElementById("swRun").textContent="▶ run"; } }
+  document.getElementById("swRun").addEventListener("click",function(){
+    if(timer){ stop(); } else { this.textContent="❚❚ pause"; timer=setInterval(step,140); }
+  });
+  document.getElementById("swStep").addEventListener("click",function(){ stop(); step(); });
+  document.getElementById("swReset").addEventListener("click",reset);
+  sInp.addEventListener("input",function(){
+    Array.prototype.forEach.call(document.querySelectorAll(".swPre"),function(b){ b.classList.remove("active"); });
+    reset();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".swPre"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".swPre"),function(x){ x.classList.toggle("active",x===b); });
+      sInp.value=b.dataset.s; reset();
+    });
+  });
+  reset();
+})();
+
+/* ================= FIGURE 2 : the extended target ================= */
+(function(){
+  const svg=document.getElementById("extSvg");
+  const W=720;
+  const HM={l:64,r:150,t:44,h:238};                 /* heatmap */
+  const MG={t:322,h:78};                            /* theta-margin panel */
+  const T0=-0.9, T1=2.5, NT=112;                    /* theta grid */
+  const NZ=64;                                      /* z grid */
+  const sInp=document.getElementById("exS"), bInp=document.getElementById("exB");
+
+  function draw(){
+    const sig=+sInp.value, b=+bInp.value;
+    document.getElementById("exSval").textContent=sig.toFixed(1);
+    document.getElementById("exBval").textContent=b.toFixed(2);
+    clear(svg);
+    const Z0=-4, Z1=Math.max(4.5,sig+4.5);
+    const dt=(T1-T0)/NT, dz=(Z1-Z0)/NZ;
+    /* log density of the extended target, up to a constant:
+       log p(theta) + log L(theta) + [sig*z - sig^2/2 + b*(theta-postmean)] + log phi(z) */
+    const grid=new Float64Array(NT*NZ);
+    let mx=-Infinity;
+    for(let i=0;i<NT;i++){
+      const th=T0+(i+0.5)*dt;
+      const base=logPrior(th)+logLik(th)+b*(th-POST_MEAN);
+      for(let j=0;j<NZ;j++){
+        const z=Z0+(j+0.5)*dz;
+        const v=base+sig*z-0.5*sig*sig-0.5*z*z;
+        grid[i*NZ+j]=v; if(v>mx) mx=v;
+      }
+    }
+    const cell=new Float64Array(NT*NZ);
+    const tm=new Float64Array(NT), zm=new Float64Array(NZ);
+    let tot=0, cmax=0;
+    for(let i=0;i<NT;i++) for(let j=0;j<NZ;j++){
+      const v=Math.exp(grid[i*NZ+j]-mx);
+      cell[i*NZ+j]=v; tm[i]+=v; zm[j]+=v; tot+=v;
+      if(v>cmax) cmax=v;
+    }
+    /* summaries of the theta-margin */
+    let mean=0, m2=0;
+    for(let i=0;i<NT;i++){ const th=T0+(i+0.5)*dt; mean+=th*tm[i]; m2+=th*th*tm[i]; }
+    mean/=tot; m2/=tot;
+    const sd=Math.sqrt(Math.max(m2-mean*mean,0));
+    let zbar=0;
+    for(let j=0;j<NZ;j++){ zbar+=(Z0+(j+0.5)*dz)*zm[j]; }
+    zbar/=tot;
+
+    const hx=i=>HM.l+(i/NT)*(W-HM.l-HM.r);
+    const hy=j=>HM.t+HM.h-((j+1)/NZ)*HM.h;
+    const cw=(W-HM.l-HM.r)/NT+0.6, ch=HM.h/NZ+0.6;
+    txt(svg,HM.l,26,"π̃(θ, z), the target on the enlarged space",{"font-size":13,"font-weight":700,fill:"#1f2933"});
+    for(let i=0;i<NT;i++) for(let j=0;j<NZ;j++){
+      const v=cell[i*NZ+j]/cmax;
+      if(v<0.012) continue;
+      svg.appendChild(el("rect",{x:hx(i),y:hy(j),width:cw,height:ch,fill:"#4f46e5",opacity:Math.min(v,1)*0.9}));
+    }
+    /* axes */
+    svg.appendChild(el("line",{x1:HM.l,y1:HM.t+HM.h,x2:W-HM.r,y2:HM.t+HM.h,stroke:"#cbd5e1"}));
+    svg.appendChild(el("line",{x1:HM.l,y1:HM.t,x2:HM.l,y2:HM.t+HM.h,stroke:"#cbd5e1"}));
+    const zAt=v=>HM.t+HM.h-((v-Z0)/(Z1-Z0))*HM.h;
+    for(let v=Math.ceil(Z0/2)*2; v<=Z1; v+=2){
+      svg.appendChild(el("line",{x1:HM.l-4,y1:zAt(v),x2:HM.l,y2:zAt(v),stroke:"#cbd5e1"}));
+      txt(svg,HM.l-8,zAt(v)+4,v.toFixed(0),{"text-anchor":"end"});
+    }
+    const t2x=v=>HM.l+((v-T0)/(T1-T0))*(W-HM.l-HM.r);
+    txt(svg,26,HM.t+HM.h/2,"z, the filter's randomness",
+      {"text-anchor":"middle","font-size":12,"font-weight":700,fill:"#1f2933",
+       transform:"rotate(-90 26 "+(HM.t+HM.h/2)+")"});
+    /* mean z under the target, and z = 0 */
+    svg.appendChild(el("line",{x1:HM.l,y1:zAt(0),x2:W-HM.r,y2:zAt(0),stroke:"#94a3b8","stroke-dasharray":"4 4"}));
+    txt(svg,W-HM.r-4,zAt(0)-5,"z = 0",{"text-anchor":"end",fill:"#64748b"});
+    svg.appendChild(el("line",{x1:HM.l,y1:zAt(zbar),x2:W-HM.r,y2:zAt(zbar),stroke:"#f59e0b","stroke-width":1.8}));
+    txt(svg,W-HM.r-4,zAt(zbar)-5,"mean z = "+zbar.toFixed(2)+", so the chain sits at lucky draws",
+      {"text-anchor":"end",fill:"#b45309","font-weight":600});
+
+    /* z-margin strip on the right, against the density z is proposed from */
+    const SX=W-HM.r+16, SW=104;
+    txt(svg,SX,HM.t-12,"z-margin",{"font-size":11.5,"font-weight":700,fill:"#1f2933"});
+    let zmax=0; for(let j=0;j<NZ;j++) if(zm[j]>zmax) zmax=zm[j];
+    for(let j=0;j<NZ;j++){
+      const w=(zm[j]/zmax)*SW;
+      svg.appendChild(el("rect",{x:SX,y:hy(j),width:Math.max(w,0),height:ch,fill:"#f59e0b",opacity:.55}));
+    }
+    let pn=""; let pmax=normPdf(0);
+    for(let j=0;j<NZ;j++){
+      const z=Z0+(j+0.5)*dz;
+      pn+=(pn?" L ":"M ")+(SX+normPdf(z)/pmax*SW)+" "+hy(j);
+    }
+    svg.appendChild(el("path",{d:pn,fill:"none",stroke:"#6b7280","stroke-width":1.5,"stroke-dasharray":"2 3"}));
+
+    /* theta-margin panel */
+    txt(svg,HM.l,MG.t-10,"θ-margin of π̃, against the exact posterior",
+      {"font-size":12.5,"font-weight":700,fill:"#1f2933"});
+    let tmax=0;
+    const dens=new Float64Array(NT);
+    for(let i=0;i<NT;i++){ dens[i]=tm[i]/(tot*dt); if(dens[i]>tmax) tmax=dens[i]; }
+    for(let i=0;i<NT;i++){ const p=postPdf(T0+(i+0.5)*dt); if(p>tmax) tmax=p; }
+    const my=v=>MG.t+MG.h-(v/(tmax*1.08))*MG.h;
+    svg.appendChild(el("line",{x1:HM.l,y1:MG.t+MG.h,x2:W-HM.r,y2:MG.t+MG.h,stroke:"#cbd5e1"}));
+    let area="M "+t2x(T0)+" "+my(0);
+    for(let i=0;i<NT;i++) area+=" L "+t2x(T0+(i+0.5)*dt)+" "+my(dens[i]);
+    area+=" L "+t2x(T1)+" "+my(0)+" Z";
+    svg.appendChild(el("path",{d:area,fill:"#4f46e5",opacity:.22}));
+    let ml="";
+    for(let i=0;i<NT;i++) ml+=(ml?" L ":"M ")+t2x(T0+(i+0.5)*dt)+" "+my(dens[i]);
+    svg.appendChild(el("path",{d:ml,fill:"none",stroke:"#4f46e5","stroke-width":2.2}));
+    let pl="";
+    for(let v=T0;v<=T1;v+=0.02) pl+=(pl?" L ":"M ")+t2x(v)+" "+my(postPdf(v));
+    svg.appendChild(el("path",{d:pl,fill:"none",stroke:"#64748b","stroke-width":2,"stroke-dasharray":"6 4"}));
+    for(let v=0;v<=2;v++){
+      svg.appendChild(el("line",{x1:t2x(v),y1:MG.t+MG.h,x2:t2x(v),y2:MG.t+MG.h+4,stroke:"#cbd5e1"}));
+      txt(svg,t2x(v),MG.t+MG.h+18,v.toFixed(0),{"text-anchor":"middle"});
+    }
+    txt(svg,(HM.l+W-HM.r)/2,MG.t+MG.h+36,"parameter θ",{"text-anchor":"middle","font-size":12,fill:"#374151"});
+
+    document.getElementById("exBias").textContent=
+      Math.exp(b*0.5).toFixed(2)+" at θ = "+(POST_MEAN+0.5).toFixed(1)+" (posterior mean + 0.5)";
+    document.getElementById("exMean").textContent=mean.toFixed(3);
+    document.getElementById("exSd").textContent=sd.toFixed(3);
+    document.getElementById("exZ").textContent=zbar.toFixed(2);
+  }
+  [sInp,bInp].forEach(function(inp){
+    inp.addEventListener("input",function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".exPre"),function(b){ b.classList.remove("active"); });
+      draw();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".exPre"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".exPre"),function(x){ x.classList.toggle("active",x===b); });
+      sInp.value=b.dataset.s; bInp.value=b.dataset.b; draw();
+    });
+  });
+  draw();
+})();
+
+/* ================= FIGURE 3 : stickiness, and the classic bug ================= */
+(function(){
+  const svg=document.getElementById("stickSvg");
+  const W=720, N=1200, POOL=8, POOLN=15000;
+  const A={l:56,r:20,t:52,h:160};      /* trace */
+  const B={l:56,r:20,t:296,h:104};     /* excess */
+  const C={l:56,r:20,t:452,h:104};     /* pooled histogram */
+  const sInp=document.getElementById("stS");
+  let refresh=false;
+
+  function draw(){
+    const sig=+sInp.value;
+    document.getElementById("stSval").textContent=sig.toFixed(1);
+    clear(svg);
+    const ch=pmmh({sigma:sig,n:N,seedProp:31337,seedNoise:8675309,refresh:refresh,keep:true});
+    const ex=pmmh({sigma:0,n:N,seedProp:31337,seedNoise:11,refresh:false,keep:true});
+    /* pooled draws, so the histogram is not dominated by one chain's noise */
+    const hist=new Float64Array(60);
+    const H0=-1.0, H1=2.6, hw=(H1-H0)/60;
+    let sd=0, mexc=0, tot=0;
+    for(let r=0;r<POOL;r++){
+      const c=pmmh({sigma:sig,n:POOLN,seedProp:900+r*137,seedNoise:4400+r*211,refresh:refresh,keep:true});
+      sd+=c.sd; mexc+=c.meanExcess;
+      for(let i=0;i<POOLN;i++){
+        const k=Math.floor((c.draws[i]-H0)/hw);
+        if(k>=0&&k<60){ hist[k]++; tot++; }
+      }
+    }
+    sd/=POOL; mexc/=POOL;
+
+    /* ---- panel A: traces ---- */
+    const lo=-1.0, hi=2.6;
+    const ay=v=>A.t+A.h-((v-lo)/(hi-lo))*A.h;
+    const ax=i=>A.l+(i/(N-1))*(W-A.l-A.r);
+    txt(svg,A.l,A.t-16,"trace of the chain",{"font-size":13,"font-weight":700,fill:"#1f2933"});
+    for(let v=0;v<=2;v++){
+      svg.appendChild(el("line",{x1:A.l,y1:ay(v),x2:W-A.r,y2:ay(v),stroke:"#eef2f7"}));
+      txt(svg,A.l-8,ay(v)+4,v.toFixed(0),{"text-anchor":"end"});
+    }
+    /* shade the longest rejection run */
+    if(ch.maxRun>1){
+      const i0=ch.runEnd-ch.maxRun+1;
+      svg.appendChild(el("rect",{x:ax(Math.max(i0,0)),y:A.t,
+        width:Math.max(ax(ch.runEnd)-ax(Math.max(i0,0)),1.5),height:A.h,fill:"#dc2626",opacity:.16}));
+    }
+    let de="";
+    for(let i=0;i<N;i++) de+=(de?" L ":"M ")+ax(i)+" "+ay(ex.draws[i]);
+    svg.appendChild(el("path",{d:de,fill:"none",stroke:"#64748b","stroke-width":1,opacity:.55}));
+    let dc="";
+    for(let i=0;i<N;i++) dc+=(dc?" L ":"M ")+ax(i)+" "+ay(ch.draws[i]);
+    svg.appendChild(el("path",{d:dc,fill:"none",stroke:"#4f46e5","stroke-width":1.5}));
+    svg.appendChild(el("line",{x1:A.l,y1:A.t+A.h,x2:W-A.r,y2:A.t+A.h,stroke:"#cbd5e1"}));
+    txt(svg,(A.l+W-A.r)/2,A.t+A.h+22,"iteration (0 to "+N+")",{"text-anchor":"middle","font-size":12,fill:"#374151"});
+    txt(svg,A.l-42,A.t+A.h/2,"θ",{"text-anchor":"middle","font-size":12,"font-weight":700,fill:"#1f2933"});
+
+    /* ---- panel B: excess carried in the denominator ---- */
+    const eHi=Math.max(3,sig*sig*1.6), eLo=Math.min(-1.5,-sig*sig*0.8);
+    const by=v=>B.t+B.h-((Math.max(Math.min(v,eHi),eLo)-eLo)/(eHi-eLo))*B.h;
+    const bx=i=>B.l+(i/(N-1))*(W-B.l-B.r);
+    txt(svg,B.l,B.t-16,"stored log L̂ minus the truth at the current θ",
+      {"font-size":13,"font-weight":700,fill:"#1f2933"});
+    svg.appendChild(el("line",{x1:B.l,y1:by(0),x2:W-B.r,y2:by(0),stroke:"#cbd5e1"}));
+    txt(svg,B.l-8,by(0)+4,"0",{"text-anchor":"end"});
+    let db="";
+    for(let i=0;i<N;i++) db+=(db?" L ":"M ")+bx(i)+" "+by(ch.excess[i]);
+    svg.appendChild(el("path",{d:db,fill:"none",stroke:"#f59e0b","stroke-width":1.2}));
+    const pred=refresh?-0.5*sig*sig:0.5*sig*sig;
+    svg.appendChild(el("line",{x1:B.l,y1:by(pred),x2:W-B.r,y2:by(pred),
+      stroke:"#dc2626","stroke-width":1.6,"stroke-dasharray":"6 4"}));
+    txt(svg,W-B.r,by(pred)-6,(refresh?"−":"")+"σ²/2 = "+pred.toFixed(2),
+      {"text-anchor":"end",fill:"#dc2626","font-weight":600});
+
+    /* ---- panel C: pooled draws against the exact posterior ---- */
+    const cx=v=>C.l+((v-H0)/(H1-H0))*(W-C.l-C.r);
+    txt(svg,C.l,C.t-16,"pooled draws of "+POOL+" chains, against the exact posterior",
+      {"font-size":13,"font-weight":700,fill:"#1f2933"});
+    let hmax=0;
+    const dens=new Float64Array(60);
+    for(let k=0;k<60;k++){ dens[k]=hist[k]/(tot*hw); if(dens[k]>hmax) hmax=dens[k]; }
+    for(let v=H0;v<=H1;v+=0.05) if(postPdf(v)>hmax) hmax=postPdf(v);
+    const cy=v=>C.t+C.h-(v/(hmax*1.08))*C.h;
+    const bwid=(W-C.l-C.r)/60;
+    for(let k=0;k<60;k++){
+      if(dens[k]<=0) continue;
+      svg.appendChild(el("rect",{x:C.l+k*bwid+0.5,y:cy(dens[k]),width:bwid-1,
+        height:Math.max(C.t+C.h-cy(dens[k]),0),fill:"#4f46e5",opacity:.42}));
+    }
+    let pc="";
+    for(let v=H0;v<=H1;v+=0.02) pc+=(pc?" L ":"M ")+cx(v)+" "+cy(postPdf(v));
+    svg.appendChild(el("path",{d:pc,fill:"none",stroke:"#64748b","stroke-width":2.2,"stroke-dasharray":"6 4"}));
+    svg.appendChild(el("line",{x1:C.l,y1:C.t+C.h,x2:W-C.r,y2:C.t+C.h,stroke:"#cbd5e1"}));
+    for(let v=0;v<=2;v++){
+      svg.appendChild(el("line",{x1:cx(v),y1:C.t+C.h,x2:cx(v),y2:C.t+C.h+4,stroke:"#cbd5e1"}));
+      txt(svg,cx(v),C.t+C.h+18,v.toFixed(0),{"text-anchor":"middle"});
+    }
+    txt(svg,(C.l+W-C.r)/2,C.t+C.h+36,"parameter θ",{"text-anchor":"middle","font-size":12,fill:"#374151"});
+
+    document.getElementById("stAcc").textContent=(100*ch.acc).toFixed(1)+"%";
+    document.getElementById("stRun").textContent=ch.maxRun;
+    document.getElementById("stExc").textContent=mexc.toFixed(2);
+    document.getElementById("stPredLab").textContent=(refresh?"−":"")+"σ²/2";
+    document.getElementById("stPred").textContent=pred.toFixed(2);
+    document.getElementById("stSd").textContent=sd.toFixed(3);
+  }
+  sInp.addEventListener("input",function(){
+    Array.prototype.forEach.call(document.querySelectorAll(".stPre"),function(b){ b.classList.remove("active"); });
+    draw();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".stPre"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".stPre"),function(x){ x.classList.toggle("active",x===b); });
+      sInp.value=b.dataset.s; draw();
+    });
+  });
+  document.getElementById("stKeep").addEventListener("click",function(){
+    refresh=false; this.classList.add("active");
+    document.getElementById("stFresh").classList.remove("active"); draw();
+  });
+  document.getElementById("stFresh").addEventListener("click",function(){
+    refresh=true; this.classList.add("active");
+    document.getElementById("stKeep").classList.remove("active"); draw();
+  });
+  draw();
+})();
+
+/* ================= FIGURE 4 : cost against particle count ================= */
+(function(){
+  const svg=document.getElementById("tuneSvg");
+  const W=720, H=420, m={l:62,r:62,t:44,b:78};
+  const NPT=17, REPS=16, NIT=8000;
+  const jInp=document.getElementById("tuJ");
+  /* the chains are run one particle count at a time behind a setTimeout, so the
+     page is interactive while the figure fills in rather than after it */
+  const pts=[];
+  let relMax=1, ready=false;
+  function computeOne(k){
+    const J=16*Math.pow(2,k/2), sig=sdFromJ(J);
+    let acc=0, esjd=0, mrun=0;
+    for(let r=0;r<REPS;r++){
+      const c=pmmh({sigma:sig,n:NIT,seedProp:101+r*37+k*3,seedNoise:9001+r*53+k*7});
+      acc+=c.acc; esjd+=c.esjd; mrun+=c.maxRun;
+    }
+    pts.push({J:Math.round(J),sig:sig,acc:acc/REPS,cost:J/(esjd/REPS),run:mrun/REPS});
+  }
+  function chunk(k){
+    if(k>=NPT){
+      let best=Infinity;
+      pts.forEach(p=>{ if(p.cost<best) best=p.cost; });
+      pts.forEach(p=>{ p.rel=p.cost/best; });
+      relMax=Math.max.apply(null,pts.map(p=>p.rel));
+      ready=true; draw();
+      return;
+    }
+    computeOne(k);
+    setTimeout(function(){ chunk(k+1); },0);
+  }
+  const px=i=>m.l+(i/(NPT-1))*(W-m.l-m.r);
+  const py=v=>{
+    const lo=Math.log(0.9), hi=Math.log(relMax*1.15);
+    return (H-m.b)-((Math.log(v)-lo)/(hi-lo))*(H-m.b-m.t);
+  };
+  const ay=v=>(H-m.b)-(v/0.5)*(H-m.b-m.t);   /* acceptance, 0 to 50% */
+  const idxOfJ=J=>2*Math.log2(J/16);
+
+  function draw(){
+    const i=+jInp.value;
+    clear(svg);
+    if(!ready){
+      txt(svg,W/2,H/2,"running "+REPS+" chains at each of "+NPT+" particle counts …",
+        {"text-anchor":"middle","font-size":14});
+      return;
+    }
+    const p=pts[i];
+    document.getElementById("tuJval").textContent=p.J;
+    txt(svg,m.l,26,"cost per unit of movement, and acceptance rate",
+      {"font-size":13,"font-weight":700,fill:"#1f2933"});
+    /* the course's target band, SD 1 to 3 */
+    const bx0=px(idxOfJ(jFromSd(3))), bx1=px(idxOfJ(jFromSd(1)));
+    svg.appendChild(el("rect",{x:bx0,y:m.t,width:bx1-bx0,height:H-m.b-m.t,fill:"#f59e0b",opacity:.14}));
+    txt(svg,(bx0+bx1)/2,m.t+14,"SD 1 to 3",{"text-anchor":"middle",fill:"#b45309","font-weight":600,"font-size":11});
+    /* Sherlock et al. optimum */
+    const sx18=px(idxOfJ(jFromSd(1.8)));
+    svg.appendChild(el("line",{x1:sx18,y1:m.t,x2:sx18,y2:H-m.b,stroke:"#dc2626",
+      "stroke-width":1.4,"stroke-dasharray":"5 4"}));
+    txt(svg,sx18+5,m.t+30,"SD 1.8",{fill:"#dc2626","font-weight":600,"font-size":11});
+    /* axes */
+    svg.appendChild(el("line",{x1:m.l,y1:H-m.b,x2:W-m.r,y2:H-m.b,stroke:"#cbd5e1"}));
+    [1,2,5,10,20].forEach(function(v){
+      if(v>relMax*1.15) return;
+      svg.appendChild(el("line",{x1:m.l,y1:py(v),x2:W-m.r,y2:py(v),stroke:"#eef2f7"}));
+      txt(svg,m.l-8,py(v)+4,v+"×",{"text-anchor":"end"});
+    });
+    [0,0.1,0.2,0.3,0.4].forEach(function(v){
+      txt(svg,W-m.r+8,ay(v)+4,(100*v).toFixed(0)+"%",{fill:"#0d9488"});
+    });
+    for(let k=0;k<NPT;k+=2){
+      txt(svg,px(k),H-m.b+18,String(pts[k].J),{"text-anchor":"middle"});
+      txt(svg,px(k),H-m.b+34,pts[k].sig.toFixed(2),{"text-anchor":"middle",fill:"#b45309"});
+    }
+    txt(svg,(m.l+W-m.r)/2,H-m.b+52,"particles J (top), SD of log L̂ (below)",
+      {"text-anchor":"middle","font-size":12,fill:"#374151"});
+    txt(svg,20,(m.t+H-m.b)/2,"cost, relative to the best",
+      {"text-anchor":"middle","font-size":12,"font-weight":700,fill:"#4f46e5",
+       transform:"rotate(-90 20 "+((m.t+H-m.b)/2)+")"});
+    txt(svg,W-16,(m.t+H-m.b)/2,"acceptance rate",
+      {"text-anchor":"middle","font-size":12,"font-weight":700,fill:"#0d9488",
+       transform:"rotate(90 "+(W-16)+" "+((m.t+H-m.b)/2)+")"});
+    /* acceptance curve */
+    let da="";
+    pts.forEach((q,k)=>{ da+=(da?" L ":"M ")+px(k)+" "+ay(q.acc); });
+    svg.appendChild(el("path",{d:da,fill:"none",stroke:"#0d9488","stroke-width":1.8,opacity:.85}));
+    /* cost curve */
+    let dc="";
+    pts.forEach((q,k)=>{ dc+=(dc?" L ":"M ")+px(k)+" "+py(q.rel); });
+    svg.appendChild(el("path",{d:dc,fill:"none",stroke:"#4f46e5","stroke-width":2.6}));
+    pts.forEach((q,k)=>{ svg.appendChild(el("circle",{cx:px(k),cy:py(q.rel),r:3,fill:"#4f46e5"})); });
+    /* the selected setting */
+    svg.appendChild(el("line",{x1:px(i),y1:m.t,x2:px(i),y2:H-m.b,stroke:"#4f46e5","stroke-width":1.2,opacity:.5}));
+    svg.appendChild(el("circle",{cx:px(i),cy:py(p.rel),r:6.5,fill:"#fff",stroke:"#4f46e5","stroke-width":2.6}));
+    txt(svg,Math.min(px(i)+10,W-m.r-120),py(p.rel)-10,p.J+" particles, "+p.rel.toFixed(2)+"×",
+      {fill:"#4f46e5","font-weight":700,"font-size":11.5});
+
+    document.getElementById("tuJ2").textContent=p.J;
+    document.getElementById("tuS").textContent=p.sig.toFixed(2);
+    document.getElementById("tuAcc").textContent=(100*p.acc).toFixed(1)+"%";
+    document.getElementById("tuCost").textContent=p.rel.toFixed(2);
+    document.getElementById("tuRun").textContent=Math.round(p.run);
+  }
+  jInp.addEventListener("input",function(){
+    Array.prototype.forEach.call(document.querySelectorAll(".tuPre"),function(b){ b.classList.remove("active"); });
+    draw();
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".tuPre"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".tuPre"),function(x){ x.classList.toggle("active",x===b); });
+      jInp.value=b.dataset.i; draw();
+    });
+  });
+  draw();
+  setTimeout(function(){ chunk(0); },30);
+})();
+
+/* ================= FIGURE 5 : no surface to differentiate ================= */
+(function(){
+  const svg=document.getElementById("gradSvg");
+  const W=720, m={l:60,r:24,t:44,b:52}, H=400;
+  const G0=-0.35, G1=2.15, NG=90;
+  const jInp=document.getElementById("grJ"), hInp=document.getElementById("grH"),
+        tInp=document.getElementById("grT");
+  let seed=12345;
+
+  function draw(){
+    const J=16*Math.pow(2,(+jInp.value)/2), sig=sdFromJ(J);
+    const h=+hInp.value, th0=+tInp.value;
+    document.getElementById("grJval").textContent=Math.round(J);
+    document.getElementById("grHval").textContent=h.toFixed(2);
+    document.getElementById("grTval").textContent=th0.toFixed(2);
+    clear(svg);
+    const defs=el("defs",{});
+    const cp=el("clipPath",{id:"grClip"});
+    cp.appendChild(el("rect",{x:m.l,y:m.t,width:W-m.l-m.r,height:H-m.t-m.b}));
+    defs.appendChild(cp); svg.appendChild(defs);
+
+    const rnd=mulberry32(seed);
+    const passes=[[],[],[]];
+    for(let p=0;p<3;p++) for(let i=0;i<=NG;i++){
+      const t=G0+(i/NG)*(G1-G0);
+      passes[p].push(logLik(t)+sig*gaussFrom(rnd)-0.5*sig*sig);
+    }
+    let lo=logLik(G0), hi=0;
+    passes.forEach(a=>a.forEach(v=>{ if(v<lo) lo=v; if(v>hi) hi=v; }));
+    lo=Math.max(lo,-4-3*sig); hi=Math.min(hi,3*sig+1);
+    const pad=(hi-lo)*0.08; lo-=pad; hi+=pad;
+    const sx=t=>m.l+((t-G0)/(G1-G0))*(W-m.l-m.r);
+    const sy=v=>H-m.b-((v-lo)/(hi-lo))*(H-m.t-m.b);
+    txt(svg,m.l,26,"log-likelihood against θ, exact and as the filter returns it",
+      {"font-size":13,"font-weight":700,fill:"#1f2933"});
+    svg.appendChild(el("line",{x1:m.l,y1:H-m.b,x2:W-m.r,y2:H-m.b,stroke:"#cbd5e1"}));
+    for(let v=0;v<=2;v+=0.5){
+      svg.appendChild(el("line",{x1:sx(v),y1:H-m.b,x2:sx(v),y2:H-m.b+4,stroke:"#cbd5e1"}));
+      txt(svg,sx(v),H-m.b+18,v.toFixed(1),{"text-anchor":"middle"});
+    }
+    txt(svg,(m.l+W-m.r)/2,H-m.b+38,"parameter θ",{"text-anchor":"middle","font-size":12,fill:"#374151"});
+    const grp=el("g",{"clip-path":"url(#grClip)"}); svg.appendChild(grp);
+    /* three independent passes of the filter */
+    passes.forEach(function(a,p){
+      let d="";
+      a.forEach(function(v,i){ d+=(d?" L ":"M ")+sx(G0+(i/NG)*(G1-G0))+" "+sy(v); });
+      grp.appendChild(el("path",{d:d,fill:"none",stroke:"#f59e0b","stroke-width":1.2,opacity:0.45+0.18*p}));
+    });
+    /* the exact surface */
+    let de="";
+    for(let t=G0;t<=G1;t+=0.01) de+=(de?" L ":"M ")+sx(t)+" "+sy(logLik(t));
+    grp.appendChild(el("path",{d:de,fill:"none",stroke:"#0d9488","stroke-width":2.6}));
+    /* slopes at th0 */
+    const trueSlope=-(th0-LIK_MU)/(LIK_SD*LIK_SD);
+    const seg=(slope,colour,dash,width)=>{
+      const x0=th0-0.32, x1=th0+0.32;
+      const y0=logLik(th0)+slope*(x0-th0), y1=logLik(th0)+slope*(x1-th0);
+      grp.appendChild(el("line",{x1:sx(x0),y1:sy(y0),x2:sx(x1),y2:sy(y1),
+        stroke:colour,"stroke-width":width,"stroke-dasharray":dash,opacity:.9}));
+    };
+    const est=[];
+    for(let k=0;k<5;k++){
+      const up=logLik(th0+h)+sig*gaussFrom(rnd)-0.5*sig*sig;
+      const dn=logLik(th0-h)+sig*gaussFrom(rnd)-0.5*sig*sig;
+      const s=(up-dn)/(2*h); est.push(s); seg(s,"#dc2626","5 4",1.6);
+    }
+    seg(trueSlope,"#0d9488","6 3",2.4);
+    grp.appendChild(el("circle",{cx:sx(th0),cy:sy(logLik(th0)),r:5,fill:"#fff",stroke:"#0d9488","stroke-width":2.2}));
+    txt(svg,sx(th0),m.t+14,"θ = "+th0.toFixed(2),{"text-anchor":"middle",fill:"#0d9488","font-weight":600});
+
+    const sdSlope=sig/(h*Math.SQRT2);
+    document.getElementById("grS").textContent=sig.toFixed(2);
+    document.getElementById("grTrue").textContent=trueSlope.toFixed(2);
+    document.getElementById("grEst").textContent=est[0].toFixed(2);
+    document.getElementById("grSd").textContent=sdSlope.toFixed(2);
+    document.getElementById("grRatio").textContent=
+      (Math.abs(trueSlope)<1e-6?"∞":(sdSlope/Math.abs(trueSlope)).toFixed(1)+"×");
+  }
+  [jInp,hInp,tInp].forEach(function(inp){
+    inp.addEventListener("input",function(){
+      if(inp===jInp) Array.prototype.forEach.call(document.querySelectorAll(".grPre"),function(b){ b.classList.remove("active"); });
+      draw();
+    });
+  });
+  Array.prototype.forEach.call(document.querySelectorAll(".grPre"),function(b){
+    b.addEventListener("click",function(){
+      Array.prototype.forEach.call(document.querySelectorAll(".grPre"),function(x){ x.classList.toggle("active",x===b); });
+      jInp.value=b.dataset.j; draw();
+    });
+  });
+  document.getElementById("grAgain").addEventListener("click",function(){ seed=(seed*1103515245+12345)>>>0; draw(); });
+  draw();
+})();
+</script>
+<script>
+/* embed mode: ?embed=sectionId[,id2,...] strips the page chrome AND the
+   explanatory prose/maths from the kept sections, leaving only the interactive
+   figures, for inlining in an <iframe> in the course site. Reports height so the
+   host page can auto-size the iframe. */
+(function(){
+  var q=new URLSearchParams(location.search), e=q.get('embed');
+  var KEEP={fig:1,controls:1,readout:1,legend:1,presets:1,figcap:1};
+  if(e){
+    var keep=e.split(',').map(function(s){return s.trim();}).filter(Boolean);
+    ['header.hero','nav.toc','footer'].forEach(function(sel){
+      Array.prototype.forEach.call(document.querySelectorAll(sel),function(n){n.style.display='none';});
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('body > div'),function(d){
+      if(!d.classList.contains('wrap')) d.style.display='none';
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('section'),function(sec){
+      if(keep.indexOf(sec.id)===-1){ sec.style.display='none'; return; }
+      sec.style.margin='0'; sec.style.border='none'; sec.style.boxShadow='none'; sec.style.padding='2px 2px 8px';
+      Array.prototype.forEach.call(sec.children,function(c){
+        var k=false, cl=c.classList; if(cl){ for(var key in KEEP){ if(cl.contains(key)){k=true;break;} } }
+        if(!k) c.style.display='none';
+      });
+    });
+    var wrap=document.querySelector('.wrap'); if(wrap) wrap.style.padding='0 8px 10px';
+    document.body.style.background='#fff'; document.documentElement.style.background='#fff';
+  }
+  function postH(){ try{ parent.postMessage({nfiddEmbedHeight: Math.ceil(document.body.getBoundingClientRect().height)}, '*'); }catch(_){} }
+  window.addEventListener('load', postH);
+  window.addEventListener('resize', postH);
+  document.addEventListener('input', function(){ setTimeout(postH,60); });
+  document.addEventListener('click', function(){ setTimeout(postH,120); });
+  setTimeout(postH,250); setTimeout(postH,1000);
+})();
+</script>
+</body>
+</html>
