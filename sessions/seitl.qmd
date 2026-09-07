@@ -331,6 +331,11 @@ first(traj, 10)
 
 The data are reported cases, and the model treats a case as reported with probability $\rho$.
 The quantity to put beside the points is therefore $\rho \times \mathrm{Inc}$, the number of cases the observation process expects to see, rather than the incidence itself.
+That is a derived quantity, computed from a trajectory after the fact, so it gets a name of its own.
+
+```{julia}
+expected_observations(traj, ρ) = ρ .* traj.Inc
+```
 
 ```{julia}
 #| code-fold: true
@@ -340,7 +345,7 @@ p = plot(title = "SEITL Model: Deterministic Simulation",
          xlabel = "Time (days)", ylabel = "Reported cases")
 
 # Thin the simulated incidence by the reporting rate
-plot!(p, traj.time, θ_guess[:ρ] .* traj.Inc,
+plot!(p, traj.time, expected_observations(traj, θ_guess[:ρ]),
       label = "Expected reported cases", linewidth = 2, color = :blue)
 
 # Overlay real data
@@ -425,6 +430,52 @@ plot!(p)
 
 Notice how the same `@model` definition can be used for both simulation (here) and inference (in the [Particle MCMC session](pmcmc.qmd)).
 
+### Latent quantities
+
+The figure above shows what the priors imply for the *observations*, because those are what we will hold against data.
+The same draws also give the *latent* incidence: the infections the model says happened, whether or not anyone wrote them down.
+`returned` collects the trajectory the model simulated for each draw, so both quantities come out of one push-forward and `expected_observations` turns one into the other.
+The reporting rate that separates them is a parameter to be estimated rather than a known quantity, so how far apart they sit is a question the priors answer differently in every draw.
+
+```{julia}
+prior_trajs = vec(returned(prior_model, prior_draws))
+prior_ρ = vec(prior_draws[@varname(ρ)])
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: "Plotting code"
+p = plot(title = "Latent incidence and expected reports",
+         xlabel = "Time (days)", ylabel = "Cases per day")
+
+# One colour per prior draw. The shading runs from the latent curve down to its
+# expected reports, so it is the part of the epidemic that goes unrecorded
+for (i, (traj, ρ)) in enumerate(zip(prior_trajs, prior_ρ))
+    plot!(p, traj.time, traj.Inc,
+          fillrange = expected_observations(traj, ρ), fillalpha = 0.18,
+          color = i, linestyle = :solid, linewidth = 1.5, label = "")
+    plot!(p, traj.time, expected_observations(traj, ρ),
+          color = i, linestyle = :dash, linewidth = 1.5, label = "")
+end
+
+# Grey entries name the two styles, since the colours only identify the draw
+plot!(p, Float64[], Float64[], color = :grey, linestyle = :solid,
+      linewidth = 1.5, label = "Latent incidence")
+plot!(p, Float64[], Float64[], color = :grey, linestyle = :dash,
+      linewidth = 1.5, label = "Expected reported cases")
+
+scatter!(p, flu_tdc.time, flu_tdc.obs,
+         label = "Observed data", markersize = 4, color = :red)
+```
+
+::: {.callout-warning}
+## What the latent scale cannot tell you
+
+Nothing observes latent incidence, so no part of the data can confirm or contradict the solid lines.
+Only the dashed ones are held against the points.
+The distance between a pair is a claim the model makes about how much went unrecorded, and until the model is fitted that claim comes entirely from the prior on $\rho$.
+:::
+
 Now, take 5 minutes to explore the dynamics of the model for different parameter and initial state values. In particular, try different values for $R_0\in[2-15]$ and $\alpha\in[0.3-1]$.
 For which values of $R_0$ and $\alpha$ do you get a decent fit?
 
@@ -449,13 +500,12 @@ The model has the following transitions:
 ## Implementation: Gillespie algorithm
 
 `simulate_seitl_stochastic` walks through the days and hands each one to `gillespie_step_seitl!`, which advances the state over that day and returns the cases it produced.
-The stepper is what the particle filter propagates each particle with in the [Particle Filters](particle_filters.qmd) session, so the simulator you run here and the filter you fit with later describe the same dynamics.
+The stepper is the algorithm, and it carries the five transitions of the table above.
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(simulate_seitl_stochastic), "\n\n",
-        source_for(gillespie_step_seitl!), "\n```")
+println("```julia\n", source_for(gillespie_step_seitl!), "\n```")
 ```
 
 ::: {.callout-tip collapse="true"}
@@ -490,7 +540,7 @@ traj_stoch = simulate_seitl_stochastic(θ_guess, init_state_guess, times)
 p = plot(title = "SEITL Model: Stochastic Simulation",
          xlabel = "Time (days)", ylabel = "Reported cases")
 
-plot!(p, traj_stoch.time, θ_guess[:ρ] .* traj_stoch.Inc,
+plot!(p, traj_stoch.time, expected_observations(traj_stoch, θ_guess[:ρ]),
       label = "Expected reported cases", linewidth = 2, color = :blue)
 
 scatter!(p, flu_tdc.time, flu_tdc.obs,
@@ -509,8 +559,8 @@ p = plot(title = "SEITL Model: 50 Stochastic Replicates",
 
 for i in 1:50
     traj_rep = simulate_seitl_stochastic(θ_guess, init_state_guess, times)
-    plot!(p, traj_rep.time, θ_guess[:ρ] .* traj_rep.Inc, alpha = 0.3,
-          color = :lightblue, label = "")
+    plot!(p, traj_rep.time, expected_observations(traj_rep, θ_guess[:ρ]),
+          alpha = 0.3, color = :lightblue, label = "")
 end
 
 scatter!(p, flu_tdc.time, flu_tdc.obs,
@@ -661,9 +711,9 @@ traj_seit4l = simulate_seit4l_deterministic(θ_better, init_state_4l, times)
 p = plot(title = "SEITL vs SEIT4L", xlabel = "Time (days)",
          ylabel = "Reported cases")
 
-plot!(p, traj_seitl.time, θ_better[:ρ] .* traj_seitl.Inc,
+plot!(p, traj_seitl.time, expected_observations(traj_seitl, θ_better[:ρ]),
       label = "SEITL (exponential T)", linewidth = 2, color = :blue)
-plot!(p, traj_seit4l.time, θ_better[:ρ] .* traj_seit4l.Inc,
+plot!(p, traj_seit4l.time, expected_observations(traj_seit4l, θ_better[:ρ]),
       label = "SEIT4L (Erlang-4 T)", linewidth = 2, color = :green)
 
 scatter!(p, flu_tdc.time, flu_tdc.obs,
