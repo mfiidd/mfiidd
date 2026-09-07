@@ -139,7 +139,7 @@ model = sir_model(init_state, epi1.time, length(epi1.obs)) | (; obs = epi1.obs)
 
 ## 1. Trace plots: The most important diagnostic
 
-Trace plots show parameter values over iterations, which is where the ball has been.
+Trace plots show parameter values over iterations, which is where the puck has been.
 A well-mixed chain looks like a "hairy caterpillar" - densely filled with rapid up-and-down fluctuations around a stable mean:
 
 ```{julia}
@@ -173,7 +173,7 @@ p2 = plot(
 plot(p1, p2, layout = (2, 1), size = (800, 600))
 ```
 
-Look for a chain that moves freely around parameter space, shows no obvious trend or drift, and stays visually "fat" — rapid up-and-down fluctuations rather than a thin worm-like track. The opposites are what you want to avoid: a chain stuck in one region, still climbing or descending after warmup, or exploring only a narrow band.
+Look for a chain that moves freely around parameter space and shows no obvious trend or drift. The opposites are what you want to avoid: a chain stuck in one region, still climbing or descending after warmup, or exploring only a narrow band.
 
 ## 2. Running averages
 
@@ -209,7 +209,7 @@ plot(p1, p2, layout = (2, 1))
 
 ## 3. Autocorrelation
 
-MCMC samples are correlated, because the ball has to roll some distance before it forgets where it started.
+MCMC samples are correlated, because the puck has to travel some distance before it forgets where it started.
 Good chains have autocorrelation that decays quickly:
 
 ::: {.callout-note collapse="true"}
@@ -279,8 +279,7 @@ tells you which: a burn-in problem settles, an exploration problem keeps going.
 new information, so the effective sample size is a small fraction of the number of
 iterations. Ten thousand samples might be worth a few dozen independent ones. The
 posterior mean can still be roughly right while the standard error you would
-report from it is badly optimistic — which is why ESS is worth checking even when
-the trace plot looks acceptable.
+report from it is badly optimistic.
 :::
 
 ## 4. Several chains
@@ -291,7 +290,7 @@ It cannot tell you whether that region is the whole posterior, because the chain
 A chain that settles into one part of the posterior and explores that part thoroughly looks healthy on all three plots above.
 
 Running several chains is what makes that failure visible.
-Each chain is initialised separately, so they are several balls released from different places.
+Each chain is initialised separately, so they are several pucks released from different places.
 If chains that started apart end up describing the same distribution, that is evidence they have found the posterior.
 If they end up describing different distributions, at least one of them is wrong.
 Four chains is a reasonable default.
@@ -403,7 +402,7 @@ R̂ approaches 1 because $B/n$ stays small next to $W$, which happens whenever t
 Independent draws are the special case $\tau = 1$, where $B \approx W$.
 Chains sitting in different places inflate the variance of the chain means, which inflates $B$, and R̂ goes up with it.
 
-$\tau$ is the same quantity that sets the effective sample size in the next section, where ESS is $N/\tau$.
+$\tau$ is the same quantity that sets the effective sample size in the next section, where $N_{\text{eff}} = mn/\tau$ across all $m$ chains.
 A chain can be perfectly converged and still fail the 1.01 bar if it is short and heavily autocorrelated.
 
 The statistic is due to [Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136).
@@ -437,16 +436,20 @@ for i in 1:n_chains
     )
 end
 
-# Calculate R̂
-println("\nR̂ values:")
-rhat_values = DataFrame(rhat(chain_multi))
-for row in eachrow(rhat_values)
-    param = row.param
-    value = row.stat
-    status = value < 1.01 ? "good" : "bad"
-    println("  $param: $(round(value, digits = 3)) $status")
+# Calculate R̂, for the converged chains and for the stuck ones
+function print_rhat(chains, label)
+    println("\nR̂ values, $label:")
+    for row in eachrow(DataFrame(rhat(chains)))
+        status = row.stat < 1.01 ? "good" : "bad"
+        println("  $(row.param): $(round(row.stat, digits = 3)) $status")
+    end
 end
+
+print_rhat(chain_multi, "NUTS")
+print_rhat(chain_stuck, "random walk with tiny steps")
 ```
+
+The second set is the pair of panels from [Several chains](#several-chains) turned into a number.
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
@@ -459,6 +462,8 @@ end
 plot(chain_multi)
 ```
 
+This adds what the earlier figure did not: the marginal density beside each trace, and both parameters rather than one.
+
 ## 2. Effective Sample Size (ESS)
 
 ESS tells you how many independent samples your correlated MCMC samples are equivalent to.
@@ -468,19 +473,19 @@ The estimator sums the same $\rho_k$ that the plot showed, so the faster that cu
 ::: {.callout-note collapse="true"}
 ## Where ESS comes from
 
-Write $\rho_k$ for the autocorrelation of the chain at lag $k$, the quantity plotted earlier.
+Write $\rho_k$ for the autocorrelation of the chain at lag $k$.
 From $N$ draws,
 
 $$N_{\text{eff}} = \frac{N}{1 + 2\sum_{k=1}^{K} \rho_k}$$
 
-The denominator is the integrated autocorrelation time $\tau$, the same $\tau$ that appeared in the R̂ derivation above.
+The denominator is $\tau$, the integrated autocorrelation time from the R̂ callout above.
 A chain whose autocorrelations die away quickly has $\tau$ near 1 and loses almost nothing.
 A chain with $\rho_k$ still large at long lags has a large $\tau$ and an ESS far below $N$.
 
 The sum runs to $K$ rather than to infinity, and where it is cut matters.
 Estimated autocorrelations at long lags are mostly noise, and adding more of them makes $\tau$ steadily worse rather than steadily better.
 [Geyer (1992)](https://doi.org/10.1214/ss/1177011137) truncates by pairing consecutive lags and stopping at the first pair that sums to something negative, the initial positive sequence rule.
-What Turing reports is the rank-normalised version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which applies the same idea to the normalised ranks of the draws rather than to the draws themselves, and estimates the variance across chains rather than within one.
+Turing applies the same rank normalisation described in the R̂ callout, and estimates the variance across chains rather than within one.
 :::
 
 ```{julia}
@@ -529,12 +534,11 @@ For a posterior mean,
 $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{N_{\text{eff}}}}$$
 
 The posterior SD is the spread you are trying to report.
-MCSE is how precisely a finite roll has located the centre of that spread.
+MCSE is how precisely a finite trajectory has located the centre of that spread.
 The effective sample size is the only thing standing between them, so the only way to shrink an MCSE is to raise ESS, by sampling longer or by mixing better.
 The ESS in that denominator is the one for the mean computed on the untransformed draws, not the bulk ESS printed above.
 It cannot be the bulk ESS: rank normalisation replaces the draws with normal scores, and you cannot divide a posterior standard deviation measured in units of $R_0$ by an effective sample size derived from normal scores.
 So do not expect to reproduce the MCSE by hand from the bulk ESS on this page.
-The estimators are those of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full).
 :::
 
 ```{julia}
@@ -572,15 +576,17 @@ With gradient-based samplers like NUTS, mixing problems are uncommon when the mo
 A chain started where the model cannot be solved will not move, and the trace looks like poor mixing rather than what it is.
 The flat `Uniform(1, 20)` prior in [the introduction session](introduction.qmd) is the usual way to end up there, and the guards against it are in [the Julia ecosystem session](julia_ecosystem.qmd) and [Model checking](model_checking.qmd).
 
+## Problem 2: Where the chain starts
+
 Where a chain starts is a choice, and the default does not make it with the prior in mind.
 For Hamiltonian samplers Turing uses `InitFromUniform()`, which draws on $[-2, 2]$ on the unconstrained scale, following Stan.
 Under this session's prior that puts $R_0$ between 1.1 and 8.4, but under `Uniform(1, 20)` it puts $R_0$ between 3.3 and 17.7, so no chain can start near the 2.4 the posterior settles on.
 `InitFromPrior()` and `InitFromParams((; R_0 = 2.5, D_inf = 2.0))` are the alternatives, passed through `initial_params`.
 Drawing from the prior is only as good as the prior, though: `Uniform(1, 20)` puts $R_0$ above 15 about a quarter of the time, which is what the default does too.
 
-## Problem 2: Divergent transitions (for HMC/NUTS)
+## Problem 3: Divergent transitions (for HMC/NUTS)
 
-NUTS simulates a ball rolling over the posterior surface. A *divergent transition* occurs when the simulation becomes numerically unstable — the ball "flies off" to implausible values instead of following the contour. This typically happens when the posterior has sharp ridges or funnels: the step size that works in flat regions is too large for the narrow parts, causing numerical errors to explode.
+NUTS simulates a puck sliding over the posterior surface. A *divergent transition* occurs when the simulation becomes numerically unstable — the puck "flies off" to implausible values instead of following the contour. This typically happens when the posterior has sharp ridges or funnels: the step size that works in flat regions is too large for the narrow parts, causing numerical errors to explode.
 
 A small number of divergences (say <1% of samples) may be acceptable, but many divergences indicate biased sampling — the sampler is systematically avoiding regions it can't navigate, so the samples underrepresent those areas.
 
@@ -606,7 +612,7 @@ It is the `δ` argument: `NUTS(0.95)` keeps the default warmup length, and `NUTS
 It plays the role that `adapt_delta` does in Stan.
 :::
 
-## Problem 3: Multi-modal posteriors
+## Problem 4: Multi-modal posteriors
 
 Some posteriors have multiple peaks, and a single chain can settle into one and never see the others. The standard responses are:
 
@@ -677,9 +683,8 @@ statistic that notices.
 Convergence diagnostics tell you if the **algorithm** worked.
 Posterior predictive checks tell you if the **model** makes sense.
 
-**Why check predictions?** Even if MCMC converged perfectly, your model might still be wrong.
+**Why check predictions?**
 The model could be mis-specified, missing important features, or based on incorrect assumptions.
-Posterior predictive checks reveal whether your model actually generates data that looks like what you observed.
 
 ```{julia}
 # Generate predictions from the posterior
@@ -725,7 +730,6 @@ plot!(p)
 
 Do the simulated epidemics (blue lines) look similar to the real data (red points)?
 They should capture the timing, peak size, and overall shape.
-If they don't, your model needs improvement - no amount of MCMC will fix a fundamentally wrong model.
 
 ## The complete workflow
 
@@ -739,7 +743,7 @@ If they don't, your model needs improvement - no amount of MCMC will fix a funda
 # Advanced diagnostics
 
 ::: {.callout-note appearance="simple"}
-This section covers refinements to the basic diagnostics above. If you're short on time, you can skip ahead to the [troubleshooting guide](#troubleshooting-guide) — the core diagnostics (R̂, ESS, trace plots) from the previous section are sufficient for most analyses.
+This section covers refinements to the basic diagnostics above. If you're short on time, you can skip ahead to the [troubleshooting guide](#troubleshooting-guide) — the core diagnostics (R̂, ESS, trace plots) from [Quantitative diagnostics](#quantitative-diagnostics) are sufficient for most analyses.
 :::
 
 ## Split-R̂
@@ -809,7 +813,7 @@ The formal version of this comparison is the energy Bayesian fraction of missing
 ::: {.callout-note collapse="true"}
 ## What E-BFMI measures
 
-Each iteration gives the ball a fresh push, and E-BFMI asks whether those pushes are big enough to carry it across the surface rather than around one part of it.
+Each iteration gives the puck a fresh push, and E-BFMI asks whether those pushes are big enough to carry it across the surface rather than around one part of it.
 Writing $E_n$ for the energy at iteration $n$,
 
 $$\widehat{\text{E-BFMI}} = \frac{\sum_{n=2}^{N} (E_n - E_{n-1})^2}{\sum_{n=1}^{N} (E_n - \bar{E})^2}$$
@@ -901,7 +905,7 @@ plot(chain_problematic)
 ```
 
 The first table is the single chain and the second is several chains, on the same model with the same number of draws per chain.
-Only the second is outside even the looser 1.1 threshold.
+Only the second is outside the 1.01 threshold.
 The third table shows how little independent information those draws carry.
 Split-R̂ on one chain compares the first half of a chain against its second half, and a chain that never leaves the region it started in has little to disagree with.
 Several chains start from different points, and that is what gives R̂ something to detect.
@@ -974,8 +978,6 @@ The general recipe:
 After three sessions, you now have a complete workflow for Bayesian inference with deterministic models. In [Bayesian inference with mathematical models](introduction.qmd), you learned the core concepts: priors encode beliefs before seeing data, likelihoods measure how well parameters explain observations, and Bayes' theorem combines them into a posterior. In [MCMC](mcmc.qmd), you saw how to sample from posteriors that are too complex for grid search - from basic Metropolis-Hastings through adaptive methods (RAM) to gradient-based samplers (NUTS). This session covered diagnostics: trace plots for visual assessment, R̂ for convergence, and ESS for effective sample size.
 
 **The workflow**: Define model → Run MCMC → Check convergence → Check model fit → Iterate
-
-But MCMC convergence doesn't mean your model is correct - that's next in [Model Checking](model_checking.qmd).
 
 # Learning points
 
