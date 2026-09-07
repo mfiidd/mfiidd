@@ -336,15 +336,24 @@ traj = simulate_seitl_deterministic(θ_guess, init_state_guess, times)
 first(traj, 10)
 ```
 
+The data are reported cases, and the model treats a case as reported with probability $\rho$.
+The quantity to put beside the points is therefore $\rho \times \mathrm{Inc}$, the number of cases the observation process expects to see, rather than the incidence itself.
+That is a derived quantity, computed from a trajectory after the fact, so it gets a name of its own.
+
+```{julia}
+expected_observations(traj, ρ) = ρ .* traj.Inc
+```
+
 ```{julia}
 #| code-fold: true
 #| code-summary: "Plotting code"
-# Plot the simulated incidence against the data
+# Plot the expected reported cases against the data
 p = plot(title = "SEITL Model: Deterministic Simulation",
-         xlabel = "Time (days)", ylabel = "Cases")
+         xlabel = "Time (days)", ylabel = "Reported cases")
 
-# Plot simulated incidence
-plot!(p, traj.time, traj.Inc, label = "Simulated", linewidth = 2, color = :blue)
+# Thin the simulated incidence by the reporting rate
+plot!(p, traj.time, expected_observations(traj, θ_guess[:ρ]),
+      label = "Expected reported cases", linewidth = 2, color = :blue)
 
 # Overlay real data
 scatter!(p, flu_tdc.time, flu_tdc.obs,
@@ -371,6 +380,7 @@ plot(
 ```
 
 Note that although the simulation of the trajectory is deterministic, the observation process is stochastic (Poisson with reporting rate $\rho$).
+The curve above is the mean of that process, and the replicates below are draws from it.
 You can generate multiple observation replicates, using `generate_observations`, which comes from the package too:
 
 ```{julia}
@@ -382,7 +392,7 @@ println("```julia\n", source_for(generate_observations), "\n```")
 ```{julia}
 # Generate 100 replicates of observations
 p = plot(title = "Observation Process Variability",
-         xlabel = "Time (days)", ylabel = "Cases")
+         xlabel = "Time (days)", ylabel = "Reported cases")
 
 for i in 1:100
     obs = generate_observations(traj, θ_guess[:ρ])
@@ -401,18 +411,22 @@ plot!(p)
 You've just seen how to simulate the model by directly calling the simulation function with specific parameter values.
 However, since we've defined a Turing `@model`, we can also sample from the prior predictive distribution.
 This is useful when we want to explore the range of behaviours the model can produce before seeing any data.
-`sample(model, Prior(), n)` draws parameter values from the priors, and `returned` collects the trajectory that the model simulated for each draw.
+`sample(model, Prior(), n)` draws parameter values from the priors.
+The model is not conditioned on data here, so `obs` is drawn alongside them and every sample carries a full set of reported counts.
+Those counts are the prior predictive distribution.
+They carry the spread of the parameters, the reporting rate and the Poisson noise together, which is what the model claims about the data and therefore what belongs beside the points.
 
 ```{julia}
 prior_model = seitl_model(times, init_state_guess, length(times) - 1)
 prior_draws = sample(prior_model, Prior(), 5, progress=false)
-prior_trajs = returned(prior_model, prior_draws)
 
 p = plot(title = "Prior Predictive Simulations",
-         xlabel = "Time (days)", ylabel = "Cases")
+         xlabel = "Time (days)", ylabel = "Reported cases")
 
-for traj in prior_trajs
-    plot!(p, traj.time, traj.Inc, alpha = 0.5, label = "")
+# `prior_draws[@varname(obs)][i, 1]` is the whole count vector for the i-th draw
+for i in 1:5
+    plot!(p, flu_tdc.time, prior_draws[@varname(obs)][i, 1],
+          linewidth = 1.5, alpha = 0.8, label = "")
 end
 
 scatter!(p, flu_tdc.time, flu_tdc.obs,
@@ -425,6 +439,52 @@ The draws all give plausible outbreaks, a wave rising over the first two or thre
 That is what you want to see from a prior predictive draw, and it is the reason for looking before you fit.
 
 Notice how the same `@model` definition can be used for both simulation (here) and inference (in the [Particle MCMC session](pmcmc.qmd)).
+
+### Latent quantities
+
+The figure above shows what the priors imply for the *observations*, because those are what we will hold against data.
+The same draws also give the *latent* incidence: the infections the model says happened, whether or not anyone wrote them down.
+`returned` collects the trajectory the model simulated for each draw, so both quantities come out of one push-forward and `expected_observations` turns one into the other.
+The reporting rate that separates them is a parameter to be estimated rather than a known quantity, so how far apart they sit is a question the priors answer differently in every draw.
+
+```{julia}
+prior_trajs = vec(returned(prior_model, prior_draws))
+prior_ρ = vec(prior_draws[@varname(ρ)])
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: "Plotting code"
+p = plot(title = "Latent incidence and expected reports",
+         xlabel = "Time (days)", ylabel = "Cases per day")
+
+# One colour per prior draw. The shading runs from the latent curve down to its
+# expected reports, so it is the part of the epidemic that goes unrecorded
+for (i, (traj, ρ)) in enumerate(zip(prior_trajs, prior_ρ))
+    plot!(p, traj.time, traj.Inc,
+          fillrange = expected_observations(traj, ρ), fillalpha = 0.18,
+          color = i, linestyle = :solid, linewidth = 1.5, label = "")
+    plot!(p, traj.time, expected_observations(traj, ρ),
+          color = i, linestyle = :dash, linewidth = 1.5, label = "")
+end
+
+# Grey entries name the two styles, since the colours only identify the draw
+plot!(p, Float64[], Float64[], color = :grey, linestyle = :solid,
+      linewidth = 1.5, label = "Latent incidence")
+plot!(p, Float64[], Float64[], color = :grey, linestyle = :dash,
+      linewidth = 1.5, label = "Expected reported cases")
+
+scatter!(p, flu_tdc.time, flu_tdc.obs,
+         label = "Observed data", markersize = 4, color = :red)
+```
+
+::: {.callout-warning}
+## What the latent scale cannot tell you
+
+Nothing observes latent incidence, so no part of the data can confirm or contradict the solid lines.
+Only the dashed ones are held against the points.
+The distance between a pair is a claim the model makes about how much went unrecorded, and until the model is fitted that claim comes entirely from the prior on $\rho$.
+:::
 
 Now, take 5 minutes to explore the dynamics of the model for different parameter and initial state values. In particular, try different values for $R_0\in[2-15]$ and $\alpha\in[0.3-1]$.
 For which values of $R_0$ and $\alpha$ do you get a decent fit?
@@ -449,10 +509,13 @@ The model has the following transitions:
 ::: {.callout-note collapse="true"}
 ## Implementation: Gillespie algorithm
 
+`simulate_seitl_stochastic` walks through the days and hands each one to `gillespie_step_seitl!`, which advances the state over that day and returns the cases it produced.
+The stepper is the algorithm, and it carries the five transitions of the table above.
+
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(simulate_seitl_stochastic), "\n```")
+println("```julia\n", source_for(gillespie_step_seitl!), "\n```")
 ```
 
 ::: {.callout-tip collapse="true"}
@@ -460,10 +523,11 @@ println("```julia\n", source_for(simulate_seitl_stochastic), "\n```")
 
 - **Stoichiometry matrix**: Each row defines how compartments change for one transition type (e.g., `[-1, 1, 0, 0, 0]` means S decreases by 1 and E increases by 1 for infection)
 - **`rates(s)`**: Computes the current rate of each transition based on compartment sizes
-- **`gillespie_step!`**: Simulates one day by repeatedly: (1) drawing an exponential waiting time, (2) selecting which event occurs proportional to rates, (3) applying the state change
-- **`randexp() / total_rate`**: Waiting time to next event follows Exp(total_rate)
+- **`gillespie_step_seitl!`**: Simulates one day by repeatedly: (1) drawing an exponential waiting time, (2) selecting which event occurs proportional to rates, (3) applying the state change
+- **`randexp(rng) / total_rate`**: Waiting time to next event follows Exp(total_rate)
 - **Event selection**: Cumulative sum trick to select event with probability proportional to its rate
 - **`event == 2`**: E→I transitions are counted as new cases (daily incidence)
+- **`rng`**: The generator is an argument rather than a global, so the particle filter can control the randomness of each particle and you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
 :::
 
 :::
@@ -484,10 +548,10 @@ traj_stoch = simulate_seitl_stochastic(θ_guess, init_state_guess, times)
 
 # Plot
 p = plot(title = "SEITL Model: Stochastic Simulation",
-         xlabel = "Time (days)", ylabel = "Cases")
+         xlabel = "Time (days)", ylabel = "Reported cases")
 
-plot!(p, traj_stoch.time, traj_stoch.Inc, label = "Simulated (stochastic)",
-      linewidth = 2, color = :blue)
+plot!(p, traj_stoch.time, expected_observations(traj_stoch, θ_guess[:ρ]),
+      label = "Expected reported cases", linewidth = 2, color = :blue)
 
 scatter!(p, flu_tdc.time, flu_tdc.obs,
          label = "Observed data", markersize = 4, color = :red)
@@ -501,12 +565,12 @@ Run multiple stochastic replicates to see variability:
 # Generate multiple stochastic trajectories with the same parameters
 # This shows the variability from demographic stochasticity
 p = plot(title = "SEITL Model: 50 Stochastic Replicates",
-         xlabel = "Time (days)", ylabel = "Cases")
+         xlabel = "Time (days)", ylabel = "Reported cases")
 
 for i in 1:50
     traj_rep = simulate_seitl_stochastic(θ_guess, init_state_guess, times)
-    plot!(p, traj_rep.time, traj_rep.Inc, alpha = 0.3,
-          color = :lightblue, label = "")
+    plot!(p, traj_rep.time, expected_observations(traj_rep, θ_guess[:ρ]),
+          alpha = 0.3, color = :lightblue, label = "")
 end
 
 scatter!(p, flu_tdc.time, flu_tdc.obs,
@@ -514,6 +578,9 @@ scatter!(p, flu_tdc.time, flu_tdc.obs,
 
 plot!(p)
 ```
+
+Each replicate is the mean of the observation process for one stochastic trajectory, so the band you see is demographic stochasticity alone.
+Adding a Poisson draw on top of each one would widen it further, and the observation process figure above shows by how much.
 
 ::: {.callout-note}
 Just like with the deterministic model, you can use the Turing `@model` for prior predictive checks by sampling parameters from priors (without conditioning on data). The same `@model` definition will be used for inference in the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions — condition with `| (; obs = data)` when fitting, leave unconditioned when simulating. See the [unified approach callout](#sec-unified-approach) at the end of this session for the full pattern.
@@ -651,11 +718,12 @@ traj_seitl = simulate_seitl_deterministic(θ_better, init_state_guess, times)
 traj_seit4l = simulate_seit4l_deterministic(θ_better, init_state_4l, times)
 
 # Plot comparison
-p = plot(title = "SEITL vs SEIT4L", xlabel = "Time (days)", ylabel = "Cases")
+p = plot(title = "SEITL vs SEIT4L", xlabel = "Time (days)",
+         ylabel = "Reported cases")
 
-plot!(p, traj_seitl.time, traj_seitl.Inc,
+plot!(p, traj_seitl.time, expected_observations(traj_seitl, θ_better[:ρ]),
       label = "SEITL (exponential T)", linewidth = 2, color = :blue)
-plot!(p, traj_seit4l.time, traj_seit4l.Inc,
+plot!(p, traj_seit4l.time, expected_observations(traj_seit4l, θ_better[:ρ]),
       label = "SEIT4L (Erlang-4 T)", linewidth = 2, color = :green)
 
 scatter!(p, flu_tdc.time, flu_tdc.obs,
@@ -663,6 +731,8 @@ scatter!(p, flu_tdc.time, flu_tdc.obs,
 
 plot!(p)
 ```
+
+Both curves are thinned by the same $\rho$, so they can be read against each other and against the points.
 
 Can you notice any differences? If so, which model seems to provide the best fit? Do you understand why the shape of the epidemic changes when you use the Erlang distribution for the $T$ compartment?
 
