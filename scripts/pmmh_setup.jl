@@ -64,7 +64,15 @@ end
 # Both models are estimated with the same bootstrap filter the sessions use, from
 # GeneralisedFilters, so the saved chains are the posterior of the model the page
 # defines rather than of a second implementation that happens to live in scripts.
-pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter_seitl)
+## SEITL is five compartments and SEIT4L eight; the filter reads which model it
+## is running off the initial state, so that is the only thing that differs here
+const SEITL_INIT = [279.0, 0.0, 2.0, 3.0, 0.0]
+
+function pmmh_seitl(obs, n_particles)
+    seitl_filter(θ, o, n) = run_particle_filter(θ, o, n; init_state = SEITL_INIT)
+    return pmmh(obs, n_particles, seitl_filter)
+end
+
 pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter)
 
 """

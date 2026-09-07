@@ -58,21 +58,6 @@ function run_particle_filter(
 end
 
 """
-    run_particle_filter_seitl(θ, obs, n_particles; init_state)
-
-Filter the five compartment SEITL model. A thin wrapper over
-[`run_particle_filter`](@ref) with the SEITL initial state as its default.
-"""
-function run_particle_filter_seitl(
-    θ,
-    obs,
-    n_particles;
-    init_state = [279.0, 0.0, 2.0, 3.0, 0.0],
-)
-    return run_particle_filter(θ, obs, n_particles; init_state)
-end
-
-"""
     filtered_incidence(θ, obs, n_particles; init_state)
 
 Run the bootstrap filter and return one draw from the smoothing distribution of

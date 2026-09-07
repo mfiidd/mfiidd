@@ -24,7 +24,7 @@ export seitl_ode!, simulate_seitl_deterministic, simulate_seitl_stochastic
 export seit4l_ode!, simulate_seit4l_deterministic, simulate_seit4l_stochastic
 export generate_observations
 export gillespie_step, gillespie_step_seitl!, gillespie_step_seit4l!
-export run_particle_filter, run_particle_filter_seitl, filtered_incidence
+export run_particle_filter, filtered_incidence
 export SEITLDynamics, SEITLInitial, PoissonObservation
 export source_for
 
@@ -79,7 +79,7 @@ end
 
     init_seit4l = [99.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0]
     run_particle_filter(θ_seitl, obs, 20; init_state = init_seit4l)
-    run_particle_filter_seitl(θ_seitl, obs, 20; init_state = [99.0, 0.0, 1.0, 0.0, 0.0])
+    run_particle_filter(θ_seitl, obs, 20; init_state = [99.0, 0.0, 1.0, 0.0, 0.0])
 end
 
 end # module MFIIDD
