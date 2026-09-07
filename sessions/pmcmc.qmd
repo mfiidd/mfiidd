@@ -379,6 +379,8 @@ function seit4l_ode!(du, u, p, t)
     du[9] = ϵ * E
 end
 
+seit4l_prob = ODEProblem(seit4l_ode!, zeros(9), (0.0, 1.0), zeros(5))
+
 @model function seit4l_deterministic_model(init_state, times, n_obs)
     # Weakly informative priors
     R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
@@ -396,7 +398,9 @@ end
            init_state[:T1], init_state[:T2], init_state[:T3], init_state[:T4],
            init_state[:L], 0.0]
 
-    prob = ODEProblem(seit4l_ode!, u0, (times[1], times[end]), params)
+    prob = remake(
+        seit4l_prob, u0 = u0, p = params, tspan = (times[1], times[end])
+    )
     sol = solve(prob, Tsit5(), saveat=times)
 
     # Reject parameter draws that drive the solver to fail early; the gradient

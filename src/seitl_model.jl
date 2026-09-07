@@ -47,6 +47,15 @@ function seitl_ode!(du, u, p, t)
 end
 
 """
+    SEITL_BASE_PROBLEM
+
+A template `ODEProblem` for `seitl_ode!`, built once when the package loads.
+`simulate_seitl_deterministic` calls `remake` on it rather than building a fresh
+problem on every call. See `SIR_BASE_PROBLEM` for why.
+"""
+const SEITL_BASE_PROBLEM = ODEProblem(seitl_ode!, zeros(6), (0.0, 1.0), zeros(5))
+
+"""
     simulate_seitl_deterministic(θ, init_state, times)
 
 Simulate the deterministic SEITL model.
@@ -71,7 +80,7 @@ function simulate_seitl_deterministic(θ, init_state, times)
         0.0,
     ]
 
-    prob = ODEProblem(seitl_ode!, u0, (times[1], times[end]), params)
+    prob = remake(SEITL_BASE_PROBLEM; u0 = u0, p = params, tspan = (times[1], times[end]))
     sol = solve(prob, Tsit5(), saveat = times)
 
     state_names = [:S, :E, :I, :T, :L, :Inc_cumulative]
@@ -219,6 +228,15 @@ function seit4l_ode!(du, u, p, t)
 end
 
 """
+    SEIT4L_BASE_PROBLEM
+
+A template `ODEProblem` for `seit4l_ode!`, built once when the package loads.
+`simulate_seit4l_deterministic` calls `remake` on it rather than building a
+fresh problem on every call. See `SIR_BASE_PROBLEM` for why.
+"""
+const SEIT4L_BASE_PROBLEM = ODEProblem(seit4l_ode!, zeros(9), (0.0, 1.0), zeros(5))
+
+"""
     simulate_seit4l_deterministic(θ, init_state, times)
 
 Simulate the deterministic SEIT4L model.
@@ -246,7 +264,7 @@ function simulate_seit4l_deterministic(θ, init_state, times)
         0.0,
     ]
 
-    prob = ODEProblem(seit4l_ode!, u0, (times[1], times[end]), params)
+    prob = remake(SEIT4L_BASE_PROBLEM; u0 = u0, p = params, tspan = (times[1], times[end]))
     sol = solve(prob, Tsit5(), saveat = times)
 
     state_names = [:S, :E, :I, :T1, :T2, :T3, :T4, :L, :Inc_cumulative]
