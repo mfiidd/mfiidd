@@ -325,8 +325,7 @@ For the Tristan da Cunha data with a simple SIR model, you'll likely see the mod
 
 ## Posterior latent quantities
 
-`returned` works on the fitted model in the same way it worked on the prior draws, so the $R_t$ plot from the prior section can be redrawn with what the data have taught us.
-`predict` gives replicated observations and `returned` gives the model's own return value, and both push the same posterior draws forward.
+The same push-forward on the fitted model gives the posterior $R_t$, drawn here over the prior band.
 
 ```{julia}
 posterior_trajs = vec(returned(model, chain))
@@ -338,18 +337,21 @@ rt_samples = [
 ```{julia}
 #| code-fold: true
 #| code-summary: "Plotting code"
-p_rt = plot(title="Posterior R_t", xlabel="Time (days)", ylabel="R_t")
+p_rt = plot(title="Prior and posterior R_t", xlabel="Time (days)", ylabel="R_t",
+            legend=:topright)
 
-for rt in rt_samples
-    plot!(p_rt, collect(times), rt, alpha=0.1, color=:lightblue, label="")
+for rt in prior_rt
+    plot!(p_rt, collect(times), rt, alpha=0.15, color=:grey, label="")
 end
 
-hline!(p_rt, [1.0], color=:red, linestyle=:dash, label="R_t = 1")
-plot!(p_rt, legend=:topright)
-```
+for rt in rt_samples
+    plot!(p_rt, collect(times), rt, alpha=0.15, color=:steelblue, label="")
+end
 
-$R_t$ starts at the posterior for $R_0$ and falls as susceptibles are depleted, crossing 1 where the fitted epidemic turns over.
-The band is far narrower than the prior one, and the spread that remains is the same posterior uncertainty the predictive check shows, read on a scale you have intuition for.
+plot!(p_rt, Float64[], Float64[], color=:grey, label="Prior")
+plot!(p_rt, Float64[], Float64[], color=:steelblue, label="Posterior")
+hline!(p_rt, [1.0], color=:red, linestyle=:dash, label="R_t = 1")
+```
 
 # Quantifying posterior predictive fit
 
@@ -469,7 +471,6 @@ resid = flu_tdc.obs .- mean_pred
 ```
 
 `fix` pins the three parameters to their posterior means, and calling the fixed model runs it once and hands back its `return` value.
-The trajectory therefore comes from the same code the fit used, on the same time grid, so the predictions line up with the observations they are compared against.
 
 ::: {.callout-warning}
 ## What the plug-in trajectory costs
