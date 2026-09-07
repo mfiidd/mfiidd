@@ -133,14 +133,7 @@ We reuse the priors and the Gillespie simulator from the PMMH session.
 
 ```{julia}
 const PNAMES = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
-const PRIORS = [
-    truncated(Normal(3.0, 2.0), lower=1.0),
-    truncated(Normal(2.0, 1.0), lower=0.5),
-    truncated(Normal(3.0, 2.0), lower=0.5),
-    Beta(2, 2),
-    truncated(Normal(15.0, 10.0), lower=1.0),
-    Beta(2, 2),
-]
+const PRIORS = collect(values(SEITL_PRIORS))  ## same order as PNAMES
 const D = length(PNAMES)
 
 "Simulate one SEITL outbreak and its Poisson-observed daily incidence."

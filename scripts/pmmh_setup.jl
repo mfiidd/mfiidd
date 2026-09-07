@@ -41,12 +41,12 @@ probe pushes through the model. The particle filter is not differentiable, and
 its resampling step errors on Dual-valued weights.
 """
 @model function pmmh(obs, n_particles, particle_filter)
-    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
-    D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
-    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
-    α ~ Beta(2, 2)
-    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
-    ρ ~ Beta(2, 2)
+    R_0 ~ SEITL_PRIORS.R_0
+    D_lat ~ SEITL_PRIORS.D_lat
+    D_inf ~ SEITL_PRIORS.D_inf
+    α ~ SEITL_PRIORS.α
+    D_imm ~ SEITL_PRIORS.D_imm
+    ρ ~ SEITL_PRIORS.ρ
 
     θ = Dict(
         :R_0 => ForwardDiff.value(R_0),
@@ -124,14 +124,14 @@ function run_pmmh(
     n_samples = N_SAMPLES,
     thinning = THINNING,
 )
-    println("=" ^ 60)
+    println("="^60)
     println("Running PMMH for $name with RAM")
     println("  Particles: $N_PARTICLES")
     println("  Warmup (adaptation, discarded): $n_warmup")
     println("  Samples kept: $n_samples")
     println("  Thinning: $thinning")
     println("  Final samples: $(n_samples ÷ thinning)")
-    println("=" ^ 60)
+    println("="^60)
 
     t_start = time()
     chain_full = sample(

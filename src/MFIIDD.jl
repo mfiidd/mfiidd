@@ -10,6 +10,7 @@ using Random: AbstractRNG, randexp
 using SSMProblems: SSMProblems, StateSpaceModel
 using StatsBase: Weights, wsample
 
+include("seitl_priors.jl")
 include("sir_model.jl")
 include("seitl_model.jl")
 include("seitl_particle_filter.jl")
@@ -17,6 +18,7 @@ include("seitl_ssm_interface.jl")
 include("seitl_runner.jl")
 include("seit4l_gillespie.jl")
 
+export SEITL_PRIORS
 export sir_ode!, simulate_sir
 export seitl_ode!, simulate_seitl_deterministic, simulate_seitl_stochastic
 export seit4l_ode!, simulate_seit4l_deterministic, simulate_seit4l_stochastic
