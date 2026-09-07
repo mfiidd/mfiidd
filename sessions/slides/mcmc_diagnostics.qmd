@@ -82,6 +82,20 @@ problem. None can show you there is not one.
 
 # Visual diagnostics
 
+## The trace plot
+
+```{julia}
+#| echo: false
+## agree[1] is a well-mixing chain; `chain` is the deliberately sticky one
+plot(
+    agree[1][51:end], xlabel = "Iteration", ylabel = "θ", size = (760, 300),
+    bottom_margin = 5Plots.mm, left_margin = 4Plots.mm
+)
+```
+
+The parameter against iteration: where the chain has been. For [NUTS]{.alert},
+where the puck has been.
+
 ## Why we like hairy caterpillars
 
 :::: {.columns}
@@ -89,17 +103,11 @@ problem. None can show you there is not one.
 ![](images/hairy_caterpillar.jpg)
 :::
 ::: {.column width="45%"}
-Key characteristics:
-
-- Straight
-- Plump head, plump rear
-- Multiple colours
+- [Straight]{.alert} — no trend across the run
+- [Plump head, plump rear]{.alert} — the same spread at the start as at the end
+- [Multiple colours]{.alert} — several chains on top of each other
 :::
 ::::
-
-::: {.fragment}
-A trace plot is where the chain has been. For [NUTS]{.alert}, where the puck has been.
-:::
 
 ## Two more plots worth making
 
@@ -132,22 +140,6 @@ Still drifting, or still correlated at lag 100, and your effective sample size i
 a small fraction of the iterations you ran.
 :::
 
-## Autocorrelation, as one number {.smaller}
-
-$\rho_k$ is the correlation between the chain and itself $k$ steps later.
-
-. . .
-
-Summed, it gives the [integrated autocorrelation time]{.alert}
-
-$$\tau = 1 + 2\sum_{k=1}^{\infty} \rho_k$$
-
-roughly the iterations needed for one draw's worth of new information.
-
-. . .
-
-Hold on to $\tau$. Both statistics in the practical are built from it.
-
 ## One chain cannot tell you it is wrong
 
 Every plot so far looked at [one chain]{.alert}.
@@ -161,7 +153,7 @@ healthy on all three.
 
 It has never been anywhere else, so it cannot tell you what it missed.
 
-## Several pucks, released apart
+## Chains started apart
 
 ```{julia}
 #| echo: false
@@ -199,6 +191,22 @@ Agreeing is evidence. Disagreeing is proof that at least one is wrong.
 ::::
 
 # Quantitative diagnostics
+
+## Autocorrelation as a number {.smaller}
+
+$\rho_k$ is the correlation between the chain and itself $k$ steps later.
+
+. . .
+
+Summed, it gives the [integrated autocorrelation time]{.alert}
+
+$$\tau = 1 + 2\sum_{k=1}^{\infty} \rho_k$$
+
+roughly the iterations needed for one draw's worth of new information.
+
+. . .
+
+R̂ and ESS are both built from $\tau$.
 
 ## R̂: the Gelman-Rubin diagnostic {.smaller}
 
@@ -346,8 +354,9 @@ reports the **smaller**, because either shortage binds.
 
 ## Energy: enough of a push? {.smaller}
 
-Each iteration gives the puck a fresh push. [E-BFMI]{.alert} asks whether the
-pushes are big enough to carry it across the surface.
+Specific to HMC and NUTS. Each iteration gives the puck a fresh push, and
+[E-BFMI]{.alert} asks whether the pushes are big enough to carry it across the
+surface.
 
 $$\widehat{\text{E-BFMI}} =
 \frac{\sum_n (E_n - E_{n-1})^2}{\sum_n (E_n - \bar{E})^2}$$

@@ -307,7 +307,7 @@ It cannot tell you whether that region is the whole posterior, because the chain
 A chain that settles into one part of the posterior and explores that part thoroughly looks healthy on all three plots above.
 
 Running several chains is what makes that failure visible.
-Each chain is initialised separately, so they are several pucks released from different places.
+Each chain is initialised separately, so they start in different places.
 If chains that started apart end up describing the same distribution, that is evidence they have found the posterior.
 If they end up describing different distributions, at least one of them is wrong.
 Four chains is a reasonable default, though the code below asks for as many as your machine has threads for, and two are enough to see the effect.
@@ -392,13 +392,13 @@ $W$ is too small while any chain is still confined to part of the posterior, and
 $\hat{V}$ is the variance you get by pooling every draw and ignoring which chain it came from, which is what sets those weights.
 $B$ is divided by $n$ because $B/n$ is the variance of the chain means, and that, rather than $n$ times it, is what enters a pooled variance.
 
-Chains sitting in different places spread the chain means apart.
+Chains that have settled in different parts of the posterior disagree about the mean.
 That inflates $B$, and R̂ goes up with it.
 This is the signal the statistic exists for.
 
-Chains that agree do not bring it to exactly 1, though, because the draws within each chain are correlated.
-The mean of a correlated chain of length $n$ has variance of about $W\tau/n$, with $\tau$ the integrated autocorrelation time from the [autocorrelation callout](#autocorrelation).
-So $B$ comes out at roughly $\tau W$, and substituting gives
+Chains that agree do not bring R̂ to exactly 1, though, because the draws within each chain are correlated.
+The mean of a correlated chain of length $n$ has variance of about $W\tau/n$, with $\tau$ the integrated autocorrelation time from the [autocorrelation callout](#autocorrelation), and $B$ is $n$ times that variance, so $B$ comes out at roughly $\tau W$.
+Substituting gives
 
 $$\hat{R}^2 = \frac{n - 1}{n} + \frac{B}{nW} \approx 1 + \frac{\tau - 1}{n}$$
 
