@@ -98,7 +98,7 @@ Key characteristics:
 ::::
 
 ::: {.fragment}
-A trace plot is where the [puck]{.alert} has been.
+A trace plot is where the chain has been. For [NUTS]{.alert}, where the puck has been.
 :::
 
 ## Two more plots worth making
@@ -123,7 +123,7 @@ lags = 0:100
 bar(lags, acf(chain, lags), xlabel = "Lag", ylabel = "Correlation")
 ```
 
-How far the puck slides before it forgets.
+How long before the chain forgets where it started.
 ::::
 :::::
 

@@ -139,7 +139,7 @@ model = sir_model(init_state, epi1.time, length(epi1.obs)) | (; obs = epi1.obs)
 
 ## 1. Trace plots: The most important diagnostic
 
-Trace plots show parameter values over iterations, which is where the puck has been.
+Trace plots show parameter values over iterations, which is where the chain has been, or for a gradient-based sampler like NUTS, where the puck has been.
 A well-mixed chain looks like a "hairy caterpillar" - densely filled with rapid up-and-down fluctuations around a stable mean:
 
 ```{julia}
@@ -209,7 +209,8 @@ plot(p1, p2, layout = (2, 1))
 
 ## 3. Autocorrelation
 
-MCMC samples are correlated, because the puck has to slide some distance before it forgets where it started.
+MCMC samples are correlated whatever the sampler, because each draw starts where the last one ended.
+For NUTS that is the puck sliding some distance before it forgets where it started.
 Good chains have autocorrelation that decays quickly:
 
 ::: {.callout-note collapse="true"}
