@@ -367,6 +367,26 @@ In the top panel the chains lie on top of each other and you cannot tell them ap
 In the bottom panel the chains sit at different levels and are still moving after 2000 iterations.
 A single chain cannot tell you whether a slow drift is poor mixing or a chain that has not arrived yet, and four chains can.
 
+## 5. Burn-in and warmup
+
+MCMC chains often start from arbitrary initial values and need time to find the high-probability regions of the posterior.
+Samples from this initial exploration phase, called burn-in, are discarded because they do not represent the target distribution.
+
+Modern samplers like NUTS have automatic warmup periods where they adapt the step size to achieve good acceptance rates, learn the geometry of the posterior and explore to find typical parameter values.
+
+In our earlier example, when we ran `sample(model, NUTS(), 2000)`, Turing actually ran about 3000 iterations in total: 1000 warmup iterations, automatically discarded, plus 2000 sampling iterations.
+The returned chain contains only the 2000 post-warmup samples.
+
+By default, NUTS adapts for `min(1000, N ÷ 2)` iterations, where `N` is the number of samples you ask for.
+Asking for 2000 samples therefore gives the 1000 warmup iterations above, while asking for 500 gives 250.
+The number of warmup iterations is the first argument to `NUTS`, so `NUTS(2000, 0.65)` adapts for 2000 iterations at a target acceptance rate of 0.65.
+For most models the default is sufficient.
+
+With NUTS, you typically do not need to manually discard burn-in samples.
+The warmup is automatic and adaptive.
+However, you should still check trace plots to ensure the chain has converged.
+If you see trends even after warmup, you may need longer adaptation.
+
 # Quantitative diagnostics
 
 ## 1. R̂ statistic (Gelman-Rubin diagnostic)
@@ -381,14 +401,19 @@ The older and looser threshold of 1.1 is still widely quoted, and a chain that f
 
 Take $m$ chains of $n$ iterations each.
 Write $W$ for the mean of the within-chain variances, and $B$ for $n$ times the variance of the $m$ chain means.
-$\hat{V}$ is the variance of all $mn$ draws pooled together, ignoring which chain each came from.
-Pooling splits into a within-chain part and a between-chain part, and those two parts are what the weights are:
+The total scatter of all $mn$ draws about the grand mean splits exactly into a within-chain part and a between-means part, which in terms of $W$ and $B$ is
+
+$$\sum_j \sum_i (x_{ij} - \bar{x})^2 = m(n-1)W + (m-1)B$$
+
+The two fractions are bookkeeping on that split rather than weights anyone chose.
+$(n-1)/n$ on $W$ is a change of divisor, since each chain's variance divides its scatter by $n-1$, and expressing the same scatter per draw over $n$ draws multiplies by $(n-1)/n$.
+$1/n$ on $B$ undoes $B$'s own definition, since $B$ is $n$ times the variance of the chain means and it is that variance which adds to the within-chain part.
 
 $$\hat{V} = \frac{n - 1}{n} W + \frac{1}{n} B$$
 
-$(n-1)/n$ is the share of the pooled variance the within-chain scatter accounts for, and $1/n$ scales $B$ back down because $B$ was defined as $n$ times the variance of the chain means, while the pooled variance needs that variance itself.
-
-$W$ estimates the same posterior variance using only what happens inside each chain, so the two differ exactly to the extent the chains disagree:
+Dividing the split by $mn$ would put a factor $(m-1)/m$ on the second term.
+$\hat{V}$ leaves that factor off, so it exceeds the pooled variance of the draws by $B/(nm)$, and that is the point: $\hat{V}$ is built to overestimate the posterior variance while the chains disagree, while $W$ underestimates it while any chain is still confined to part of the posterior.
+R̂ compares the two:
 
 $$\hat{R} = \sqrt{\frac{\hat{V}}{W}}$$
 
