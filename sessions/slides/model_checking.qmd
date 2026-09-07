@@ -270,7 +270,7 @@ Failure is information. In rough order of what to try:
 
 . . .
 
-A model that fits everything predicts nothing.
+A model that fits everything is likely not to predict anything well.
 
 ## When is a model good enough?
 
