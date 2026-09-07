@@ -388,26 +388,17 @@ plot!(p)
 You've just seen how to simulate the model by directly calling the simulation function with specific parameter values.
 However, since we've defined a Turing `@model`, we can also sample from the prior predictive distribution.
 This is useful when we want to explore the range of behaviours the model can produce before seeing any data.
+`sample(model, Prior(), n)` draws parameter values from the priors, and `returned` collects the trajectory that the model simulated for each draw.
 
 ```{julia}
-# Sample from the prior predictive distribution
-# This samples parameter values from the priors and simulates trajectories
+prior_model = seitl_model(times, init_state_guess, length(times) - 1)
+prior_draws = sample(prior_model, Prior(), 5, progress=false)
+prior_trajs = returned(prior_model, prior_draws)
 
-# Generate 5 trajectories using the Turing model
-# Without conditioning, the model samples parameters from priors and simulates
 p = plot(title = "Prior Predictive Simulations",
          xlabel = "Time (days)", ylabel = "Cases")
 
-for i in 1:5
-    # Sample parameters from priors
-    seitl_prior = seitl_model(times, init_state_guess, length(times) - 1)
-    params = rand(seitl_prior).data
-
-    # Create parameter dictionary and simulate
-    θ = Dict(:R_0 => params.R_0, :D_lat => params.D_lat, :D_inf => params.D_inf,
-             :α => params.α, :D_imm => params.D_imm, :ρ => params.ρ)
-    traj = simulate_seitl_deterministic(θ, init_state_guess, times)
-
+for traj in prior_trajs
     plot!(p, traj.time, traj.Inc, alpha = 0.5, label = "")
 end
 
@@ -418,7 +409,6 @@ plot!(p)
 ```
 
 Notice how the same `@model` definition can be used for both simulation (here) and inference (in the [Particle MCMC session](pmcmc.qmd)).
-This unified approach means you only need to write the model once.
 
 Now, take 5 minutes to explore the dynamics of the model for different parameter and initial state values. In particular, try different values for $R_0\in[2-15]$ and $\alpha\in[0.3-1]$.
 For which values of $R_0$ and $\alpha$ do you get a decent fit?
@@ -765,7 +755,7 @@ That extra leading time point lets the model compare each observation with the i
 
 This unified structure enables both:
 
-- **Simulation** (this session): Call `rand(my_model(times, init_state, n_obs))` to sample from the prior predictive distribution (no conditioning — `obs` is sampled)
+- **Simulation** (this session): Call `sample(my_model(times, init_state, n_obs), Prior(), n)` to draw from the prior predictive distribution (no conditioning — `obs` is sampled)
 - **Inference** ([next session](pmcmc.qmd)): Call `sample(model, NUTS(), 1000)` where `model` is conditioned on data (the exact sampler choice depends on the model — see the MCMC and Particle MCMC sessions)
 - **Posterior prediction**: Use `predict(decondition(model), chain)` to generate new observations from the fitted model
 
