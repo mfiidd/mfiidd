@@ -534,11 +534,10 @@ For a posterior mean,
 $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{N_{\text{eff}}}}$$
 
 The posterior SD is the spread you are trying to report.
-MCSE is how precisely a finite trajectory has located the centre of that spread.
-The effective sample size is the only thing standing between them, so the only way to shrink an MCSE is to raise ESS, by sampling longer or by mixing better.
-The ESS in that denominator is the one for the mean computed on the untransformed draws, not the bulk ESS printed above.
-It cannot be the bulk ESS: rank normalisation replaces the draws with normal scores, and you cannot divide a posterior standard deviation measured in units of $R_0$ by an effective sample size derived from normal scores.
-So do not expect to reproduce the MCSE by hand from the bulk ESS on this page.
+MCSE says how much of the number you are about to write down is sampler noise.
+That spread is fixed by the posterior, so ESS is the only lever, and you raise it by sampling longer or by mixing better.
+
+The ESS here is the one for the mean on the untransformed draws, not the bulk ESS printed above, so the two will not reconcile by hand.
 :::
 
 ```{julia}
@@ -573,7 +572,8 @@ The first thing to try is a better algorithm — NUTS handles most well-behaved 
 
 With gradient-based samplers like NUTS, mixing problems are uncommon when the model is specified correctly, the posterior is reasonably well-behaved, and the priors aren't pathological.
 
-A chain started where the model cannot be solved will not move, and the trace looks like poor mixing rather than what it is.
+A chain started where the model cannot be evaluated does not move at all, and its trace shows the long flat stretches of a stuck chain.
+Those look exactly like a badly tuned proposal, which is why this failure is usually misdiagnosed.
 The flat `Uniform(1, 20)` prior in [the introduction session](introduction.qmd) is the usual way to end up there, and the guards against it are in [the Julia ecosystem session](julia_ecosystem.qmd) and [Model checking](model_checking.qmd).
 
 ## Problem 2: Where the chain starts
@@ -619,8 +619,11 @@ It plays the role that `adapt_delta` does in Stan.
 
 Some posteriors have multiple peaks, and a single chain can settle into one and never see the others. The standard responses are:
 
+- A prior that rules out the implausible mode, where one of them is not credible on knowledge you already hold. The prior has to be defensible on its own terms; one adopted because a mode is inconvenient is rigging the answer.
+- A mixture model, where the modes are genuinely different explanations and the data support both. A single posterior straddling two regimes is the wrong object.
 - Use more advanced samplers (parallel tempering, etc.)
-- Watch R̂ — chains in different modes push it up, though it cannot tell you that is the reason
+
+Multimodality is usually a property of the model and the data rather than of the sampler, so the first question is which mode you believe and why, which is a matter for [Model checking](model_checking.qmd).
 
 ::: {.callout-note title = "Example: Detecting multimodality" collapse = "true"}
 
