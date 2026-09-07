@@ -594,6 +594,7 @@ println("```julia\n", source_for(seit4l_ode!), "\n\n", source_for(simulate_seit4
 
 The Turing model does not change here either.
 SEIT4L carries nine state variables where SEITL carries six, but the initial state is already an argument, so `seitl_model(times, init_state_4l, n_obs; simulate = simulate_seit4l_deterministic)` fits SEIT4L under the same priors and the same observation process.
+The package provides all four combinations of the two choices, `simulate_seitl_deterministic`, `simulate_seitl_stochastic`, `simulate_seit4l_deterministic` and `simulate_seit4l_stochastic`, and any of them can be passed to `seitl_model` as long as the initial state matches.
 `init_state_4l` is built below.
 
 ::: {.callout-tip title="Exercise: Understand the SEIT4L code"}
@@ -747,5 +748,5 @@ Particle filters solve this by running many stochastic simulations simultaneousl
 # Going further
 
 * Curious about why we use the Poisson likelihood for count data? Have a look at the bottom of page 3 of this [reference](../references/poisson_obs.pdf) from Germán Rodríguez' [lecture notes on generalized linear models](https://grodri.github.io/glms/notes/).
-* **Stochastic SEIT4L**: We implemented a stochastic version of SEITL but not SEIT4L. As an exercise, try implementing `simulate_seit4l_stochastic` by extending the Gillespie algorithm with additional transitions for the T1→T2→T3→T4 sub-stages. The stoichiometry matrix will need 7 transitions instead of 5.
+* **Stochastic SEIT4L**: `simulate_seit4l_stochastic` runs the Erlang-4 model with the Gillespie algorithm, over the eight transitions that the T1→T2→T3→T4 sub-stages require rather than the five SEITL needs. It is the same simulator the particle filter uses in the [Particle Filters](particle_filters.qmd) session. Run both stochastic models many times from the same parameters and compare the spread of the second wave. The sub-stages make the time spent in $T$ less variable between individuals, so decide first whether you expect that to widen or narrow the range of second peaks, then check.
 * You might wonder why we only modified the distribution of the $T$ compartment. Indeed, wouldn't it be more realistic to use Erlang distributions for all the other compartments? And why did we use a shape equal to 4 and not 2 or 100? Think about another variant of the SEITL model and implement it by modifying the original version in a similar way as we did for the SEIT4L model. Does it fit the data better?
