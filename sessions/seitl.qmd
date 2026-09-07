@@ -268,12 +268,8 @@ Pass `simulate` to choose how the trajectory is produced.
     @assert length(times) == n_obs + 1 "times must have one more point than there are observations"
 
     # Weakly informative priors
-    R_0 ~ SEITL_PRIORS.R_0
-    D_lat ~ SEITL_PRIORS.D_lat
-    D_inf ~ SEITL_PRIORS.D_inf
-    α ~ SEITL_PRIORS.α
-    D_imm ~ SEITL_PRIORS.D_imm
-    ρ ~ SEITL_PRIORS.ρ
+    priors ~ to_submodel(seitl_priors(), false)
+    (; R_0, D_lat, D_inf, α, D_imm, ρ) = priors
 
     # Create parameter dictionary
     θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf,
@@ -288,6 +284,14 @@ Pass `simulate` to choose how the trajectory is produced.
 
     return traj
 end
+```
+
+The priors come from the course package, as a submodel that `to_submodel` splices in:
+
+```{julia}
+#| echo: false
+#| output: asis
+println("```julia\n", source_for(seitl_priors), "\n```")
 ```
 
 Each prior is centred on what the influenza literature reports, and its spread sets how far the parameter may travel before the data have to argue for it.

@@ -180,12 +180,8 @@ Uses GeneralisedFilters for likelihood estimation.
 """
 @model function pmmh_seit4l(obs, n_particles)
     # Weakly informative priors
-    R_0 ~ SEITL_PRIORS.R_0
-    D_lat ~ SEITL_PRIORS.D_lat
-    D_inf ~ SEITL_PRIORS.D_inf
-    α ~ SEITL_PRIORS.α
-    D_imm ~ SEITL_PRIORS.D_imm
-    ρ ~ SEITL_PRIORS.ρ
+    priors ~ to_submodel(seitl_priors(), false)
+    (; R_0, D_lat, D_inf, α, D_imm, ρ) = priors
 
     # Create parameter dictionary; extract underlying values so ForwardDiff
     # Duals (used only by Turing's gradient-based init probe) don't flow into
@@ -383,12 +379,8 @@ seit4l_prob = ODEProblem(seit4l_ode!, zeros(9), (0.0, 1.0), zeros(5))
 
 @model function seit4l_deterministic_model(init_state, times, n_obs)
     # Weakly informative priors
-    R_0 ~ SEITL_PRIORS.R_0
-    D_lat ~ SEITL_PRIORS.D_lat
-    D_inf ~ SEITL_PRIORS.D_inf
-    α ~ SEITL_PRIORS.α
-    D_imm ~ SEITL_PRIORS.D_imm
-    ρ ~ SEITL_PRIORS.ρ
+    priors ~ to_submodel(seitl_priors(), false)
+    (; R_0, D_lat, D_inf, α, D_imm, ρ) = priors
 
     # Solve ODE; promote u0 to the parameter element type so ForwardDiff Duals
     # propagate through the solution

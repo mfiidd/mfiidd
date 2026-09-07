@@ -41,12 +41,8 @@ probe pushes through the model. The particle filter is not differentiable, and
 its resampling step errors on Dual-valued weights.
 """
 @model function pmmh(obs, n_particles, particle_filter)
-    R_0 ~ SEITL_PRIORS.R_0
-    D_lat ~ SEITL_PRIORS.D_lat
-    D_inf ~ SEITL_PRIORS.D_inf
-    α ~ SEITL_PRIORS.α
-    D_imm ~ SEITL_PRIORS.D_imm
-    ρ ~ SEITL_PRIORS.ρ
+    priors ~ to_submodel(seitl_priors(), false)
+    (; R_0, D_lat, D_inf, α, D_imm, ρ) = priors
 
     θ = Dict(
         :R_0 => ForwardDiff.value(R_0),
