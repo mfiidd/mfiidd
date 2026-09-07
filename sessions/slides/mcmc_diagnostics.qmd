@@ -107,7 +107,7 @@ That is a statement about the limit. No finite run establishes it.
 
 . . .
 
-So everything today is a [check]{.alert}, not a test. Each one can show you a
+So everything today is a [check]{.alert}. Each one can show you a
 problem. None can show you there is not one.
 
 # Visual diagnostics
