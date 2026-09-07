@@ -307,7 +307,6 @@ Nothing observes these, so they cannot be checked against data.
 That sounds like a limitation and is exactly why they are worth plotting.
 They are easier to reason about than raw counts, which is the argument the [introduction](introduction.qmd) makes for prior predictive checks: a prior on $R_0$ is hard to judge and an epidemic curve is not.
 $R_t$ goes a step further along the same line.
-A reader who cannot say whether a prior on $R_0$ is sensible can say at once that $R_t$ still sitting at 4 in week six is not.
 
 ```{julia}
 # Push the posterior draws through the model's return statement
