@@ -97,7 +97,7 @@ end
 """
     simulate_seitl_stochastic(θ, init_state, times)
 
-Simulate the stochastic SEITL model using the Gillespie algorithm.
+Simulate the stochastic SEITL model.
 
 # Arguments
 - `θ`: Dict with keys :R_0, :D_lat, :D_inf, :α, :D_imm
@@ -108,86 +108,24 @@ Simulate the stochastic SEITL model using the Gillespie algorithm.
 DataFrame with columns: time, S, E, I, T, L, Inc (daily incidence)
 """
 function simulate_seitl_stochastic(θ, init_state, times)
-    R_0, D_lat, D_inf, α, D_imm = θ[:R_0], θ[:D_lat], θ[:D_inf], θ[:α], θ[:D_imm]
-    β = R_0 / D_inf
-    ϵ = 1.0 / D_lat
-    ν = 1.0 / D_inf
-    τ = 1.0 / D_imm
-
-    # State: [S, E, I, T, L]
-    state = Float64[
+    compartments = Float64[
         init_state[:S],
         init_state[:E],
         init_state[:I],
         init_state[:T],
         init_state[:L],
     ]
+    states, incidence = seitl_jump_trajectory(θ, compartments, times)
 
-    # Stoichiometry: how each transition changes [S, E, I, T, L]
-    stoich = [
-        [-1, 1, 0, 0, 0],   # S → E
-        [0, -1, 1, 0, 0],   # E → I
-        [0, 0, -1, 1, 0],   # I → T
-        [1, 0, 0, -1, 0],   # T → S
-        [0, 0, 0, -1, 1],    # T → L
-    ]
-
-    function rates(s)
-        S, E, I, T, L = s
-        N = S + E + I + T + L
-        [β * S * I / N, ϵ * E, ν * I, (1 - α) * τ * T, α * τ * T]
-    end
-
-    # Gillespie step: simulate one time unit, return daily incidence
-    function gillespie_step!(s, dt)
-        t, daily_inc = 0.0, 0
-        while t < dt
-            r = rates(s)
-            total_rate = sum(r)
-            total_rate ≤ 0 && break
-            τ_wait = randexp() / total_rate
-            t + τ_wait > dt && break
-            t += τ_wait
-            # Select event
-            cum, rnd, event = 0.0, rand() * total_rate, 0
-            for i in 1:5
-                cum += r[i]
-                if rnd ≤ cum
-                    event = i
-                    break
-                end
-            end
-            # Apply transition
-            for j in 1:5
-                s[j] += stoich[event][j]
-            end
-            # Track E→I transitions as new cases
-            event == 2 && (daily_inc += 1)
-        end
-        daily_inc
-    end
-
-    # Simulate day-by-day
-    n_days = length(times)
-    results = DataFrame(
+    return DataFrame(
         time = collect(times),
-        S = zeros(n_days),
-        E = zeros(n_days),
-        I = zeros(n_days),
-        T = zeros(n_days),
-        L = zeros(n_days),
-        Inc = zeros(n_days),
+        S = states[:, 1],
+        E = states[:, 2],
+        I = states[:, 3],
+        T = states[:, 4],
+        L = states[:, 5],
+        Inc = incidence,
     )
-
-    for (i, t) in enumerate(times)
-        results.S[i], results.E[i], results.I[i] = state[1], state[2], state[3]
-        results.T[i], results.L[i] = state[4], state[5]
-        if i < n_days
-            results.Inc[i + 1] = gillespie_step!(state, times[i + 1] - t)
-        end
-    end
-
-    return results
 end
 
 # =============================================================================
@@ -280,10 +218,10 @@ end
 """
     simulate_seit4l_stochastic(θ, init_state, times)
 
-Simulate the stochastic SEIT4L model using the Gillespie algorithm.
+Simulate the stochastic SEIT4L model.
 
-The Erlang-4 transitions are the ones in [`gillespie_step`](@ref), which the
-particle filter also calls, so the simulator on the page and the simulator
+The Erlang-4 transitions are the ones in [`seitl_transitions`](@ref), which the
+particle filter also uses, so the simulator on the page and the simulator
 inside the filter are the same code.
 
 # Arguments
@@ -295,8 +233,7 @@ inside the filter are the same code.
 DataFrame with columns: time, S, E, I, T1, T2, T3, T4, L, Inc (daily incidence)
 """
 function simulate_seit4l_stochastic(θ, init_state, times)
-    ## State: [S, E, I, T1, T2, T3, T4, L]
-    state = Float64[
+    compartments = Float64[
         init_state[:S],
         init_state[:E],
         init_state[:I],
@@ -306,32 +243,20 @@ function simulate_seit4l_stochastic(θ, init_state, times)
         init_state[:T4],
         init_state[:L],
     ]
+    states, incidence = seitl_jump_trajectory(θ, compartments, times)
 
-    n_days = length(times)
-    results = DataFrame(
+    return DataFrame(
         time = collect(times),
-        S = zeros(n_days),
-        E = zeros(n_days),
-        I = zeros(n_days),
-        T1 = zeros(n_days),
-        T2 = zeros(n_days),
-        T3 = zeros(n_days),
-        T4 = zeros(n_days),
-        L = zeros(n_days),
-        Inc = zeros(n_days),
+        S = states[:, 1],
+        E = states[:, 2],
+        I = states[:, 3],
+        T1 = states[:, 4],
+        T2 = states[:, 5],
+        T3 = states[:, 6],
+        T4 = states[:, 7],
+        L = states[:, 8],
+        Inc = incidence,
     )
-
-    for (i, t) in enumerate(times)
-        results.S[i], results.E[i], results.I[i] = state[1], state[2], state[3]
-        results.T1[i], results.T2[i] = state[4], state[5]
-        results.T3[i], results.T4[i] = state[6], state[7]
-        results.L[i] = state[8]
-        if i < n_days
-            results.Inc[i + 1] = gillespie_step_seit4l!(state, θ, times[i + 1] - t)
-        end
-    end
-
-    return results
 end
 
 # =============================================================================

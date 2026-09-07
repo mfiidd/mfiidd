@@ -3,7 +3,8 @@ using Random
 """
     gillespie_step(rng, state, θ, dt=1.0)
 
-Simulate SEIT4L for `dt` time units using the Gillespie algorithm.
+Simulate SEIT4L for `dt` time units and return the state at the end of the
+interval together with the incidence over it.
 
 # Arguments
 - `rng`: Random number generator
@@ -20,65 +21,13 @@ function gillespie_step(
     θ::Dict,
     dt::Float64 = 1.0,
 )
-    β = θ[:R_0] / θ[:D_inf]
-    ϵ = 1.0 / θ[:D_lat]
-    ν = 1.0 / θ[:D_inf]
-    τ = 4.0 / θ[:D_imm]
-    α = θ[:α]
-
-    # Copy state for modification
-    s = copy(state)
-
-    # Stoichiometry: how each transition changes [S, E, I, T1, T2, T3, T4, L]
-    stoich = [
-        [-1, 1, 0, 0, 0, 0, 0, 0],   # S → E (infection)
-        [0, -1, 1, 0, 0, 0, 0, 0],   # E → I (becoming infectious)
-        [0, 0, -1, 1, 0, 0, 0, 0],   # I → T1 (recovery)
-        [0, 0, 0, -1, 1, 0, 0, 0],   # T1 → T2
-        [0, 0, 0, 0, -1, 1, 0, 0],   # T2 → T3
-        [0, 0, 0, 0, 0, -1, 1, 0],   # T3 → T4
-        [1, 0, 0, 0, 0, 0, -1, 0],   # T4 → S (immunity wanes)
-        [0, 0, 0, 0, 0, 0, -1, 1],    # T4 → L (long-term immunity)
-    ]
-
-    function rates(s)
-        S, E, I, T1, T2, T3, T4, L = s
-        N = S + E + I + T1 + T2 + T3 + T4 + L
-        [β * S * I / N, ϵ * E, ν * I, τ * T1, τ * T2, τ * T3, (1 - α) * τ * T4, α * τ * T4]
-    end
-
-    # Simulate up to `dt` time units
-    t, daily_inc = 0.0, 0
-    while t < dt
-        r = rates(s)
-        total_rate = sum(r)
-        total_rate ≤ 0 && break
-
-        # Time to next event
-        τ_wait = randexp(rng) / total_rate
-        t + τ_wait > dt && break
-        t += τ_wait
-
-        # Select which event occurs
-        cum, rnd, event = 0.0, rand(rng) * total_rate, 0
-        for i in 1:8
-            cum += r[i]
-            if rnd ≤ cum
-                event = i
-                break
-            end
-        end
-
-        # Apply the transition
-        for j in 1:8
-            s[j] += stoich[event][j]
-        end
-
-        # E → I transitions count as new cases
-        event == 2 && (daily_inc += 1)
-    end
-
-    return s, daily_inc
+    new_state = copy(state)
+    incidence = seitl_jump_step!(
+        seitl_jump_problem(θ, new_state; rng = rng),
+        new_state,
+        dt,
+    )
+    return new_state, incidence
 end
 
 """
@@ -99,11 +48,7 @@ function gillespie_step_seit4l!(
     θ::Dict,
     dt::Float64 = 1.0,
 )
-    new_state, inc = gillespie_step(rng, state, θ, dt)
-    for i in eachindex(state)
-        state[i] = new_state[i]
-    end
-    return inc
+    return seitl_jump_step!(seitl_jump_problem(θ, state; rng = rng), state, dt)
 end
 
 function gillespie_step_seit4l!(state::Vector{Float64}, θ::Dict, dt::Float64 = 1.0)

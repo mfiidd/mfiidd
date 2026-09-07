@@ -11,6 +11,7 @@ using SSMProblems: SSMProblems, StateSpaceModel
 using StatsBase: Weights, wsample
 
 include("seitl_priors.jl")
+include("seitl_jumps.jl")
 include("sir_model.jl")
 include("seitl_model.jl")
 include("seitl_particle_filter.jl")
@@ -24,6 +25,8 @@ export seitl_ode!, simulate_seitl_deterministic, simulate_seitl_stochastic
 export seit4l_ode!, simulate_seit4l_deterministic, simulate_seit4l_stochastic
 export generate_observations
 export gillespie_step, gillespie_step_seitl!, gillespie_step_seit4l!
+export seitl_stoichiometry, seitl_rate_constants, seitl_transitions
+export seitl_jump_problem, seitl_jump_step!, seitl_jump_trajectory
 export run_particle_filter, filtered_incidence
 export SEITLDynamics, SEITLInitial, PoissonObservation
 export source_for

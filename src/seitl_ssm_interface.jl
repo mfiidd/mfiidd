@@ -8,8 +8,8 @@ SEITL latent dynamics, for any number of temporary immunity stages.
 State vector: [S, E, I, T_1 ... T_k, L, daily_inc]
 
 The last element tracks daily incidence for the observation process. SEITL is
-the k = 1 case and SEIT4L the k = 4 case, so the number of stages is read from
-the state that `SEITLInitial` supplies rather than fixed by the type.
+the k = 1 case and SEIT4L the k = 4 case, and `k` is a type parameter so the
+number of stages is fixed when the dynamics are built.
 """
 struct SEITLDynamics{K} <: SSMProblems.LatentDynamics
     θ::Dict{Symbol, Float64}
@@ -18,35 +18,32 @@ end
 """
     SEITLDynamics(θ, k)
 
-Build dynamics with `k` temporary immunity sub-stages. `k` is a type parameter,
-so [`seitl_stepper`](@ref) resolves to the right Gillespie stepper when the
-method is compiled and no test of the state survives into the filter's inner
-loop.
+Build dynamics with `k` temporary immunity sub-stages. Any `k` from 1 upwards
+works, SEITL being `k = 1` and SEIT4L `k = 4`, because the transitions are
+assembled from `k` rather than written out one model at a time.
 
 `k` must agree with the compartment count of the initial state the filter is
 given, which is `k + 4`. `run_particle_filter` derives one from the other so
-they cannot disagree; construct the two by hand and it is on you to match them.
+they cannot disagree; construct the two by hand and a mismatch throws.
 """
 SEITLDynamics(θ::Dict{Symbol, Float64}, k::Integer) = SEITLDynamics{Int(k)}(θ)
 
-"""
-    seitl_stepper(dyn)
-
-The Gillespie stepper for the number of sub-stages `dyn` declares.
-"""
-seitl_stepper(::SEITLDynamics{1}) = gillespie_step_seitl!
-seitl_stepper(::SEITLDynamics{4}) = gillespie_step_seit4l!
-
 function SSMProblems.simulate(
     rng::AbstractRNG,
-    dyn::SEITLDynamics,
+    dyn::SEITLDynamics{K},
     step::Integer,
     prev_state;
     kwargs...,
-)
-    ## Drop the incidence slot, leaving the compartments the stepper works on
+) where {K}
+    ## Drop the incidence slot, leaving the compartments the simulator works on
     state = collect(prev_state[1:(end - 1)])
-    return vcat(state, seitl_stepper(dyn)(rng, state, dyn.θ))  ## re-append incidence
+    length(state) == K + 4 || throw(
+        DimensionMismatch("state has $(length(state)) compartments, expected $(K + 4)"),
+    )
+    ## Built here rather than held, so the problem carries the generator the
+    ## filter is drawing from and the population size the state actually has
+    problem = seitl_jump_problem(dyn.θ, state; rng = rng)
+    return vcat(state, seitl_jump_step!(problem, state))  ## re-append incidence
 end
 
 """
