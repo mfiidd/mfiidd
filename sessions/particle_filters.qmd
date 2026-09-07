@@ -571,6 +571,42 @@ If you want to see it plainly, compute the likelihood at a single $R_0$ ten time
 over and look at the spread.
 :::
 
+::: {.callout-note collapse="true"}
+## Tau-leaping and when it pays
+
+Gillespie's algorithm steps one event at a time, so a day holding two hundred events costs two hundred draws.
+Tau-leaping holds the transition rates fixed across an interval and draws the number of times each transition fires from a Poisson distribution.
+One draw per transition then replaces one draw per event, however many events fall in the interval.
+
+Holding the rates fixed is an approximation, because the rates depend on the compartments and the compartments change as events occur.
+The error shrinks with the interval and vanishes in the limit.
+A long interval can also push a compartment below zero, which is why adaptive variants choose the interval from the current rates instead of taking it as given.
+[`JumpProcesses.jl`](https://docs.sciml.ai/JumpProcesses/stable/) offers both kinds.
+`SimpleTauLeaping` takes a fixed step, and `SimpleExplicitTauLeaping` picks each step from an error tolerance and halves it when a compartment would go negative.
+
+How much this saves depends on how many events fall in an interval, so it depends on the population.
+Simulating 59 days of SEIT4L against the Gillespie stepper this course uses gives:
+
+| Population | Gillespie | Adaptive tau-leaping | Speed-up |
+|-----------:|----------:|---------------------:|---------:|
+| 284 | 75 µs | 90 µs | 0.8× |
+| 2 840 | 868 µs | 162 µs | 5× |
+| 28 400 | 7.4 ms | 79 µs | 94× |
+| 284 000 | 70 ms | 92 µs | 755× |
+
+Tristan da Cunha is the first row.
+At 284 people the epidemic produces few enough events per day that exact simulation is already cheap, and choosing an interval costs more than it saves.
+The approximation shows at that size too.
+Over 2000 runs the mean final size came out at 210 under adaptive tau-leaping against 197 under exact simulation.
+Tau-leaping earns its place in populations of tens of thousands and upwards, and this island is not one.
+
+A particle filter adds a second consideration.
+The likelihood estimate is unbiased for the model the filter simulates, which is what lets PMMH target the right posterior in the [next session](pmcmc.qmd).
+Simulate an approximation inside the filter and that argument still holds, but it holds for the approximated model rather than for the continuous-time Markov chain the transitions define.
+Plenty of applied work makes that trade deliberately.
+The thing to avoid is making it without noticing.
+:::
+
 # Learning points
 
 ::: {.callout-tip title="Learning points"}

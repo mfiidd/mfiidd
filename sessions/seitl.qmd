@@ -524,7 +524,7 @@ println("```julia\n", source_for(gillespie_step_seitl!), "\n```")
 
 ::: {.callout-note collapse="true"}
 ## Coming from R?
-In R, the [`GillespieSSA2`](https://CRAN.R-project.org/package=GillespieSSA2) and [`adaptivetau`](https://CRAN.R-project.org/package=adaptivetau) packages provide Gillespie simulation. The [`odin`](https://mrc-ide.github.io/odin/) and [`dust`](https://mrc-ide.github.io/dust/) packages from the MRC Centre offer a more performant framework for stochastic compartmental models. Here we implement Gillespie manually to show the algorithm clearly, but Julia's [`JumpProcesses.jl`](https://docs.sciml.ai/JumpProcesses/stable/) package provides a production-quality implementation.
+In R, the [`GillespieSSA2`](https://CRAN.R-project.org/package=GillespieSSA2) and [`adaptivetau`](https://CRAN.R-project.org/package=adaptivetau) packages provide Gillespie simulation. The [`odin`](https://mrc-ide.github.io/odin/) and [`dust`](https://mrc-ide.github.io/dust/) packages from the MRC Centre offer a more performant framework for stochastic compartmental models. Here we implement Gillespie manually to show the algorithm clearly, but Julia's [`JumpProcesses.jl`](https://docs.sciml.ai/JumpProcesses/stable/) package provides a production-quality implementation. It also carries tau-leaping solvers, which trade exactness for speed; the [particle filter session](particle_filters.qmd) measures what that trade is worth at this population.
 :::
 
 The Turing model does not change.
