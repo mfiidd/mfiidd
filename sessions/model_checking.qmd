@@ -408,6 +408,20 @@ mean_pred = mean_ρ .* mean_inc
 resid = flu_tdc.obs .- mean_pred
 ```
 
+::: {.callout-warning}
+## What the plug-in trajectory costs
+
+One trajectory at the posterior mean is enough to show what residual *patterns* look like, which is what this section is for.
+It is not the full check.
+
+- It discards parameter uncertainty, so a residual cannot tell you whether the model is wrong or whether this one parameter combination is unlucky. A miss of +20 at the peak means one thing if every posterior draw misses by that much and quite another if only the mean does. The fuller version computes residuals for every draw and reads the spread at each time point.
+- The trajectory at the mean parameters is not the mean of the trajectories, because the model is nonlinear.
+- Averaging each parameter separately ignores the correlation between them. $R_0$ and $D_\text{inf}$ correlate about 0.9 in this posterior, which the [MCMC session](mcmc.qmd) describes as a narrow diagonal ridge, and the mean of a ridge need not lie on the ridge.
+
+The posterior predictive check above propagates all of this, because it draws from the chain rather than summarising it.
+This session has both the full version and the shortcut, a few hundred lines apart.
+:::
+
 ```{julia}
 # Plot residuals over time
 p_resid = plot(obs_times, resid,
