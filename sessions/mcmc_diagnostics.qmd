@@ -140,7 +140,7 @@ model = sir_model(init_state, epi1.time, length(epi1.obs)) | (; obs = epi1.obs)
 
 ## 1. Trace plots: The most important diagnostic
 
-Trace plots show parameter values over iterations, which is where the chain has been, or for a gradient-based sampler like NUTS, where the puck has been.
+Trace plots show parameter values over iterations, which is where the chain has been.
 A well-mixed chain looks like a "hairy caterpillar" - densely filled with rapid up-and-down fluctuations around a stable mean:
 
 ```{julia}
@@ -149,15 +149,6 @@ A well-mixed chain looks like a "hairy caterpillar" - densely filled with rapid 
 chain_good = sample(model, NUTS(), 2000)
 ```
 
-::: {.callout-note collapse="true"}
-## How much warmup does `NUTS()` run?
-
-That call runs about 3000 iterations: 1000 of warmup, which Turing discards, and the 2000 you asked for.
-By default NUTS adapts for `min(1000, N ÷ 2)` iterations, so asking for 500 gives 250 instead.
-The count is the first argument, so `NUTS(2000, 0.65)` adapts for 2000 iterations at a target acceptance rate of 0.65.
-For most models the default is sufficient.
-Burn-in itself, and why Metropolis-Hastings needs you to choose it by hand, is in the [MCMC session](mcmc.qmd).
-:::
 
 ```{julia}
 # chain_good[:R_0] extracts the samples for R_0 from the chain object
@@ -221,7 +212,7 @@ plot(p1, p2, layout = (2, 1))
 ## 3. Autocorrelation
 
 MCMC samples are correlated whatever the sampler, because each draw starts where the last one ended.
-For NUTS that is the puck sliding some distance before it forgets where it started.
+In NUTS the trajectory carries the state some distance before the momentum is refreshed and the chain forgets where it started (the puck sliding on).
 Good chains have autocorrelation that decays quickly:
 
 ::: {.callout-note collapse="true"}
@@ -242,7 +233,9 @@ That sum is what correlation does to the precision of a mean,
 $$\operatorname{Var}(\bar\theta) \approx \frac{\sigma^2}{N}\Big(1 + 2\sum_{k \ge 1}\rho_k\Big) = \frac{\sigma^2 \tau}{N}$$
 
 so $\tau$ is the factor by which correlation inflates the variance of the mean against independent draws, and roughly how many iterations the chain needs to produce one draw's worth of new information.
-$\tau$ is the quantity behind both of the statistics in the next section: R̂ is near 1 when $\tau$ is short next to the chain length, and the effective sample size is the number of draws divided by $\tau$.
+
+Thinning, keeping only every $n$-th draw, is the traditional response to a large $\tau$.
+It is rarely needed with NUTS, whose draws are already close to independent, but it still matters for random-walk samplers.
 :::
 
 ```{julia}
@@ -287,6 +280,8 @@ slowly across the space like a random walk rather than crossing it repeatedly.
 The healthy version looks like a hairy caterpillar: dense, and the same on the
 left as on the right.
 
+![](slides/images/hairy_caterpillar.jpg){fig-align="center" width="55%"}
+
 **A running mean still trending at 2000 iterations** means the chain has not
 forgotten where it started. Either burn-in was too short, or, more worryingly, the
 chain is still travelling towards a region it has not reached. Running longer
@@ -310,7 +305,7 @@ Running several chains is what makes that failure visible.
 Each chain is initialised separately, so they start in different places.
 If chains that started apart end up describing the same distribution, that is evidence they have found the posterior.
 If they end up describing different distributions, at least one of them is wrong.
-Four chains is a reasonable default, though the code below asks for as many as your machine has threads for, and two are enough to see the effect.
+Four chains is often used as a default, and the code below asks for at most four and at least two, so it adapts to the threads your machine has.
 
 ::: {.callout-note}
 ## Running Julia with multiple threads
@@ -340,7 +335,7 @@ chain_multi = sample(model, NUTS(), MCMCThreads(), 2000, n_chains)
 :::
 
 To see what the other outcome looks like, we sample the same model with a deliberately bad sampler.
-It is a random walk with a proposal standard deviation of 0.001, far too small to cross the posterior in the iterations it is given.
+It is Metropolis-Hastings with a random-walk proposal of standard deviation 0.001, far too small to cross the posterior in the iterations it is given.
 
 ```{julia}
 #| output: false
@@ -383,18 +378,21 @@ The older and looser threshold of 1.1 is still widely quoted, and a chain that f
 
 Take $m$ chains of $n$ iterations each.
 Write $W$ for the mean of the within-chain variances, and $B$ for $n$ times the variance of the $m$ chain means.
-The two are combined into an estimate of the posterior variance, and R̂ compares that estimate against $W$:
+$\hat{V}$ is the variance of all $mn$ draws pooled together, ignoring which chain each came from.
+Pooling splits into a within-chain part and a between-chain part, and those two parts are what the weights are:
 
-$$\hat{V} = \frac{n - 1}{n} W + \frac{1}{n} B, \qquad \hat{R} = \sqrt{\frac{\hat{V}}{W}}$$
+$$\hat{V} = \frac{n - 1}{n} W + \frac{1}{n} B$$
 
-$W$ is too small while any chain is still confined to part of the posterior, and $\hat{V}$ is too large while the chains sit apart, so the ratio closes as both stop being true.
+$(n-1)/n$ is the share of the pooled variance the within-chain scatter accounts for, and $1/n$ scales $B$ back down because $B$ was defined as $n$ times the variance of the chain means, while the pooled variance needs that variance itself.
 
-$\hat{V}$ is the variance you get by pooling every draw and ignoring which chain it came from, which is what sets those weights.
-$B$ is divided by $n$ because $B/n$ is the variance of the chain means, and that, rather than $n$ times it, is what enters a pooled variance.
+$W$ estimates the same posterior variance using only what happens inside each chain, so the two differ exactly to the extent the chains disagree:
+
+$$\hat{R} = \sqrt{\frac{\hat{V}}{W}}$$
+
+The ratio is against $W$ because $W$ is the optimistic estimate, too small while any chain is still confined to part of the posterior, and $\hat{V}$ is the pessimistic one, too large while the chains sit apart. The square root puts the answer back on the scale of a standard deviation rather than a variance, so 1.01 is a 1% discrepancy in spread.
 
 Chains that have settled in different parts of the posterior disagree about the mean.
 That inflates $B$, and R̂ goes up with it.
-This is the signal the statistic exists for.
 
 Chains that agree do not bring R̂ to exactly 1, though, because the draws within each chain are correlated.
 The mean of a correlated chain of length $n$ has variance of about $W\tau/n$, with $\tau$ the integrated autocorrelation time from the [autocorrelation callout](#autocorrelation), and $B$ is $n$ times that variance, so $B$ comes out at roughly $\tau W$.
@@ -503,12 +501,11 @@ ESS can come out slightly *above* N.
 NUTS sometimes produces mildly anti-correlated draws, which carry a little more information than independent ones.
 
 The number above is the bulk ESS, which is what `ess` reports by default.
-There is a second one for the tails, and the advanced section below covers both.
 
 ## 3. Monte Carlo Standard Error (MCSE)
 
-You are about to write a number down.
-MCSE says how many of its digits are real, and how many would change with a different seed.
+When reporting posteriors it is important to understand how accurate the estimates are.
+MCSE is a way of asking how many digits of a reported number are real, and how many would change with a different seed.
 
 ::: {.callout-note collapse="true"}
 ## Where MCSE comes from
@@ -555,7 +552,7 @@ The first thing to try is a better algorithm — NUTS handles most well-behaved 
 
 With gradient-based samplers like NUTS, mixing problems are uncommon when the model is specified correctly, the posterior is reasonably well-behaved, and the priors aren't pathological.
 
-A chain started where the model cannot be evaluated does not move at all, and its trace shows the long flat stretches of a stuck chain.
+A chain started where the model cannot be evaluated, or where it raises inference errors, does not move at all, and its trace shows the long flat stretches of a stuck chain.
 Those look exactly like a badly tuned proposal, which is why this failure is usually misdiagnosed.
 The flat `Uniform(1, 20)` prior in [the introduction session](introduction.qmd) is the usual way to end up there, and the guards against it are in [the Julia ecosystem session](julia_ecosystem.qmd) and [Model checking](model_checking.qmd).
 
@@ -566,8 +563,6 @@ For Hamiltonian samplers Turing uses `InitFromUniform()`, which draws on $[-2, 2
 Under this session's prior that puts $R_0$ between 1.1 and 8.4, but under `Uniform(1, 20)` it puts $R_0$ between 3.3 and 17.7, so no chain can start near the 2.4 the posterior settles on.
 `InitFromPrior()` and `InitFromParams((; R_0 = 2.5, D_inf = 2.0))` are the alternatives, passed through `initial_params`.
 Drawing from the prior is only as good as the prior, though: `Uniform(1, 20)` puts $R_0$ above 15 about a quarter of the time, which is what the default does too.
-
-A trend still visible after warmup is the same problem from the other end, the chain not yet having got going, and it calls for a longer adaptation phase rather than a different starting point.
 
 ## Problem 3: Divergent transitions (for HMC/NUTS)
 
@@ -593,9 +588,9 @@ end
 ## Code explainer
 - `chain[:numerical_error]` - the per-iteration divergence flag that NUTS records alongside the parameters, 1.0 for a divergent transition and 0.0 otherwise.
 Summing it counts the divergences.
-- `NUTS(0.95)` raises the target acceptance rate, which is usually what a handful of divergences calls for.
-It is the `δ` argument, and `NUTS(n_adapts, δ)` sets both; it plays the role that `adapt_delta` does in Stan.
-[Raising the target acceptance rate](#raising-the-target-acceptance-rate) says what it is doing and what it costs.
+- Raising the target acceptance rate makes NUTS take smaller steps, which is usually what a handful of divergences calls for.
+It is the `δ` argument: `NUTS(0.95)` keeps the default warmup length, and `NUTS(n_adapts, δ)` sets both.
+It plays the role that `adapt_delta` does in Stan.
 :::
 
 ## Problem 4: Multi-modal posteriors
@@ -606,13 +601,11 @@ Some posteriors have multiple peaks, and a single chain can settle into one and 
 - A mixture model, where the modes are genuinely different explanations and the data support both. A single posterior straddling two regimes is the wrong object.
 - Use more advanced samplers (parallel tempering, etc.)
 
-Multimodality is usually a property of the model and the data rather than of the sampler, so the first question is which mode you believe and why, which is a matter for [Model checking](model_checking.qmd).
+Multimodality is usually a property of the model and the data rather than of the sampler, so the first question is which mode you believe and why, or whether you believe all of them, which is a matter for [Model checking](model_checking.qmd).
 
 ::: {.callout-note title = "Example: Detecting multimodality" collapse = "true"}
 
-The chains in the [several chains](#several-chains) section had not converged.
-These ones have. Each settles into a mode and stays there, and they disagree because the posterior genuinely has two answers.
-R̂ cannot tell those two situations apart, which is why it is a warning rather than a diagnosis.
+Here's an artificial example with two modes to show how multiple chains help:
 
 ```{julia}
 # Create a artificial multimodal example
@@ -721,7 +714,9 @@ And it stops depending on how you parameterise, since ranks see only order, so f
 
 Everything so far compares where the chains sit, so chains that agree on the centre and disagree on the spread pass it.
 
-The draws are therefore also folded around the pooled median, $f_i = \lvert x_i - \operatorname{median}(x) \rvert$, which turns a difference in scale into a difference in location, and the same rank-normalised R̂ is computed on those.
+Folding replaces each draw by its distance from the pooled median, $f_i = \lvert x_i - \operatorname{median}(x) \rvert$.
+A chain with a wider spread than the others then has larger $f_i$ on average, so a disagreement about spread becomes a disagreement about the mean of $f$, which is the thing the formula can already see.
+The same rank-normalised R̂ is computed on those.
 What you get back is the larger of the two:
 
 $$\hat{R}_{\text{rank}} = \max\left(\hat{R}_{\text{bulk}},\ \hat{R}_{\text{fold}}\right)$$
@@ -732,16 +727,15 @@ In `MCMCDiagnosticTools` the folded one is `kind = :tail`, which is not the same
 
 ## Raising the target acceptance rate
 
-`NUTS(0.95)` appears twice above as the remedy for divergences, without saying what is being raised.
+$\delta$ is the target Metropolis acceptance probability for a NUTS trajectory, and it defaults to 0.65.
+Warmup tunes the step size $\epsilon$ to hit it, using the average over the trajectory,
 
-$\delta$ is the acceptance statistic the warmup adapts the step size to hit, and it defaults to 0.65.
-Raising it forces a smaller step, which is why it cures divergences: the integrator is stable where it was not.
-What it costs is computation, since a smaller step means more leapfrog steps and so more gradient evaluations for each draw.
-You are buying stability with time.
+$$\alpha = \min\left(1,\ \exp\left(H(\theta_0, p_0) - H(\theta, p)\right)\right)$$
 
-This is not a NUTS idea.
-Random-walk Metropolis is tuned to an acceptance rate too, and [the MCMC session](mcmc.qmd) gives the targets and shows RAM adapting its proposal to hit one.
-The knob is the same; only the number differs, because the dynamics do.
+so a $\delta$ close to 1 demands that the leapfrog integrator conserve $H$ almost exactly, which it can only do with a small $\epsilon$.
+That is why raising $\delta$ cures divergences, and it costs computation, since a trajectory of the same length then needs more leapfrog steps and so more gradient evaluations.
+
+This is similar to the acceptance rate targeted by random-walk Metropolis, which [the MCMC session](mcmc.qmd) tunes by hand and then adapts automatically with RAM.
 
 ## Bulk and tail ESS
 
@@ -756,13 +750,13 @@ Bulk ESS is the effective sample size of the rank-normalised draws, using the sa
 
 $$\text{bulk ESS} = \text{ESS}(z)$$
 
-Tail ESS is not an effective sample size of the draws at all. It is computed for the estimators of the two 5% quantiles, from the indicator series for whether a draw falls below each, and reports the worse of them:
+Tail ESS is not an effective sample size of the draws at all. It is the effective sample size of a different quantity: for a quantile $q$, the series $I(x_i < q)$, which is 1 when a draw falls below the quantile and 0 otherwise. That series has its own autocorrelation, and how fast it decorrelates is what determines how well the quantile is pinned down. It is computed for the 5% and 95% quantiles and reports the worse of them:
 
 $$\text{tail ESS} = \min\big(\text{ESS}(q_{0.05}),\ \text{ESS}(q_{0.95})\big)$$
 
 That `min` is why tail ESS is often, though not always, the smaller number.
 
-Note the symmetry with R̂, and the trap in it. R̂ reports the **larger** of its bulk and tail, because either failure is a failure. ESS reports the **smaller**, because either shortage limits what you can report. The word "tail" means different things in the two: folded draws for R̂, extreme quantiles for ESS.
+Note the symmetry with R̂. R̂ reports the **larger** of its bulk and tail, because either failure is a failure. ESS reports the **smaller**, because either shortage limits what you can report. The word "tail" means different things in the two: folded draws for R̂, extreme quantiles for ESS.
 :::
 
 ```{julia}
@@ -800,16 +794,17 @@ Each iteration gives the puck a fresh push, and E-BFMI asks whether those pushes
 
 The energy is the Hamiltonian, the negative log posterior at the current parameters plus a kinetic term $\tfrac{1}{2}p^\top M^{-1} p$ from the momentum, and it is what `chain[:hamiltonian_energy]` records.
 Each iteration draws a fresh momentum, and the leapfrog integrator roughly conserves the Hamiltonian within a trajectory, so the change between one iteration and the next comes almost entirely from that refresh.
-The push is that refresh, which is what the comparison below measures.
+The push is that refresh.
 
 Writing $E_n$ for the energy at iteration $n$,
 
 $$\widehat{\text{E-BFMI}} = \frac{\sum_{n=2}^{N} (E_n - E_{n-1})^2}{\sum_{n=1}^{N} (E_n - \bar{E})^2}$$
 
-The numerator is how far the sampler moves in energy from one iteration to the next, and the denominator is the spread of energy it has to cover.
+The numerator is how far the sampler moves in energy from one iteration to the next, which is the spread of the energy-change histogram below.
+The denominator is the spread of energy it has to cover, which is the spread of the marginal energy histogram beside it.
 A small ratio means the trajectories are not long enough to explore that spread, which is the failure funnels produce, and 0.3 is the threshold usually quoted.
-The two histograms below are the same comparison drawn rather than divided.
-See [Betancourt (2017)](https://arxiv.org/abs/1701.02434) for the account this comes from.
+Reading the two histograms against each other is the same comparison, drawn rather than divided.
+See [Betancourt (2017)](https://arxiv.org/abs/1701.02434).
 :::
 
 ```{julia}
@@ -893,7 +888,7 @@ plot(chain_problematic)
 ```
 
 The first table is the single chain and the second is several chains, on the same model with the same number of draws per chain.
-The single chain barely moves off 1, reaching 1.0095 at its worst, while several chains reach 1.74.
+Only the second is outside the usual 1.1 threshold.
 The third table shows how little independent information those draws carry.
 Split-R̂ on one chain compares the first half of a chain against its second half, and a chain that never leaves the region it started in has little to disagree with.
 Several chains start from different points, and that is what gives R̂ something to detect.
@@ -950,10 +945,7 @@ ESS is the sharper signal.
 For three of the four parameters it is two orders of magnitude lower for the problematic model than for the fixed one, from the same number of iterations.
 
 R̂ separates them too.
-It cannot on its own tell you that a chain is usable, though.
-It compares chains against each other, and one chain gives it little to compare against.
-The single-chain R̂ printed earlier barely moves off 1, reaching 1.0095, on a model whose effective sample size is about 9.
-Whether that clears the 1.01 bar or just misses it, the effective sample size is the number that settles the question.
+It cannot on its own tell you that a chain is usable, though: it compares chains against each other, and the single-chain R̂ printed earlier passed this very model while its effective sample size stayed in single figures.
 That is the argument for running several chains and reading more than one number, which is what the workflow above asks for.
 :::
 
@@ -976,7 +968,8 @@ After three sessions, you now have a complete workflow for Bayesian inference wi
 
 - **Always check convergence** - never trust MCMC without diagnostics
 - **Multiple chains** are essential for robust inference
-- **R̂ < 1.01 and ESS > 100** are minimum requirements
+- **R̂ < 1.1 and ESS > 100** are minimum requirements
+- **Ideally R̂ < 1.01 and ESS > several hundred.**
 - **NUTS is usually better** than basic Metropolis-Hastings
 - **When in doubt, run longer** and use more chains
 

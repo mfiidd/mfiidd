@@ -107,7 +107,7 @@ That is a statement about the limit. No finite run establishes it.
 
 . . .
 
-So everything today is a [check]{.alert}, not a test. Each one can show you a
+So everything today is a [check]{.alert}. Each one can show you a
 problem. None can show you there is not one.
 
 # Visual diagnostics
@@ -161,7 +161,7 @@ lags = 0:100
 bar(lags, acf(chain, lags), xlabel = "Lag", ylabel = "Correlation")
 ```
 
-How long before the chain forgets where it started.
+It should decay to zero within a few tens of lags.
 ::::
 :::::
 
@@ -219,6 +219,37 @@ distribution. Chains that did not have not.
 :::
 ::::
 
+## How long to warm up?
+
+NUTS adapts for `min(1000, N ÷ 2)` iterations by default, so 2000 draws gives
+1000 of warmup. It is the first argument: `NUTS(2000, 0.65)`.
+
+. . .
+
+Longer warmup buys a better step size and mass matrix. For most models the
+default is enough.
+
+## MCMC sample size
+
+- In MCMC each sample depends on the one before: [auto-correlation]{.alert}.
+
+- Reduce auto-correlation by [thinning]{.alert}, retaining only every $n$-th
+  sample. Rarely needed for NUTS; useful for random-walk samplers.
+
+- The information content of a set of MCMC samples is given by the
+  [effective sample size (ESS)]{.alert}.
+
+## Accuracy and efficiency
+
+How does each of these influence accuracy and efficiency?
+
+- Burn-in
+- MCMC iterations after burn-in
+- Thinning
+- Number of chains, with different initial conditions
+- Proposal distribution
+- Transforming parameters
+
 # Quantitative diagnostics
 
 ## Autocorrelation as a number {.smaller}
@@ -232,10 +263,6 @@ Summed, it gives the [integrated autocorrelation time]{.alert}
 $$\tau = 1 + 2\sum_{k=1}^{\infty} \rho_k$$
 
 roughly the iterations needed for one draw's worth of new information.
-
-. . .
-
-R̂ and ESS are both built from $\tau$.
 
 ## R̂: the Gelman-Rubin diagnostic {.smaller}
 
@@ -260,20 +287,27 @@ hline!(pd, [1.01], color = :red, linestyle = :dash)
 plot(pa, pd, layout = (1, 2), size = (900, 250))
 ```
 
-The same two runs as the traces earlier, now as one number. Note the different
-vertical scales: the left panel settles below the dashed 1.01 line, the right
-never approaches it.
+The same two runs as the traces earlier, now as one number. The vertical scales
+differ: the left panel settles below the dashed 1.01 line, the right never
+approaches it.
 
-::: {.fragment}
-A chain mean varies by about $\sqrt{W\tau/n}$, where $\tau$ is the autocorrelation
-time, so $B \approx \tau W$ and $\hat{R}^2 \approx 1 + (\tau - 1)/n$. That is near 1
-when the chain is long compared with $\tau$. Chains sitting in different places
-inflate $B$ and push it up.
-:::
+## What R̂ is telling you {.smaller}
 
-::: {.fragment}
-Rule of thumb: $\hat{R} < 1.01$. 1.1 is the older, looser bar.
-:::
+Chains sitting in different places inflate $B$, and R̂ goes up with it.
+
+. . .
+
+Chains that agree still do not reach exactly 1, because the draws inside each
+chain are correlated. A chain mean varies by about $\sqrt{W\tau/n}$, so
+$B \approx \tau W$ and
+
+$$\hat{R}^2 \approx 1 + \frac{\tau - 1}{n}$$
+
+near 1 when the chain is long compared with $\tau$.
+
+. . .
+
+Rule of thumb: $\hat{R} < 1.1$ as a minimum, ideally $\hat{R} < 1.01$.
 
 ::: {.fragment}
 `rhat()` prints a refined version of this, so the two will not match by hand.
@@ -286,7 +320,7 @@ Rank-normalised R̂ and ESS: @vehtari2021
 
 ## Effective sample size {.smaller}
 
-Correlated draws are worth fewer independent ones.
+Correlated draws provide less information than independent ones.
 
 $$N_{\text{eff}} = \frac{N}{1 + 2\sum_{k=1}^{K} \rho_k} = \frac{N}{\tau}$$
 
@@ -319,14 +353,14 @@ there beyond forty on the right, so far fewer independent draws for the same run
 @geyer1992
 :::
 
-## How many digits may you claim? {.smaller}
+## How accurate is the reported estimate? {.smaller}
 
-You are about to write a number down. How many of its digits are real, and how
-many would change with a different seed?
+When reporting a posterior it matters how accurate the estimate is: how many of
+the digits are real, and how many would change with a different seed.
 
 . . .
 
-[MCSE]{.alert} answers that:
+[Monte Carlo standard error]{.alert} aims to help answer that:
 
 $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{\text{ESS}}}$$
 
@@ -382,7 +416,7 @@ never see the others.
 . . .
 
 Chains landing in different modes make R̂ large. So do chains that have simply
-not arrived yet. R̂ says something is wrong, not which.
+not converged yet.
 
 . . .
 
@@ -391,9 +425,11 @@ first question is which mode you believe and why.
 
 . . .
 
-A prior that rules out an implausible mode, if it is defensible on its own
-terms. A mixture model, if the modes are genuinely different explanations.
-Cleverer samplers last.
+Fixes, in the order to try them:
+
+- a prior that rules out an implausible mode, if it is defensible on its own terms
+- a mixture model, if the modes are genuinely different explanations
+- a sampler designed to cross between modes
 
 ## It is almost never the sampler
 
