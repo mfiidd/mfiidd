@@ -594,9 +594,9 @@ end
 ## Code explainer
 - `chain[:numerical_error]` - the per-iteration divergence flag that NUTS records alongside the parameters, 1.0 for a divergent transition and 0.0 otherwise.
 Summing it counts the divergences.
-- Raising the target acceptance rate makes NUTS take smaller steps, which is usually what a handful of divergences calls for.
-It is the `δ` argument: `NUTS(0.95)` keeps the default warmup length, and `NUTS(n_adapts, δ)` sets both.
-It plays the role that `adapt_delta` does in Stan.
+- `NUTS(0.95)` raises the target acceptance rate, which is usually what a handful of divergences calls for.
+It is the `δ` argument, and `NUTS(n_adapts, δ)` sets both; it plays the role that `adapt_delta` does in Stan.
+[Raising the target acceptance rate](#raising-the-target-acceptance-rate) says what it is doing and what it costs.
 :::
 
 ## Problem 4: Multi-modal posteriors

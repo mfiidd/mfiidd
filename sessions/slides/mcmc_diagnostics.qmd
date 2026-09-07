@@ -356,8 +356,9 @@ It shrinks as $\sqrt{\text{ESS}}$, so ESS is the only lever.
 
 ## Divergent transitions
 
-Specific to HMC and NUTS. The sampler simulates a trajectory; a **divergence**
-means that simulation became numerically unstable and flew off.
+Specific to HMC and NUTS. The sampler slides a puck along a trajectory; a
+**divergence** means that simulation became numerically unstable and the puck
+flew off.
 
 . . .
 
