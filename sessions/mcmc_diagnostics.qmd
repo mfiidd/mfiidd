@@ -149,6 +149,16 @@ A well-mixed chain looks like a "hairy caterpillar" - densely filled with rapid 
 chain_good = sample(model, NUTS(), 2000)
 ```
 
+::: {.callout-note collapse="true"}
+## How much warmup does `NUTS()` run?
+
+That call runs about 3000 iterations: 1000 of warmup, which Turing discards, and the 2000 you asked for.
+By default NUTS adapts for `min(1000, N ÷ 2)` iterations, so asking for 500 gives 250 instead.
+The count is the first argument, so `NUTS(2000, 0.65)` adapts for 2000 iterations at a target acceptance rate of 0.65.
+For most models the default is sufficient.
+Burn-in itself, and why Metropolis-Hastings needs you to choose it by hand, is in the [MCMC session](mcmc.qmd).
+:::
+
 ```{julia}
 # chain_good[:R_0] extracts the samples for R_0 from the chain object
 # You can use this with any parameter name defined in your @model function
@@ -359,25 +369,6 @@ In the top panel the chains lie on top of each other and you cannot tell them ap
 In the bottom panel the chains sit at different levels and are still moving after 2000 iterations.
 A single chain cannot tell you whether a slow drift is poor mixing or a chain that has not arrived yet, and four chains can.
 
-## 5. Burn-in and warmup
-
-MCMC chains often start from arbitrary initial values and need time to "find" the high-probability regions of the posterior.
-Samples from this initial exploration phase (called "burn-in") are discarded because they don't represent the target distribution.
-
-Modern samplers like NUTS have automatic warmup periods where they adapt the step size to achieve good acceptance rates, learn the geometry of the posterior and explore to find typical parameter values.
-
-In our earlier example, when we ran `sample(model, NUTS(), 2000)`, Turing actually ran ~3000 iterations total: 1000 warmup iterations (automatically discarded) plus 2000 sampling iterations.
-The returned chain contains only the 2000 post-warmup samples.
-
-By default, NUTS adapts for `min(1000, N ÷ 2)` iterations, where `N` is the number of samples you ask for.
-Asking for 2000 samples therefore gives the 1000 warmup iterations above, while asking for 500 gives 250.
-The number of warmup iterations is the first argument to `NUTS`, so `NUTS(2000, 0.65)` adapts for 2000 iterations at a target acceptance rate of 0.65.
-For most models the default is sufficient.
-
-With NUTS, you typically don't need to manually discard burn-in samples.
-The warmup is automatic and adaptive.
-However, you should still check trace plots to ensure the chain has converged - if you see trends even after warmup, you may need longer adaptation.
-
 # Quantitative diagnostics
 
 ## 1. R̂ statistic (Gelman-Rubin diagnostic)
@@ -396,9 +387,10 @@ The two are combined into an estimate of the posterior variance, and R̂ compare
 
 $$\hat{V} = \frac{n - 1}{n} W + \frac{1}{n} B, \qquad \hat{R} = \sqrt{\frac{\hat{V}}{W}}$$
 
-$W$ sees only the variation inside a chain, so while any chain is still confined to part of the posterior it underestimates the posterior variance.
-$\hat{V}$ mixes in the spread of the chain means, so while the chains sit apart it overestimates it.
-R̂ is the ratio of the two, and it falls towards 1 as the gap between them closes.
+$W$ is too small while any chain is still confined to part of the posterior, and $\hat{V}$ is too large while the chains sit apart, so the ratio closes as both stop being true.
+
+$\hat{V}$ is the variance you get by pooling every draw and ignoring which chain it came from, which is what sets those weights.
+$B$ is divided by $n$ because $B/n$ is the variance of the chain means, and that, rather than $n$ times it, is what enters a pooled variance.
 
 How close to 1 it gets depends on how correlated the draws are.
 The mean of a chain of length $n$ has variance of about $W\tau/n$, where $\tau$ is the integrated autocorrelation time from the [autocorrelation callout](#autocorrelation), so $B$ comes out at roughly $\tau W$ rather than at $W$, and
@@ -589,6 +581,8 @@ For Hamiltonian samplers Turing uses `InitFromUniform()`, which draws on $[-2, 2
 Under this session's prior that puts $R_0$ between 1.1 and 8.4, but under `Uniform(1, 20)` it puts $R_0$ between 3.3 and 17.7, so no chain can start near the 2.4 the posterior settles on.
 `InitFromPrior()` and `InitFromParams((; R_0 = 2.5, D_inf = 2.0))` are the alternatives, passed through `initial_params`.
 Drawing from the prior is only as good as the prior, though: `Uniform(1, 20)` puts $R_0$ above 15 about a quarter of the time, which is what the default does too.
+
+A trend still visible after warmup is the same problem from the other end, the chain not yet having got going, and it calls for a longer adaptation phase rather than a different starting point.
 
 ## Problem 3: Divergent transitions (for HMC/NUTS)
 
@@ -798,7 +792,7 @@ histogram!(energy_changes .- mean(energy_changes), alpha = 0.5, label = "energy 
 | **Multimodality** | High R̂, different chain means | A property of the model and data; multiple chains detect it, better initialisation helps |
 | **Divergences** | NUTS warnings, biased sampling | Reparametrise, tighten a prior with mass in a pathological region, then raise the target acceptance rate |
 | **Slow convergence** | High autocorrelation, low ESS | Check identifiability, reparametrise, then a better algorithm and longer runs |
-| **Non-stationarity** | Trending trace plots | Check the model specification, then longer warmup |
+| **Non-stationarity** | Trending trace plots | Check the model specification, then see [Problem 2](#problem-2-where-the-chain-starts) |
 
 Most of what looks like a sampler problem is a model or prior problem, and these diagnostics tell you that something is wrong rather than what.
 [Model checking](model_checking.qmd) is where that gets settled.
