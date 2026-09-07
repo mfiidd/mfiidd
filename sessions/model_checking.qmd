@@ -459,18 +459,18 @@ Residuals are the difference between observed and predicted values. Patterns in 
 
 ```{julia}
 # Compute posterior mean predictions
-mean_R_0 = mean(chain[:R_0])
-mean_D_inf = mean(chain[:D_inf])
 mean_ρ = mean(chain[:ρ])
+mean_params = (R_0=mean(chain[:R_0]), D_inf=mean(chain[:D_inf]), ρ=mean_ρ)
 
-# Simulate on the same grid the model was fitted on, so predictions line up with
-# the observations they are being compared against
 obs_times = flu_tdc.time
-mean_inc = simulate_sir(mean_R_0, mean_D_inf, init_state, times).inc
-mean_pred = mean_ρ .* mean_inc
+mean_traj = fix(model, mean_params)()
+mean_pred = mean_ρ .* mean_traj.inc
 
 resid = flu_tdc.obs .- mean_pred
 ```
+
+`fix` pins the three parameters to their posterior means, and calling the fixed model runs it once and hands back its `return` value.
+The trajectory therefore comes from the same code the fit used, on the same time grid, so the predictions line up with the observations they are compared against.
 
 ::: {.callout-warning}
 ## What the plug-in trajectory costs
@@ -478,12 +478,9 @@ resid = flu_tdc.obs .- mean_pred
 One trajectory at the posterior mean is enough to show what residual *patterns* look like, which is what this section is for.
 It is not the full check.
 
-- It discards parameter uncertainty, so a residual cannot tell you whether the model is wrong or whether this one parameter combination is unlucky. A miss of +20 at the peak means one thing if every posterior draw misses by that much and quite another if only the mean does. The fuller version computes residuals for every draw and reads the spread at each time point.
+- It discards parameter uncertainty, so a residual cannot tell you whether the model is wrong or whether this one parameter combination is unlucky. The fuller version computes residuals for every draw and reads the spread at each time point.
 - The trajectory at the mean parameters is not the mean of the trajectories, because the model is nonlinear.
 - Averaging each parameter separately ignores the correlation between them. $R_0$ and $D_\text{inf}$ correlate about 0.9 in this posterior, which the [MCMC session](mcmc.qmd) describes as a narrow diagonal ridge, and the mean of a ridge need not lie on the ridge.
-
-The posterior predictive check above propagates all of this, because it draws from the chain rather than summarising it.
-This session has both the full version and the shortcut, a few hundred lines apart.
 :::
 
 ```{julia}
