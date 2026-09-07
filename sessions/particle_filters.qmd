@@ -600,7 +600,7 @@ Resampling only reweights particles that already exist, so it needs no transitio
 `BF` takes a `resampler` and a `threshold`.
 Resampling cures the degeneracy described above, but it is a random step in its own right and adds variance of its own, so doing it at every step is rarely what you want.
 A `threshold` of `0.5` resamples only once the effective sample size falls below half the particles, which is the usual compromise between the two.
-Substituting `BF(n_particles; threshold = 0.5, resampler = Multinomial())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell.
+Substituting `BF(n_particles; threshold = 0.5, resampler = Multinomial())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, and `threshold = 0.0`, which never resamples at all, puts the degeneracy back so you can see what it costs.
 
 **Exploiting structure.**
 `KalmanFilter` computes the likelihood exactly for linear Gaussian models, returning the same number every run rather than a noisy estimate.
