@@ -402,7 +402,7 @@ Substituting gives
 
 $$\hat{R}^2 = \frac{n - 1}{n} + \frac{B}{nW} \approx 1 + \frac{\tau - 1}{n}$$
 
-Independent draws are the special case $\tau = 1$, which is why the older statement that $B \approx W$ once the chains agree looked right.
+Independent draws are the special case $\tau = 1$, where $B \approx W$.
 
 The statistic is due to [Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136).
 What `rhat()` reports is a modified version of it, so a number computed by hand from the formula above will not match what Turing prints; [What `rhat` actually computes](#what-rhat-actually-computes) in the advanced section says what the modifications are.
@@ -468,7 +468,7 @@ A chain with $\rho_k$ still large at long lags has a large $\tau$ and an ESS far
 
 The sum runs to $K$ rather than to infinity, and where it is cut matters.
 Estimated autocorrelations at long lags are mostly noise, and adding more of them makes $\tau$ steadily worse rather than steadily better.
-The sum is cut where the estimated autocorrelations become noise, following [Geyer (1992)](https://doi.org/10.1214/ss/1177011137).
+[Geyer (1992)](https://doi.org/10.1214/ss/1177011137) is where the rule for cutting comes from.
 Turing uses the rank-normalised, across-chain version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full).
 :::
 
@@ -518,7 +518,6 @@ For a posterior mean,
 $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{N_{\text{eff}}}}$$
 
 The posterior SD is the spread you are trying to report.
-MCSE says how much of the number you are about to write down is sampler noise.
 That spread is fixed by the posterior, so ESS is the only lever, and you raise it by sampling longer or by mixing better.
 
 The ESS here is the one for the mean on the untransformed draws, not the bulk ESS printed above, so the two will not reconcile by hand.
@@ -680,7 +679,7 @@ statistic that notices.
 # Advanced diagnostics
 
 ::: {.callout-note appearance="simple"}
-This section covers refinements to the basic diagnostics above. If you're short on time, you can skip ahead to the [troubleshooting guide](#troubleshooting-guide) — the core diagnostics (R̂, ESS, trace plots) from [Quantitative diagnostics](#quantitative-diagnostics) are sufficient for most analyses, though check tail ESS below before quoting a credible interval.
+This section covers the details behind the diagnostics above, and two things worth having when one of them fails. If you're short on time, you can skip ahead to the [troubleshooting guide](#troubleshooting-guide) — the core diagnostics (R̂, ESS, trace plots) from [Quantitative diagnostics](#quantitative-diagnostics) are sufficient for most analyses, though check tail ESS below before quoting a credible interval.
 :::
 
 ## What `rhat` actually computes
@@ -697,7 +696,6 @@ Such a chain contributes one mean like any other, and a mean is all the comparis
 Splitting turns that drift into a disagreement between its own two halves, which the formula can see.
 
 It is also what lets R̂ mean anything at all when you have only one chain, since the first half is then compared against the second.
-That is worth remembering when reading a single-chain R̂: it is a within-chain check, and it cannot tell you about a region the chain never visited.
 
 ```{julia}
 rhat_split = DataFrame(rhat(chain_multi))

@@ -199,6 +199,9 @@ end
 plot(p1, p2, layout = (1, 2), size = (900, 380), bottom_margin = 5Plots.mm, left_margin = 4Plots.mm)
 ```
 
+Chains that started apart and ended up in the same place have found the same
+distribution. Chains that did not have not.
+
 ## Burn-in
 
 :::: {.columns}
@@ -383,8 +386,14 @@ not arrived yet. R̂ says something is wrong, not which.
 
 . . .
 
-Fixes are harder than detection. Reparameterisation sometimes helps; otherwise
-you need samplers designed to cross between modes.
+Usually a property of the [model and the data]{.alert}, not the sampler, so the
+first question is which mode you believe and why.
+
+. . .
+
+A prior that rules out an implausible mode, if it is defensible on its own
+terms. A mixture model, if the modes are genuinely different explanations.
+Cleverer samplers last.
 
 ## It is almost never the sampler
 
