@@ -401,23 +401,21 @@ The older and looser threshold of 1.1 is still widely quoted, and a chain that f
 
 Take $m$ chains of $n$ iterations each.
 Write $W$ for the mean of the within-chain variances, and $B$ for $n$ times the variance of the $m$ chain means.
-The total scatter of all $mn$ draws about the grand mean splits exactly into a within-chain part and a between-means part, which in terms of $W$ and $B$ is
-
-$$\sum_j \sum_i (x_{ij} - \bar{x})^2 = m(n-1)W + (m-1)B$$
-
-The two fractions are bookkeeping on that split rather than weights anyone chose.
-$(n-1)/n$ on $W$ is a change of divisor, since each chain's variance divides its scatter by $n-1$, and expressing the same scatter per draw over $n$ draws multiplies by $(n-1)/n$.
-$1/n$ on $B$ undoes $B$'s own definition, since $B$ is $n$ times the variance of the chain means and it is that variance which adds to the within-chain part.
 
 $$\hat{V} = \frac{n - 1}{n} W + \frac{1}{n} B$$
 
-Dividing the split by $mn$ would put a factor $(m-1)/m$ on the second term.
-$\hat{V}$ leaves that factor off, so it exceeds the pooled variance of the draws by $B/(nm)$, and that is the point: $\hat{V}$ is built to overestimate the posterior variance while the chains disagree, while $W$ underestimates it while any chain is still confined to part of the posterior.
+Both fractions are conversions rather than weights.
+Each chain's variance divides that chain's scatter by $n - 1$, so multiplying by $(n-1)/n$ re-expresses the same scatter per draw.
+$B$ is $n$ times the variance of the chain means, so $B/n$ is that variance itself.
+$\hat{V}$ is therefore the within-chain scatter per draw plus the full spread of the chain means.
+
+Adding that spread in full is what makes $\hat{V}$ an overestimate of the posterior variance while the chains disagree, and $W$, which never looks between chains, is an underestimate for as long as any chain is confined to part of the posterior.
 R̂ compares the two:
 
 $$\hat{R} = \sqrt{\frac{\hat{V}}{W}}$$
 
-The ratio is against $W$ because $W$ is the optimistic estimate, too small while any chain is still confined to part of the posterior, and $\hat{V}$ is the pessimistic one, too large while the chains sit apart. The square root puts the answer back on the scale of a standard deviation rather than a variance, so 1.01 is a 1% discrepancy in spread.
+The ratio is against $W$ because that is the optimistic estimate set against the pessimistic one.
+The square root puts the answer on the scale of a standard deviation rather than a variance, so 1.01 is a 1% discrepancy in spread.
 
 Chains that have settled in different parts of the posterior disagree about the mean.
 That inflates $B$, and R̂ goes up with it.
