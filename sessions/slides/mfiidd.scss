@@ -54,6 +54,22 @@ $presentation-font-smaller: 0.85;
   object-fit: contain;
 }
 
+// Plots.jl figures rendered with `fmt = :svg` arrive as inline `<svg>` rather
+// than as `<img>`, so none of the `img` rules above or below reach them. Give
+// them the same caps, or a wide figure overflows the slide sideways and a tall
+// one pushes the text off the bottom.
+.reveal .slides section svg {
+  max-height: 58vh;
+  max-width: 100%;
+  height: auto;
+  margin: 0 auto;
+  display: block;
+}
+
+.reveal .slides section .columns svg {
+  max-height: 42vh;
+}
+
 // Sequences of near-identical figures (the rejection-sampling and
 // Metropolis-Hastings walkthroughs) look jumpy if each frame is sized to its
 // own content, so pin them to a consistent box. `max-height` rather than

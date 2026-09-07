@@ -3,6 +3,7 @@ footer: "MCMC diagnostics"
 title: "MCMC diagnostics"
 subtitle: "Model fitting and inference for infectious disease dynamics"
 engine: julia
+fig-format: svg
 ---
 
 ```{julia}
@@ -14,9 +15,11 @@ using StatsPlots
 using Random
 Random.seed!(20260908)
 
+## Vector output: the decks are projected and these are line drawings.
 default(
-    size = (560, 330), legend = false, guidefontsize = 12, tickfontsize = 10,
-    titlefontsize = 14, linewidth = 2, grid = true,
+    size = (900, 460), legend = false, guidefontsize = 16, tickfontsize = 14,
+    titlefontsize = 18, linewidth = 2, grid = true, fmt = :svg,
+    bottom_margin = 8Plots.mm, left_margin = 6Plots.mm,
 )
 
 ## A correlated chain standing in for MCMC output: an AR(1) walk started
@@ -118,8 +121,8 @@ problem. None can show you there is not one.
 #| echo: false
 ## agree[1] is a well-mixing chain; `chain` is the deliberately sticky one
 plot(
-    agree[1][51:end], xlabel = "Iteration", ylabel = "θ", size = (760, 300),
-    bottom_margin = 5Plots.mm, left_margin = 4Plots.mm
+    agree[1][51:end], xlabel = "Iteration", ylabel = "θ", size = (1100, 400),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
 )
 ```
 
@@ -196,7 +199,10 @@ p2 = plot(title = "Not converged", xlabel = "Iteration", ylabel = "θ")
 for c in disagree
     plot!(p2, c, linewidth = 1)
 end
-plot(p1, p2, layout = (1, 2), size = (900, 380), bottom_margin = 5Plots.mm, left_margin = 4Plots.mm)
+plot(
+    p1, p2, layout = (1, 2), size = (1100, 460),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
+)
 ```
 
 Chains that started apart and ended up in the same place have found the same
@@ -228,6 +234,11 @@ NUTS adapts for `min(1000, N ÷ 2)` iterations by default, so 2000 draws gives
 
 Longer warmup buys a better step size and mass matrix. For most models the
 default is enough.
+
+. . .
+
+Less is often safe, and worth having when a model is expensive. Check R̂ and the
+traces are no worse before relying on it.
 
 ## MCMC sample size
 
@@ -275,8 +286,7 @@ $$\hat{R} = \sqrt{\frac{\hat{V}}{W}},
 #| echo: false
 pa = plot(
     prefixes, rhat_agree, title = "Chains that agree", xlabel = "Draws per chain",
-    ylabel = "R-hat", size = (900, 250), bottom_margin = 5Plots.mm,
-    left_margin = 4Plots.mm
+    ylabel = "R-hat"
 )
 hline!(pa, [1.01], color = :red, linestyle = :dash)
 pd = plot(
@@ -284,7 +294,10 @@ pd = plot(
     ylabel = "R-hat", color = 2
 )
 hline!(pd, [1.01], color = :red, linestyle = :dash)
-plot(pa, pd, layout = (1, 2), size = (900, 250))
+plot(
+    pa, pd, layout = (1, 2), size = (1100, 380),
+    bottom_margin = 10Plots.mm, left_margin = 8Plots.mm
+)
 ```
 
 The same two runs as the traces earlier, now as one number. The vertical scales
@@ -340,8 +353,8 @@ end
 plot(
     acf_panel(acf_mix, cut_mix, "Well mixed"),
     acf_panel(acf_sticky, cut_sticky, "Sticky"),
-    layout = (1, 2), size = (900, 260), bottom_margin = 5Plots.mm,
-    left_margin = 4Plots.mm
+    layout = (1, 2), size = (1100, 400), bottom_margin = 10Plots.mm,
+    left_margin = 8Plots.mm
 )
 ```
 
@@ -375,8 +388,8 @@ noise. A different seed changes it.
 #| echo: false
 p = density(
     walk(2.5, 0.6, 40_000)[51:end], xlabel = "θ", ylabel = "Density",
-    fillrange = 0, fillalpha = 0.15, size = (860, 250), bottom_margin = 5Plots.mm,
-    left_margin = 4Plots.mm, xlims = (1.2, 3.8)
+    fillrange = 0, fillalpha = 0.15, size = (1100, 380), bottom_margin = 10Plots.mm,
+    left_margin = 8Plots.mm, xlims = (1.2, 3.8)
 )
 scatter!(p, run_means, fill(0.06, length(run_means)), markersize = 3, alpha = 0.35)
 plot!(p)

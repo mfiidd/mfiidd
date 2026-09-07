@@ -384,8 +384,11 @@ For most models the default is sufficient.
 
 With NUTS, you typically do not need to manually discard burn-in samples.
 The warmup is automatic and adaptive.
-However, you should still check trace plots to ensure the chain has converged.
-If you see trends even after warmup, you may need longer adaptation.
+You should still check the trace plots: a chain still trending after warmup needs longer adaptation.
+
+The default is deliberately conservative, and in practice a shorter warmup is often safe, which is worth having when a model is expensive or refit many times.
+Treat that as an optimisation to confirm rather than assume.
+Shorten the adaptation, then check that the trace plots and R̂ are no worse than they were with the default, and that no divergences have appeared.
 
 # Quantitative diagnostics
 
