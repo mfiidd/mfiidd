@@ -263,6 +263,9 @@ end
 ## Step 3: Prediction and loss function
 
 ```{julia}
+# Built once and reused; training calls this a few thousand times
+ude_prob = ODEProblem(sir_ude!, u0, tspan, ComponentArray{Float64}(nn_params = p_nn))
+
 """
 Predict incidence using current UDE parameters.
 """
@@ -273,7 +276,7 @@ function predict_ude(p_all)
     # trips a Lux/ComponentArrays edge case.
     T = eltype(p_all)
     u0_promoted = T.(u0)
-    prob_ude = ODEProblem(sir_ude!, u0_promoted, tspan, p_all)
+    prob_ude = remake(ude_prob, u0 = u0_promoted, p = p_all)
     sol_ude = solve(prob_ude, Tsit5(), saveat=times, dense=false)
 
     # `retcode` is a SciMLBase enum, not a Symbol: comparing it against

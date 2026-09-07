@@ -30,6 +30,17 @@ function sir_ode!(du, u, p, t)
 end
 
 """
+    SIR_BASE_PROBLEM
+
+A template `ODEProblem` for `sir_ode!`, built once when the package loads.
+`simulate_sir` calls `remake` on it rather than building a fresh problem on
+every call, which matters because a likelihood asks for tens of thousands of
+simulations. The placeholder state and parameters are never used: `remake`
+replaces `u0`, `p` and `tspan` on every call.
+"""
+const SIR_BASE_PROBLEM = ODEProblem(sir_ode!, zeros(3), (0.0, 1.0), zeros(2))
+
+"""
     simulate_sir(R_0, D_inf, S0, I0, times)
 
 Simulate the deterministic SIR model.
@@ -47,7 +58,12 @@ DataFrame with columns: time, S, I, R, Inc (daily incidence)
 function simulate_sir(R_0, D_inf, S0, I0, times)
     times_vec = collect(times)
     u0 = Float64[S0, I0, 0.0]
-    prob = ODEProblem(sir_ode!, u0, (times_vec[1], times_vec[end]), [R_0, D_inf])
+    prob = remake(
+        SIR_BASE_PROBLEM;
+        u0 = u0,
+        p = [R_0, D_inf],
+        tspan = (times_vec[1], times_vec[end]),
+    )
     sol = solve(prob, Tsit5(), saveat = times_vec)
 
     df = DataFrame(

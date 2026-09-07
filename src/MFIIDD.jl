@@ -2,7 +2,7 @@ module MFIIDD
 
 using CodeTracking: definition
 using DataFrames: DataFrame
-using DifferentialEquations: ODEProblem, Tsit5, solve
+using DifferentialEquations: ODEProblem, Tsit5, remake, solve
 using Distributions: Distribution, Poisson, logpdf
 using GeneralisedFilters: BF
 using PrecompileTools: @compile_workload
