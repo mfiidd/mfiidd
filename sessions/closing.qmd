@@ -91,7 +91,7 @@ The [course structure](../reference/structure.qmd) shows what each of them assum
 # Going further
 
 - Everything here stays online, and the material is MIT licensed, so you are free to reuse it with attribution.
-- [Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/nfidd/) is a companion course on the intricacies of working with epidemiological data and using them to make predictions.
+- [Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/nfidd/) covers the intricacies of working with epidemiological data and using them to make predictions.
 - The [session timetable](../reference/sessions.qmd) and [course structure](../reference/structure.qmd) are the quickest way back into a specific topic.
 - The [Discussion board](https://github.com/mfiidd/mfiidd/discussions) is the place to ask about anything in the sessions, say how you got on, or show what you have fitted. It is open to everyone using the material, wherever they came across it.
 - For something in the course that is wrong, unclear, or broken, [open an issue](https://github.com/mfiidd/mfiidd/issues). That is genuinely useful to us and to the next cohort.
