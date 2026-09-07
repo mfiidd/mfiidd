@@ -106,20 +106,20 @@ Gillespie step ([`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blo
 println("```julia\n", source_for("seit4l_gillespie.jl"), "\n```")
 ```
 
-SSMProblems interface ([`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl)):
+SSMProblems interface ([`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl)):
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_ssm_interface.jl"), "\n```")
+println("```julia\n", source_for("seitl_ssm_interface.jl"), "\n```")
 ```
 
-Bootstrap filter runner ([`src/seit4l_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_runner.jl)):
+Bootstrap filter runner ([`src/seitl_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_runner.jl)):
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_runner.jl"), "\n```")
+println("```julia\n", source_for("seitl_runner.jl"), "\n```")
 ```
 :::
 
@@ -155,10 +155,10 @@ init_state = Dict(
 In the [Particle Filters session](particle_filters.qmd), we:
 
 1. Implemented the SEIT4L Gillespie simulator (`gillespie_step`)
-2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEIT4LDynamics`, `PoissonObservation`, `SEIT4LInitial`)
+2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEITLDynamics`, `PoissonObservation`, `SEITLInitial`), which serves SEITL and SEIT4L alike because the number of compartments comes from the initial state
 3. Calibrated the particle count against the SD of the log-likelihood estimate, which put the minimum acceptable count at 64
 
-All these components were loaded via `using MFIIDD` in the setup above (defined in [`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl), [`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl), and [`src/seit4l_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_runner.jl)). Now we'll use them for full Bayesian inference.
+All these components were loaded via `using MFIIDD` in the setup above (defined in [`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl), [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl), and [`src/seitl_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_runner.jl)). Now we'll use them for full Bayesian inference.
 
 In your own work, you should run [prior and posterior predictive checks](model_checking.qmd) when fitting models. We skip them for now to focus on the PMMH algorithm.
 
@@ -201,8 +201,8 @@ Uses GeneralisedFilters for likelihood estimation.
     # The SSMProblems interface expects a plain vector, not a Dict
     # Order: [S, E, I, T1, T2, T3, T4, L]
     init_state = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
-    ssm = StateSpaceModel(SEIT4LInitial(init_state),
-                          SEIT4LDynamics(θ),
+    ssm = StateSpaceModel(SEITLInitial(init_state),
+                          SEITLDynamics(θ),
                           PoissonObservation(θ[:ρ]))
 
     # Run particle filter to estimate log-likelihood
@@ -215,7 +215,7 @@ end
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- **`StateSpaceModel(...)`** - assembles the state-space model from initial distribution, dynamics, and observation components defined in [`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl).
+- **`StateSpaceModel(...)`** - assembles the state-space model from initial distribution, dynamics, and observation components defined in [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl).
 - **`GeneralisedFilters.filter(...)`** - runs the bootstrap particle filter (`BF`) and returns the estimated log-likelihood. `Random.default_rng()` provides the global random number generator — this is Julia's way of passing randomness explicitly rather than relying on a hidden global state.
 - [`@addlogprob!`](https://turinglang.org/DynamicPPL.jl/stable/api/#DynamicPPL.@addlogprob!) - manually adds the particle filter's log-likelihood estimate to the model. The priors specified with `~` still contribute automatically. This is the [recommended pattern](https://github.com/TuringLang/Turing.jl/issues/2428) for integrating external likelihood estimators with Turing.
 - **Why 256 particles?** PMMH acceptance depends on the variance of the log-likelihood estimate. Using more particles reduces variance but increases computation. The calibration in the [previous session](particle_filters.qmd) put the minimum at 64, measured at a single parameter set; how noisy the estimate is depends on where in the posterior you are, so it is safer to go somewhat higher, and worth checking the count again once you have a posterior to check it against.

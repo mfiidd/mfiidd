@@ -44,7 +44,7 @@ function gillespie_step(
     function rates(s)
         S, E, I, T1, T2, T3, T4, L = s
         N = S + E + I + T1 + T2 + T3 + T4 + L
-        [β*S*I/N, ϵ*E, ν*I, τ*T1, τ*T2, τ*T3, (1-α)*τ*T4, α*τ*T4]
+        [β * S * I / N, ϵ * E, ν * I, τ * T1, τ * T2, τ * T3, (1 - α) * τ * T4, α * τ * T4]
     end
 
     # Simulate up to `dt` time units
@@ -82,14 +82,30 @@ function gillespie_step(
 end
 
 """
+    gillespie_step_seit4l!(rng, state, θ, dt)
     gillespie_step_seit4l!(state, θ, dt)
 
-In-place version for simple bootstrap filter (no RNG argument, uses global RNG).
+In-place version for the bootstrap filter, which updates `state` and returns the
+incidence rather than returning a new vector.
+
+The two-argument form draws from the global random number generator; pass an
+`rng` explicitly when the caller needs to control randomness, as the particle
+filter does. This mirrors `gillespie_step_seitl!`, so the two steppers can be
+used interchangeably by `SEITLDynamics`.
 """
-function gillespie_step_seit4l!(state::Vector{Float64}, θ::Dict, dt::Float64 = 1.0)
-    new_state, inc = gillespie_step(Random.default_rng(), state, θ, dt)
-    for i in 1:8
+function gillespie_step_seit4l!(
+    rng::AbstractRNG,
+    state::Vector{Float64},
+    θ::Dict,
+    dt::Float64 = 1.0,
+)
+    new_state, inc = gillespie_step(rng, state, θ, dt)
+    for i in eachindex(state)
         state[i] = new_state[i]
     end
     return inc
+end
+
+function gillespie_step_seit4l!(state::Vector{Float64}, θ::Dict, dt::Float64 = 1.0)
+    return gillespie_step_seit4l!(Random.default_rng(), state, θ, dt)
 end
