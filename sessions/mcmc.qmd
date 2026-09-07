@@ -706,7 +706,7 @@ chain_nuts = sample(model, NUTS(), 2000)
 ## Code explainer
 - [`NUTS()`](https://turinglang.org/docs/tutorials/docs-00-getting-started/#inference) - the No U-Turn Sampler, a gradient-based MCMC algorithm that automatically tunes its step size and trajectory length. Much more efficient than Metropolis-Hastings for continuous parameters. The algorithm uses [automatic differentiation](https://en.wikipedia.org/wiki/Automatic_differentiation) to compute gradients of the log-posterior.
 
-**How do gradients help with sampling?** Metropolis-Hastings proposes random steps and hopes for the best — like exploring a dark room by stumbling around. NUTS computes the gradient (slope) of the log-posterior, which tells it *which direction* leads to higher probability. It then simulates a ball rolling along this surface, following the natural contours of the posterior. This lets it take large, efficient steps along ridges and valleys instead of the small, random steps of MH. The "No U-Turn" part automatically decides when to stop rolling, so you don't need to tune a trajectory length.
+**How do gradients help with sampling?** Metropolis-Hastings proposes random steps and hopes for the best — like exploring a dark room by stumbling around. NUTS computes the gradient (slope) of the log-posterior, which tells it *which direction* leads to higher probability. It then simulates a puck sliding along this surface, following the natural contours of the posterior. This lets it take large, efficient steps along ridges and valleys instead of the small, random steps of MH. The "No U-Turn" part automatically decides when to stop sliding, so you don't need to tune a trajectory length.
 :::
 
 ```{julia}
