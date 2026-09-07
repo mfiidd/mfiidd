@@ -28,7 +28,24 @@ components, the filter and the observation process are the same either way.
   `ParticleFilter` with a latent proposal, and rules out any that need the
   density, including `AuxiliaryParticleFilter`, which asks for
   `SSMProblems.distribution` and fails with a `MethodError`. The
-  linear-Gaussian filters, `KalmanFilter` among them, do not apply at all
+  linear-Gaussian filters, `KalmanFilter` among them, do not apply at all.
+
+  `BF` forwards its keyword arguments, so the resampling scheme and when
+  resampling happens are set through it:
+
+  ```julia
+  run_particle_filter(θ, obs, 256; algo = BF(256; threshold = 0.5, resampler = Multinomial()))
+  ```
+
+  `threshold` is the interesting one. Resampling is itself random and adds
+  variance, so resampling only when the particles have degenerated trades one
+  problem against the other. The default of 1.0 resamples at every step;
+  `threshold = 0.5` resamples only once the effective sample size has fallen
+  below half the particle count.
+
+  `Systematic`, `Multinomial`, `Metropolis` and `Rejection` all run on this
+  model. `Stratified` is exported by GeneralisedFilters but has no
+  `sample_ancestors` method for these particles and fails with a `MethodError`
 
 # Returns
 - `log_likelihood`: Estimated log-likelihood
