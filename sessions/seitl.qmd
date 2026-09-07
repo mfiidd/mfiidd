@@ -439,10 +439,14 @@ The model has the following transitions:
 ::: {.callout-note collapse="true"}
 ## Implementation: Gillespie algorithm
 
+`simulate_seitl_stochastic` walks through the days and hands each one to `gillespie_step_seitl!`, which advances the state over that day and returns the cases it produced.
+The stepper is what the particle filter propagates each particle with in the [Particle Filters](particle_filters.qmd) session, so the simulator you run here and the filter you fit with later describe the same dynamics.
+
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(simulate_seitl_stochastic), "\n```")
+println("```julia\n", source_for(simulate_seitl_stochastic), "\n\n",
+        source_for(gillespie_step_seitl!), "\n```")
 ```
 
 ::: {.callout-tip collapse="true"}
@@ -450,10 +454,11 @@ println("```julia\n", source_for(simulate_seitl_stochastic), "\n```")
 
 - **Stoichiometry matrix**: Each row defines how compartments change for one transition type (e.g., `[-1, 1, 0, 0, 0]` means S decreases by 1 and E increases by 1 for infection)
 - **`rates(s)`**: Computes the current rate of each transition based on compartment sizes
-- **`gillespie_step!`**: Simulates one day by repeatedly: (1) drawing an exponential waiting time, (2) selecting which event occurs proportional to rates, (3) applying the state change
-- **`randexp() / total_rate`**: Waiting time to next event follows Exp(total_rate)
+- **`gillespie_step_seitl!`**: Simulates one day by repeatedly: (1) drawing an exponential waiting time, (2) selecting which event occurs proportional to rates, (3) applying the state change
+- **`randexp(rng) / total_rate`**: Waiting time to next event follows Exp(total_rate)
 - **Event selection**: Cumulative sum trick to select event with probability proportional to its rate
 - **`event == 2`**: E→I transitions are counted as new cases (daily incidence)
+- **`rng`**: The generator is an argument rather than a global, so the particle filter can control the randomness of each particle and you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
 :::
 
 :::
