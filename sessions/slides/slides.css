@@ -6,8 +6,17 @@
   margin-bottom: 0.35em;
 }
 
-/* Display maths in a two-column layout should not overflow its column. */
-.reveal .columns .katex-display,
-.reveal .columns mjx-container {
+/* Display maths in a two-column layout should not overflow its column.
+   MathML marks display maths with the display attribute, so the selector
+   follows the maths method set in _quarto.yml. */
+.reveal .columns math[display="block"] {
   font-size: 0.9em;
+}
+
+/* Match the site stylesheet: MathML rendered by the browser, using locally
+   installed math fonts only, so formulae still render with no network access.
+   The decks load this file rather than styles.css, so the stack is repeated. */
+.reveal math {
+  font-family: "STIX Two Math", "Latin Modern Math", "Cambria Math",
+               "DejaVu Math TeX Gyre", "Noto Sans Math", serif;
 }
