@@ -2,8 +2,6 @@ using Random
 
 """
     gillespie_step(rng, state, θ; k, dt = 1.0)
-    gillespie_step!(rng, state, θ; k, dt = 1.0)
-    gillespie_step!(state, θ; k, dt = 1.0)
 
 Simulate `dt` time units of the SEITL model with `k` stages of temporary
 immunity, using the Gillespie algorithm.
@@ -14,22 +12,18 @@ holds the mean duration of temporary immunity at `D_imm` whatever `k` is, and
 leave the last one for `S` with probability `1 - α` and for `L` with
 probability `α`.
 
-`gillespie_step` returns the new state and leaves its argument untouched.
-`gillespie_step!` updates `state` in place and returns the incidence alone,
-which is what the particle filter wants once per particle per day. The
-two-argument form of `gillespie_step!` draws from the global random number
-generator; pass an `rng` when the caller needs to control randomness.
+`state` is left untouched. [`gillespie_step!`](@ref) updates it in place, which
+is what the particle filter wants once per particle per day.
 
 # Arguments
-- `rng`: Random number generator (defaults to the global one)
+- `rng`: Random number generator
 - `state`: Vector [S, E, I, T_1 ... T_k, L]
 - `θ`: Parameter dictionary with keys :R_0, :D_lat, :D_inf, :α, :D_imm
 - `k`: Number of temporary immunity stages, so `length(state) == k + 4`
 - `dt`: Length of the simulation interval (default 1.0, i.e. one day)
 
 # Returns
-- `gillespie_step`: `(new_state, incidence)`
-- `gillespie_step!`: `incidence`, the new cases over `dt`
+- `(new_state, incidence)`: the state after `dt` and the new cases over it
 """
 function gillespie_step(
     rng::AbstractRNG,
@@ -107,6 +101,16 @@ function gillespie_step(
     return s, daily_inc
 end
 
+"""
+    gillespie_step!(rng, state, θ; k, dt = 1.0)
+    gillespie_step!(state, θ; k, dt = 1.0)
+
+In-place [`gillespie_step`](@ref): update `state` and return the incidence on
+its own.
+
+The two-argument form draws from the global random number generator; pass an
+`rng` when the caller needs to control randomness, as the particle filter does.
+"""
 function gillespie_step!(
     rng::AbstractRNG,
     state::Vector{Float64},
