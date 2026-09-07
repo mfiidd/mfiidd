@@ -112,6 +112,13 @@ $$\theta^{(i)} \sim p(\theta), \qquad y^{(i)} \sim p(y \mid \theta^{(i)})$$
 Then ask: do these simulated epidemics look like something that could plausibly
 happen?
 
+## What our priors imply
+
+![](images/model_checking_prior_predictive.svg)
+
+Two hundred draws from this session's priors, on an island of 284. Most burn
+through the population in a week.
+
 ## What it catches
 
 - Priors that put weight on **impossible** outcomes — attack rates above 100%,
@@ -152,6 +159,12 @@ $$\theta^{(i)} \sim p(\theta \mid y), \qquad y^{\text{rep},(i)} \sim p(y \mid \t
 If the model is adequate, the observed data should look like a typical draw from
 this distribution, not an outlier.
 
+## The SIR model on Tristan da Cunha
+
+![](images/model_checking_posterior_predictive.svg)
+
+The peak is too low and a week too late.
+
 ## What to look for
 
 - Does the **timing** of the peak match?
@@ -177,6 +190,13 @@ $$p_B = \Pr\big(T(y^\text{rep}) \geq T(y) \mid y\big)$$
 
 These are **not** frequentist p-values and should not be thresholded at 0.05.
 They are a diagnostic for "which feature is my model missing", not a test.
+
+## Total cases
+
+![](images/model_checking_ppc_total.svg)
+
+312 cases were reported on an island of 284 people. A model with permanent
+immunity cannot produce that at **any** parameter value.
 
 ## Residuals: observed minus predicted, over time {.smaller}
 
@@ -241,19 +261,19 @@ it: SBC tests the **inference**, not the model.
 
 ## Reading an SBC histogram
 
-- **Uniform** — calibrated
-- **∪-shaped** — the truth falls outside the bulk too often: overconfident
-- **∩-shaped** — the truth sits in the middle too often: underconfident
-- **Sloped** — biased in one direction
+![](images/model_checking_sbc_shapes.svg)
+
+Illustrative: a conjugate Normal stands in, so each posterior can be spoiled on
+purpose. The grey band is where a uniform histogram should sit.
+
+## The same histogram, in forecasting
+
+The same shapes read the same way in a **PIT** histogram, which checks a
+forecast rather than an inference procedure.
 
 . . .
 
-The same shapes read the same way in a **PIT** histogram, the forecasting
-version of this check.
-
-. . .
-
-SBC is expensive: it means fitting the model hundreds of times.
+SBC itself is expensive: it means fitting the model hundreds of times.
 
 # When checks fail
 
