@@ -507,8 +507,8 @@ There is a second one for the tails, and the advanced section below covers both.
 
 ## 3. Monte Carlo Standard Error (MCSE)
 
-MCSE is the uncertainty in a posterior summary that comes from having sampled for a finite time rather than forever.
-It is what a low ESS costs you, and it is the reason ESS is worth checking at all.
+You are about to write a number down.
+MCSE says how many of its digits are real, and how many would change with a different seed.
 
 ::: {.callout-note collapse="true"}
 ## Where MCSE comes from
@@ -731,6 +731,19 @@ $$\hat{R}_{\text{rank}} = \max\left(\hat{R}_{\text{bulk}},\ \hat{R}_{\text{fold}
 Either failure is a failure, which is why it is the maximum rather than an average.
 
 In `MCMCDiagnosticTools` the folded one is `kind = :tail`, which is not the same thing as the tail ESS in the next section.
+
+## Raising the target acceptance rate
+
+`NUTS(0.95)` appears twice above as the remedy for divergences, without saying what is being raised.
+
+$\delta$ is the acceptance statistic the warmup adapts the step size to hit, and it defaults to 0.65.
+Raising it forces a smaller step, which is why it cures divergences: the integrator is stable where it was not.
+What it costs is computation, since a smaller step means more leapfrog steps and so more gradient evaluations for each draw.
+You are buying stability with time.
+
+This is not a NUTS idea.
+Random-walk Metropolis is tuned to an acceptance rate too, and [the MCMC session](mcmc.qmd) gives the targets and shows RAM adapting its proposal to hit one.
+The knob is the same; only the number differs, because the dynamics do.
 
 ## Bulk and tail ESS
 

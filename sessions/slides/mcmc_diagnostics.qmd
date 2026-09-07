@@ -48,6 +48,36 @@ end
 starts = [1.0, 2.2, 3.4, 5.5]
 agree = [walk(s, 0.6, 800) for s in starts]
 disagree = [walk(s, 0.9995, 800) for s in starts]
+
+## Basic R-hat, exactly the formula on the R-hat slide, over growing prefixes.
+function rhat_basic(cs)
+    m, n = length(cs), length(cs[1])
+    mus = [sum(c) / n for c in cs]
+    W = sum(sum(abs2, c .- mu) / (n - 1) for (c, mu) in zip(cs, mus)) / m
+    grand = sum(mus) / m
+    B = n * sum(abs2, mus .- grand) / (m - 1)
+    return sqrt(((n - 1) / n * W + B / n) / W)
+end
+
+## 50 draws is the shortest prefix worth plotting; below that R-hat is noise.
+prefixes = 50:25:800
+rhat_agree = [rhat_basic([c[1:k] for c in agree]) for k in prefixes]
+rhat_disagree = [rhat_basic([c[1:k] for c in disagree]) for k in prefixes]
+
+## Autocorrelation summed to tau, cut where the estimates first go negative.
+function tau_and_cut(x; maxlag = 60)
+    r = acf(x, 0:maxlag)
+    k = findfirst(<(0), r[2:end])
+    cut = k === nothing ? maxlag : k - 1        # last lag still positive
+    return r, cut, 1 + 2 * sum(r[2:(cut + 1)])
+end
+
+## Same number of draws in both, so only the correlation differs.
+acf_mix, cut_mix, _ = tau_and_cut(walk(2.5, 0.6, 4050)[51:end])
+acf_sticky, cut_sticky, _ = tau_and_cut(walk(2.5, 0.9, 4050)[51:end])
+
+## MCSE: where the posterior mean lands over repeated independent runs.
+run_means = [sum(walk(2.5, 0.6, 800)[51:end]) / 750 for _ in 1:400]
 ```
 
 # Recap
@@ -169,10 +199,6 @@ end
 plot(p1, p2, layout = (1, 2), size = (900, 380), bottom_margin = 5Plots.mm, left_margin = 4Plots.mm)
 ```
 
-::: {.fragment}
-Agreeing is evidence. Disagreeing is proof that at least one is wrong.
-:::
-
 ## Burn-in
 
 :::: {.columns}
@@ -215,8 +241,25 @@ Compare the variance **within** each chain to the variance **between** chains.
 $$\hat{R} = \sqrt{\frac{\hat{V}}{W}},
 \qquad \hat{V} = \frac{n-1}{n}\,W + \frac{1}{n}\,B$$
 
-$W$ averages the variance within a chain; $B$ is $n$ times the variance of the
-chain means, for chains of length $n$.
+```{julia}
+#| echo: false
+pa = plot(
+    prefixes, rhat_agree, title = "Chains that agree", xlabel = "Draws per chain",
+    ylabel = "R-hat", size = (900, 250), bottom_margin = 5Plots.mm,
+    left_margin = 4Plots.mm
+)
+hline!(pa, [1.01], color = :red, linestyle = :dash)
+pd = plot(
+    prefixes, rhat_disagree, title = "Chains that do not", xlabel = "Draws per chain",
+    ylabel = "R-hat", color = 2
+)
+hline!(pd, [1.01], color = :red, linestyle = :dash)
+plot(pa, pd, layout = (1, 2), size = (900, 250))
+```
+
+The same two runs as the traces earlier, now as one number. Note the different
+vertical scales: the left panel settles below the dashed 1.01 line, the right
+never approaches it.
 
 ::: {.fragment}
 A chain mean varies by about $\sqrt{W\tau/n}$, where $\tau$ is the autocorrelation
@@ -229,6 +272,15 @@ inflate $B$ and push it up.
 Rule of thumb: $\hat{R} < 1.01$. 1.1 is the older, looser bar.
 :::
 
+::: {.fragment}
+`rhat()` prints a refined version of this, so the two will not match by hand.
+The practical's advanced section says how.
+:::
+
+::: {.cite}
+Rank-normalised R̂ and ESS: @vehtari2021
+:::
+
 ## Effective sample size {.smaller}
 
 Correlated draws are worth fewer independent ones.
@@ -237,16 +289,41 @@ $$N_{\text{eff}} = \frac{N}{1 + 2\sum_{k=1}^{K} \rho_k} = \frac{N}{\tau}$$
 
 . . .
 
-That sum is [truncated]{.alert}, not infinite. Autocorrelations at long lags are
-noise, and adding them makes $\tau$ worse.
+```{julia}
+#| echo: false
+function acf_panel(r, cut, ttl)
+    lags = 0:(length(r) - 1)
+    p = bar(
+        lags[1:(cut + 1)], r[1:(cut + 1)], title = ttl, xlabel = "Lag",
+        ylabel = "Correlation", color = 1, linecolor = 1
+    )
+    bar!(p, lags[(cut + 2):end], r[(cut + 2):end], color = :grey85, linecolor = :grey85)
+    return p
+end
+plot(
+    acf_panel(acf_mix, cut_mix, "Well mixed"),
+    acf_panel(acf_sticky, cut_sticky, "Sticky"),
+    layout = (1, 2), size = (900, 260), bottom_margin = 5Plots.mm,
+    left_margin = 4Plots.mm
+)
+```
+
+The sum is [truncated]{.alert} where the estimates go to noise, in grey. Same
+number of draws in both: correlation gone within a dozen lags on the left, still
+there beyond forty on the right, so far fewer independent draws for the same run.
 
 ::: {.cite}
-Truncation by the initial positive sequence: @geyer1992
+@geyer1992
 :::
 
 ## How many digits may you claim? {.smaller}
 
-[MCSE]{.alert} is what a low ESS costs you:
+You are about to write a number down. How many of its digits are real, and how
+many would change with a different seed?
+
+. . .
+
+[MCSE]{.alert} answers that:
 
 $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{\text{ESS}}}$$
 
@@ -257,7 +334,23 @@ noise. A different seed changes it.
 
 . . .
 
-Sample until the MCSE is small next to the precision you want to claim.
+```{julia}
+#| echo: false
+p = density(
+    walk(2.5, 0.6, 40_000)[51:end], xlabel = "θ", ylabel = "Density",
+    fillrange = 0, fillalpha = 0.15, size = (860, 250), bottom_margin = 5Plots.mm,
+    left_margin = 4Plots.mm, xlims = (1.2, 3.8)
+)
+scatter!(p, run_means, fill(0.06, length(run_means)), markersize = 3, alpha = 0.35)
+plot!(p)
+```
+
+The shaded posterior is what you are reporting. The dots are where the mean landed
+on 400 repeated runs, and their spread is the MCSE.
+
+. . .
+
+It shrinks as $\sqrt{\text{ESS}}$, so ESS is the only lever.
 
 # Common failure modes
 
@@ -305,70 +398,6 @@ posterior.
 . . .
 
 Reach for the model before reaching for `NUTS(0.95)`.
-
-# Refinements
-
-## What the practical files as advanced
-
-The session puts these behind a heading you may skip on a first pass.
-They are here so you know they exist, and so you know when to go back for them.
-
-## What `rhat` actually reports {.smaller}
-
-Three things happen before that formula runs.
-
-. . .
-
-[Split]{.alert} each chain in half. A chain drifting within itself contributes
-one mean like any other; split it and the drift becomes a disagreement.
-
-. . .
-
-[Rank normalise]{.alert}. Replace draws by normal scores of their ranks, so R̂
-survives a posterior with no finite variance and does not care how you
-parameterised.
-
-. . .
-
-[Fold]{.alert} around the median and do it again, catching chains that agree on
-the centre but not the spread. Report the larger.
-
-::: {.cite}
-@vehtari2021
-:::
-
-## Bulk and tail ESS
-
-[Bulk ESS]{.alert} describes the centre of the distribution. It is the number
-behind a posterior mean.
-
-. . .
-
-[Tail ESS]{.alert} describes the extremes, which is what credible interval
-endpoints depend on. Check it before quoting a 95% interval.
-
-. . .
-
-R̂ reports the **larger** of its two, because either failure is a failure. ESS
-reports the **smaller**, because either shortage binds.
-
-## Energy: enough of a push? {.smaller}
-
-Specific to HMC and NUTS. Each iteration gives the puck a fresh push, and
-[E-BFMI]{.alert} asks whether the pushes are big enough to carry it across the
-surface.
-
-$$\widehat{\text{E-BFMI}} =
-\frac{\sum_n (E_n - E_{n-1})^2}{\sum_n (E_n - \bar{E})^2}$$
-
-. . .
-
-Movement in energy over the spread of energy to be covered. Below about 0.3, the
-trajectories are circling one part of the surface.
-
-::: {.cite}
-@betancourt2017
-:::
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
