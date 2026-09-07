@@ -147,8 +147,12 @@ From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather t
 :::
 
 The particle filter needs to simulate many stochastic trajectories.
-We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd).
-The stepper takes the number of temporary immunity stages `k`, so `k = 1` is SEITL and `k = 4` the SEIT4L model.
+We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), with `k = 4` for the four T compartments:
+
+```{julia}
+seitl_stoichiometry(4)
+```
+
 The implementation below is shown from the package source rather than repeated by
 hand, so that the page and the code cannot drift apart. This is the function
 `SEITLDynamics` calls once per particle per day:
@@ -165,7 +169,7 @@ println("```julia\n", source_for(gillespie_step), "\n```")
 
 Key aspects:
 
-- **Transitions**: Each moves one individual between two compartments, so a pair of indices gives its effect on the state vector
+- **Transitions**: The pairs above, as `(from, to)` compartment indices
 - **Rates**: Computed from current state and parameters
 - **Event selection**: Exponential waiting time, event chosen proportional to rates
 - **Incidence tracking**: Counts E→I transitions as new cases

@@ -1,6 +1,66 @@
 using Random
 
 """
+    seitl_compartments(k)
+
+Names for the compartments of the SEITL model with `k` stages of temporary
+immunity, in state order. At `k = 1` the single stage is `T`, matching the
+SEITL diagram; above that the stages are numbered `T1 ... Tk`.
+"""
+function seitl_compartments(k::Integer)
+    stages = k == 1 ? ["T"] : ["T$j" for j in 1:k]
+    return ["S", "E", "I", stages..., "L"]
+end
+
+"""
+    seitl_transitions(k)
+
+The transitions of the SEITL model with `k` stages of temporary immunity, as
+`(from, to)` pairs of compartment indices.
+
+Compartments are `S = 1`, `E = 2`, `I = 3`, `T_j = 3 + j` and `L = k + 4`, so
+there are `k + 4` transitions: infection, becoming infectious, recovery, then
+`k - 1` steps along the immunity chain, then the two ways out of the last
+stage. At `k = 1` the chain is empty and the five transitions of SEITL remain;
+at `k = 4` there are eight and the model is SEIT4L.
+
+Use [`seitl_stoichiometry`](@ref) to see them written out for a given `k`.
+"""
+function seitl_transitions(k::Integer)
+    transitions = [(1, 2), (2, 3), (3, 4)]  ## S → E, E → I, I → T_1
+    for j in 1:(k - 1)
+        push!(transitions, (3 + j, 4 + j))  ## T_j → T_(j+1)
+    end
+    push!(transitions, (3 + k, 1))          ## T_k → S, immunity wanes
+    push!(transitions, (3 + k, k + 4))      ## T_k → L, long-term immunity
+    return transitions
+end
+
+"""
+    seitl_stoichiometry(k)
+
+The transitions of [`seitl_transitions`](@ref) written out as a stoichiometry
+table: one row per transition, one column per compartment, giving the change
+that transition makes to each.
+
+The table is built from the transitions the simulator uses, so it cannot
+disagree with what the model does.
+"""
+function seitl_stoichiometry(k::Integer)
+    names = seitl_compartments(k)
+    transitions = seitl_transitions(k)
+
+    table = DataFrame(
+        Transition = ["$(names[from]) → $(names[to])" for (from, to) in transitions],
+    )
+    for (c, name) in enumerate(names)
+        table[!, name] =
+            [(from == c ? -1 : 0) + (to == c ? 1 : 0) for (from, to) in transitions]
+    end
+    return table
+end
+
+"""
     gillespie_step(rng, state, θ; k, dt = 1.0)
 
 Simulate `dt` time units of the SEITL model with `k` stages of temporary
@@ -38,15 +98,9 @@ function gillespie_step(
     τ = k / θ[:D_imm]
     α = θ[:α]
 
-    ## Compartments are S = 1, E = 2, I = 3, T_j = 3 + j and L = k + 4. Every
-    ## transition moves one individual from one compartment to another, so a
-    ## pair of indices says all there is to say about its effect.
-    transitions = [(1, 2), (2, 3), (3, 4)]      ## S → E, E → I, I → T_1
-    for j in 1:(k - 1)
-        push!(transitions, (3 + j, 4 + j))      ## T_j → T_(j+1)
-    end
-    push!(transitions, (3 + k, 1))              ## T_k → S, immunity wanes
-    push!(transitions, (3 + k, k + 4))          ## T_k → L, long-term immunity
+    ## Each transition moves one individual from one compartment to another,
+    ## so a pair of indices says all there is to say about its effect
+    transitions = seitl_transitions(k)
 
     function rates(s)
         S, E, I = s[1], s[2], s[3]

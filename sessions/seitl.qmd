@@ -514,8 +514,15 @@ The model has the following transitions:
 ## Implementation: Gillespie algorithm
 
 `simulate_seitl_stochastic` walks through the days and hands each one to `gillespie_step`, which advances the state over that day and returns the cases it produced.
-The stepper is the algorithm.
-It takes the number of temporary immunity stages `k`, and at `k = 1` its five rates are the five transitions of the table above.
+The stepper takes the number of temporary immunity stages `k`, and builds its transitions from it.
+Asking for `k = 1` gives back the five above:
+
+```{julia}
+seitl_stoichiometry(1)
+```
+
+Each row is one transition and each column one compartment, so the entries are the Effect column of the table written out as numbers.
+The stepper works from these, and the algorithm itself is short:
 
 ```{julia}
 #| echo: false
@@ -526,7 +533,7 @@ println("```julia\n", source_for(gillespie_step), "\n```")
 ::: {.callout-tip collapse="true"}
 ## Code explainer
 
-- **`transitions`**: Each entry is the pair of compartments one individual moves between, so `(1, 2)` is an infection taking someone out of S and into E. At `k = 1` the loop adds nothing and the list is the five rows of the table
+- **`transitions`**: The pairs of compartments each event moves an individual between, from `seitl_transitions(k)`, which is what the table above displays
 - **`rates(s)`**: Computes the current rate of each transition based on compartment sizes
 - **`gillespie_step`**: Simulates one day by repeatedly: (1) drawing an exponential waiting time, (2) selecting which event occurs proportional to rates, (3) applying the state change
 - **`randexp(rng) / total_rate`**: Waiting time to next event follows Exp(total_rate)
@@ -833,7 +840,14 @@ The package ships this simulator, and the code below is that function rather tha
 println("```julia\n", source_for(simulate_seit4l_stochastic), "\n```")
 ```
 
-The day-by-day loop is the one `simulate_seitl_stochastic` uses, over nine columns instead of seven, and the eight transitions live in `gillespie_step!` at `k = 4` rather than being written out again.
+The day-by-day loop is the one `simulate_seitl_stochastic` uses, over nine columns instead of seven.
+The eight transitions the exercise asks for are the ones the stepper builds at `k = 4`:
+
+```{julia}
+seitl_stoichiometry(4)
+```
+
+Rows 1 and 2 are the SEITL ones unchanged, rows 4 to 6 are the new chain through the sub-stages, and the last two are the two ways out of `T4`.
 
 What to notice when you compare the two: splitting T into four sub-stages makes the time an individual spends temporarily immune *less* variable, because an Erlang-4 duration is more tightly concentrated than an exponential one with the same mean. Individuals therefore return to susceptibility in a tighter band, so the second wave is sharper and its timing more repeatable across runs, where SEITL smears it out.
 :::

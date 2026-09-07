@@ -23,6 +23,7 @@ export seitl_ode!, simulate_seitl_deterministic, simulate_seitl_stochastic
 export seit4l_ode!, simulate_seit4l_deterministic, simulate_seit4l_stochastic
 export generate_observations
 export gillespie_step, gillespie_step!
+export seitl_transitions, seitl_stoichiometry, seitl_compartments
 export run_particle_filter, filtered_incidence
 export SEITLDynamics, SEITLInitial, PoissonObservation
 export source_for
