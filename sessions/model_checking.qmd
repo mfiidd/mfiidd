@@ -477,7 +477,7 @@ resid = flu_tdc.obs .- mean_pred
 `fix` pins the three parameters to their posterior means, and calling the fixed model runs it once and hands back its `return` value.
 
 ::: {.callout-warning}
-## What the plug-in trajectory costs
+## What the plug-in trajectory misses
 
 One trajectory at the posterior mean is enough to show what residual *patterns* look like, which is what this section is for.
 It is not the full check.
