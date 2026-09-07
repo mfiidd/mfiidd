@@ -249,9 +249,9 @@ chain = sample(model, NUTS(), 1000, progress=false)
 predictions = predict(decondition(model), chain)
 
 # Extract into a list of trajectories for plotting and analysis
-n_sims = min(100, size(predictions, 1))
-n_obs = length(flu_tdc.obs)
-ppc_samples = [predictions[@varname(obs)][i, 1] for i in 1:n_sims]
+# Each element is already a full predicted series; vec() pools across chains
+ppc = vec(predictions[@varname(obs)])
+ppc_samples = ppc[1:min(100, length(ppc))]
 ```
 
 ::: {.callout-tip collapse="true"}
@@ -261,7 +261,7 @@ This generates posterior predictive samples in two steps:
 1. **`decondition(model)`** — removes the conditioning on observed data. Our `model` was created with `sir_model(...) | (; obs = flu_tdc.obs)`, so `decondition()` reverses this, turning the `obs ~ arraydist(Poisson.(lambdas))` statement from a likelihood computation back into a generative sample.
 2. **`predict(..., chain)`** — for each parameter sample in the chain, runs the model forward and samples new observations from the Poisson distribution.
 
-The result is a chain-like object, and `predictions[@varname(obs)]` gives the whole predicted vector for each posterior sample, so `[i, 1]` picks the `i`-th sample of the first chain and returns all `n_obs` values at once.
+The result is a chain-like object, and `predictions[@varname(obs)]` keeps `obs` whole rather than flattening it into one column per day, so it comes back as an iterations-by-chains array whose elements are entire predicted series. That is why the extraction is a slice rather than a loop: `vec` pools the chains into one list of trajectories, and the range takes the first hundred.
 :::
 
 ```{julia}
