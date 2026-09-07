@@ -28,7 +28,9 @@ In this session you will:
 
 1. Use prior predictive checks to validate model specification
 2. Use posterior predictive checks to assess model fit
-3. Interpret residual patterns to diagnose model problems
+3. Read a posterior predictive p-value near 0 or 1 as the model missing that feature, rather than as a significant test result
+4. Interpret residual patterns to diagnose model problems
+5. Use simulation-based calibration to check that the inference procedure recovers parameters it was given, and read its rank histogram
 
 # Setup
 
@@ -592,6 +594,7 @@ Full SBC requires many simulations (100+) and is computationally expensive. It i
 ::: {.callout-tip title="Learning points"}
 - **Prior predictive checks** validate that your priors generate plausible data before you see observations
 - **Posterior predictive checks** test whether the fitted model can reproduce key features of the observed data
+- **Posterior predictive p-values** say which summary statistics the model misses, and are descriptive rather than hypothesis tests
 - **Residual patterns** diagnose specific model deficiencies: trends, autocorrelation, heteroscedasticity
 - **Model failure is informative** - it guides model improvement and reveals missing mechanisms
 - **Simulation-based calibration** checks the inference procedure rather than the model, by asking whether parameters drawn from the prior are recovered from data simulated with them
