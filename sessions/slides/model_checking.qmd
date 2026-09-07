@@ -276,12 +276,12 @@ SBC itself is expensive: it means fitting the model hundreds of times.
 
 Failure is information. In rough order of what to try:
 
-1. **Revisit the observation model** — overdispersion, under-reporting,
-   reporting delays. Often the cheapest fix.
-2. **Revisit the priors** — are they excluding the region the data prefer?
-3. **Revisit the structure** — is there a mechanism the model is missing?
+1. **Revisit the priors** — are they excluding the region the data prefer?
+2. **Revisit the structure** — is there a mechanism the model is missing?
    Waning immunity, age structure, time-varying transmission.
-4. **Revisit the data** — are the observations really what you think they are?
+3. **Revisit the data** — are the observations really what you think they are?
+4. **Revisit the observation model** — overdispersion, under-reporting,
+   reporting delays (Session 8).
 
 . . .
 

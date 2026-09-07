@@ -521,7 +521,10 @@ What should you do when model checks reveal problems?
 
 If prior predictive simulations look unreasonable, start by examining your priors. Priors that are too vague will generate wildly varying trajectories so you should use your knowledge of the system to constrain them. If you see impossible values (negative counts, probabilities outside [0,1]), add appropriate bounds or switch to a distribution family that respects the constraints.
 
-When posterior predictive checks fail, the model itself needs attention. Systematic bias such as predictions consistently too high or too low suggests missing mechanisms. If the model captures the mean but not the variability, your observation model may be wrong; switching from Poisson to Negative Binomial, for instance, allows for overdispersion. When specific features are missed (like a second epidemic wave), consider what biological mechanisms could explain them.
+When posterior predictive checks fail, the model itself needs attention.
+Systematic bias such as predictions consistently too high or too low suggests missing mechanisms, and so does a feature the model never reproduces at any parameter value, like a second epidemic wave.
+Ask what biological mechanism could produce it.
+If the model instead captures the shape of the epidemic but not the spread of the counts around it, the observation model is the thing to change, and switching from Poisson to Negative Binomial allows for overdispersion, which the [observation models session](observation_models.qmd) takes up in full.
 
 Residual patterns point to specific fixes. Temporal trends in residuals suggest time-varying parameters or additional compartments. Autocorrelated residuals indicate the model dynamics are incomplete. And if residual variance grows with predicted values (heteroscedasticity), the observation model's variance structure needs adjustment.
 
