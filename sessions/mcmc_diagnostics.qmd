@@ -27,7 +27,7 @@ That is a statement about the chain in the limit, so no run of finite length can
 This is why the rest of the session is a set of checks rather than a test.
 Each diagnostic can tell you that something has gone wrong.
 None of them can tell you that nothing has.
-A chain that passes all of them has failed to show a problem, which is the strongest thing the diagnostics have to say.
+A chain that passes all of them has failed to show a problem.
 :::
 
 # Objectives
