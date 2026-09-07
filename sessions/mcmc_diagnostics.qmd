@@ -20,6 +20,16 @@ MCMC comes with weak guarantees. A chain always returns numbers, but nothing for
 
 This session covers how to catch those failures before they end up in a paper: trace plots for the visual check, R̂ and effective sample size for the numerical ones, and a few standard failure modes worth keeping in mind.
 
+::: {.callout-important title="What convergence means"}
+A chain has converged when the distribution of its draws has reached the posterior and stays there however long you keep sampling.
+That is a statement about the chain in the limit, so no run of finite length can establish it.
+
+This is why the rest of the session is a set of checks rather than a test.
+Each diagnostic can tell you that something has gone wrong.
+None of them can tell you that nothing has.
+A chain that passes all of them has failed to show a problem, which is the strongest thing the diagnostics have to say.
+:::
+
 # Objectives
 
 The aim is to learn how to assess whether your MCMC chains have converged and whether your posterior samples are reliable enough to base conclusions on.
@@ -277,12 +287,18 @@ With NUTS, you typically don't need to manually discard burn-in samples.
 The warmup is automatic and adaptive.
 However, you should still check trace plots to ensure the chain has converged - if you see trends even after warmup, you may need longer adaptation.
 
-# Quantitative diagnostics
+## 5. Several chains
 
-## 1. R̂ statistic (Gelman-Rubin diagnostic)
+Every diagnostic so far has looked at a single chain.
+A trace plot tells you that the chain moves freely around the region it is in.
+It cannot tell you whether that region is the whole posterior, because the chain has never been anywhere else.
+A chain that settles into one part of the posterior and explores that part thoroughly looks healthy on all three plots above.
 
-R̂ compares within-chain and between-chain variance.
-It should be < 1.1 (ideally < 1.01):
+Running several chains is what makes that failure visible.
+Each chain is initialised separately, so they start in different places.
+If chains that started apart end up describing the same distribution, that is evidence they have found the posterior.
+If they end up describing different distributions, at least one of them is wrong.
+Four chains is a reasonable default.
 
 ::: {.callout-note}
 ## Running Julia with multiple threads
@@ -298,7 +314,7 @@ In VS Code, you can set this permanently in settings: search for "Julia: Num Thr
 
 ```{julia}
 #| output: false
-# Run multiple chains for R̂ calculation
+# Run several chains, each starting from its own initial values
 # Detect available threads to avoid overwhelming CI systems
 n_chains = max(2, min(4, Threads.nthreads()))
 println("Running $n_chains chains in parallel ($(Threads.nthreads()) threads available)")
@@ -310,6 +326,69 @@ chain_multi = sample(model, NUTS(), MCMCThreads(), 2000, n_chains)
 - [`MCMCThreads()`](https://turinglang.org/docs/tutorials/docs-00-getting-started/#sampling-multiple-chains) - tells Turing to run multiple chains in parallel using Julia threads. Much faster than running sequentially on multi-core machines.
 - `sample(model, sampler, MCMCThreads(), n_samples, n_chains)` - the extended signature for parallel sampling. Here we request `n_chains` chains, each with `n_samples` samples.
 - [`Threads.nthreads()`](https://docs.julialang.org/en/v1/base/multi-threading/#Base.Threads.nthreads) - returns how many threads Julia has available. Start Julia with `julia -t auto` to use all CPU cores.
+:::
+
+To see what the other outcome looks like, we sample the same model with a deliberately bad sampler.
+It is a random walk with a proposal standard deviation of 0.001, far too small to cross the posterior in the iterations it is given.
+
+```{julia}
+#| output: false
+# A random walk with tiny steps. Each chain starts somewhere different and
+# cannot get from there to the posterior in 2000 iterations.
+chain_stuck = sample(model, MH([1e-6 0.0; 0.0 1e-6]), MCMCThreads(), 2000, n_chains)
+```
+
+```{julia}
+#| code-fold: true
+#| code-summary: "Plotting code"
+function chains_trace_plot(chains, param, plot_title)
+    p = plot(title = plot_title, xlabel = "Iteration", ylabel = string(param))
+    for i in 1:nchains(chains)
+        plot!(p, vec(chains[chain = i][param]), linewidth = 1, label = "Chain $i")
+    end
+    return p
+end
+
+p1 = chains_trace_plot(chain_multi, :R_0, "Converged: NUTS")
+p2 = chains_trace_plot(chain_stuck, :R_0, "Not converged: random walk with tiny steps")
+
+plot(p1, p2, layout = (2, 1), size = (800, 600))
+```
+
+In the top panel the chains lie on top of each other and you cannot tell them apart.
+In the bottom panel the chains sit at different levels and are still moving after 2000 iterations.
+Read one of those chains on its own and you have to judge whether what you are seeing is slow mixing or a chain that has not arrived yet.
+Read them together and it is not a judgement call.
+
+The next section turns that disagreement into a number.
+
+# Quantitative diagnostics
+
+## 1. R̂ statistic (Gelman-Rubin diagnostic)
+
+R̂ turns the comparison you have just looked at into a number.
+It weighs the variance within each chain against the variance between chains, and comes out at 1 when the two agree.
+[Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full) recommend treating anything above 1.01 as a warning.
+The older and looser threshold of 1.1 is still widely quoted, and a chain that fails that one is in trouble rather than borderline.
+
+::: {.callout-note collapse="true"}
+## Where R̂ comes from
+
+Take $m$ chains of $n$ iterations each.
+Write $W$ for the mean of the within-chain variances, and $B$ for $n$ times the variance of the $m$ chain means.
+The two are combined into an estimate of the posterior variance, and R̂ compares that estimate against $W$:
+
+$$\hat{V} = \frac{n - 1}{n} W + \frac{1}{n} B, \qquad \hat{R} = \sqrt{\frac{\hat{V}}{W}}$$
+
+$W$ sees only the variation inside a chain, so while any chain is still confined to part of the posterior it underestimates the posterior variance.
+$\hat{V}$ mixes in the spread of the chain means, so while the chains sit apart it overestimates it.
+R̂ is the ratio of the two, and it falls towards 1 as the gap between them closes.
+
+Once the chains agree, the mean of a chain of length $n$ has variance of about $W/n$, so $B$ is about $W$, $\hat{V}$ is about $W$, and R̂ tends to 1.
+Chains sitting in different places inflate the variance of the chain means, which inflates $B$, and R̂ goes up with it.
+
+The statistic is due to [Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136).
+What `rhat` computes is the rank-normalised split version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which splits each chain in half before comparing, so that a chain drifting within itself is caught as well, and works with the ranks of the draws rather than the draws themselves, so that it does not rely on the posterior having a finite variance.
 :::
 
 ```{julia}
@@ -331,7 +410,7 @@ rhat_values = DataFrame(rhat(chain_multi))
 for row in eachrow(rhat_values)
     param = row.param
     value = row.stat
-    status = value < 1.1 ? "good" : "bad"
+    status = value < 1.01 ? "good" : "bad"
     println("  $param: $(round(value, digits = 3)) $status")
 end
 ```
@@ -339,7 +418,7 @@ end
 ::: {.callout-tip collapse="true"}
 ## Code explainer
 - `chain_multi[chain = i]` - extracts the i-th chain from a multi-chain object. A chain is indexed by iteration and by chain, and `niters` and `nchains` give the two sizes.
-- `rhat(chain)` - calculates the R̂ (Gelman-Rubin) diagnostic. Compares variance within chains to variance between chains. Values < 1.1 indicate convergence; < 1.01 is even better.
+- `rhat(chain)` - calculates the R̂ (Gelman-Rubin) diagnostic. Compares variance within chains to variance between chains. Values below 1.01 mean the chains have not been caught disagreeing; 1.1 is the older, looser threshold.
 :::
 
 ```{julia}
@@ -791,6 +870,7 @@ MCMC only works if you use it correctly. Diagnostics aren't optional.
 # References
 
 - Vehtari et al. (2021). [Rank-normalization, folding, and localization: An improved R̂ for assessing convergence of MCMC](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full). *Bayesian Analysis* 16(2), 667-718. (Modern R̂ and ESS)
+- Gelman and Rubin (1992). [Inference from iterative simulation using multiple sequences](https://doi.org/10.1214/ss/1177011136). *Statistical Science* 7(4), 457-472. (The original R̂)
 - Gelman et al. (2013). [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/), 3rd ed. Chapman & Hall/CRC. (Chapter 11 covers diagnostics)
 - [MCMCChains.jl documentation](https://turinglang.org/MCMCChains.jl/stable/) - Chain diagnostics in Julia
 - [ArviZ](https://arviz-devs.github.io/arviz/) - Exploratory analysis of Bayesian models (Python, with Julia bindings via ArviZ.jl)
