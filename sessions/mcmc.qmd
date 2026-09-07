@@ -792,13 +792,21 @@ Now we can analyse the posterior distribution:
 
 ```{julia}
 # Parameter correlations
-corner_plot = marginalkde(vec(chain_nuts[:R_0]), vec(chain_nuts[:D_inf]),
-                          xlabel = "R_0", ylabel = "D_inf")
+r0_samples = vec(chain_nuts[:R_0])
+dinf_samples = vec(chain_nuts[:D_inf])
+top_density = density(r0_samples, legend = false, xaxis = false, yaxis = false)
+right_density = density(dinf_samples, legend = false, xaxis = false,
+                         yaxis = false, permute = (:x, :y))
+joint_density = histogram2d(r0_samples, dinf_samples, xlabel = "R_0",
+                             ylabel = "D_inf", colorbar = false)
+corner_plot = plot(top_density, joint_density, right_density,
+                    layout = @layout([a{0.2h} _
+                                       b            c{0.2w}]))
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- [`marginalkde(x, y)`](https://docs.juliaplots.org/latest/generated/statsplots/) - draws the joint density of two parameters with each marginal along its own axis, which is what a "corner plot" shows for a pair. It is how you see a correlation between parameters rather than just their separate spreads.
+- `histogram2d(x, y)` bins the joint samples of two parameters into a 2D histogram, and `density(x)` draws a parameter's marginal distribution on its own axis. Placing the two marginals on top of and beside the joint histogram, with `permute = (:x, :y)` rotating the right-hand one onto the y-axis, gives a "corner plot" for the pair. It is how you see a correlation between parameters rather than just their separate spreads.
 :::
 
 ```{julia}
