@@ -48,7 +48,6 @@ The source file of this session is located at `sessions/observation_models.qmd`.
 ## Load libraries
 
 ```{julia}
-using DifferentialEquations
 using Distributions
 using DataFrames
 using CSV
@@ -60,6 +59,7 @@ using Random
 using LinearAlgebra
 using DrWatson
 using StatsBase  # For Weights in ABC-SMC
+using MFIIDD ## the course package, which holds the SIR implementation
 ```
 
 ## Initialisation
@@ -92,42 +92,14 @@ We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 
 # Simple SIR model for comparison
 
-For this session, let's use a simpler SIR model to make the concepts clearer:
+For this session, let's use a simpler SIR model to make the concepts clearer.
+
+These two functions live in [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl) and arrived with `using MFIIDD` above.
 
 ```{julia}
-function sir_ode!(du, u, p, t)
-    S, I, R = u
-    β, γ = p
-    N = S + I + R
-
-    du[1] = -β * S * I / N
-    du[2] = β * S * I / N - γ * I
-    du[3] = γ * I
-end
-
-sir_prob = ODEProblem(sir_ode!, zeros(3), (0.0, 1.0), [1.0, 0.5])
-
-"""
-Simple SIR model for pedagogical purposes.
-"""
-function simulate_sir(θ, init_state, times)
-    R_0, D_inf = θ[:R_0], θ[:D_inf]
-
-    β = R_0 / D_inf
-    γ = 1.0 / D_inf
-    u0 = [init_state[:S], init_state[:I], init_state[:R]]
-    prob = remake(sir_prob, u0 = u0, p = [β, γ], tspan = (times[1], times[end]))
-    sol = solve(prob, Tsit5(), saveat=times)
-
-    # Extract incidence (new infections per day)
-    S_values = sol[1, :]
-    incidence = [0.0; -diff(S_values)]
-
-    return DataFrame(time=times, S=S_values,
-                     I=sol[2, :],
-                     R=sol[3, :],
-                     Inc=incidence)
-end
+#| echo: false
+#| output: asis
+println("```julia\n", source_for(sir_ode!), "\n\n", source_for(simulate_sir), "\n```")
 ```
 
 ```{julia}

@@ -55,6 +55,7 @@ using Random ## for random numbers
 using Plots ## for plots
 using StatsPlots ## for statistical plots
 using DrWatson ## for datadir()
+using MFIIDD ## the course package, which holds the SIR implementation
 ```
 
 # The log-density is all you need
@@ -91,23 +92,12 @@ they do the second.
 # From manual log-posterior to standard interface
 
 In the introduction, we wrote a function that simulates the SIR model and returns
-the log-likelihood:
+the log-likelihood.
+The equations themselves are `sir_ode!` from [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl), which arrived with `using MFIIDD` above:
 
 ```{julia}
 # The synthetic epidemic from the introduction session
 epi1 = CSV.read(datadir("epi1_synthetic.csv"), DataFrame)
-
-function sir_ode!(du, u, p, t)
-    R_0, D_inf = p
-    β = R_0 / D_inf
-    ν = 1.0 / D_inf
-    S, I, R = u
-    N = S + I + R
-
-    du[1] = -β * S * I / N
-    du[2] = β * S * I / N - ν * I
-    du[3] = ν * I
-end
 
 function simulate_and_loglik(R_0, D_inf, data; init_state = [999.0, 1.0, 0.0], tspan = (0.0, 30.0))
     prob = ODEProblem(sir_ode!, init_state, tspan, [R_0, D_inf])

@@ -64,7 +64,11 @@ function source_for(f::Function)
 end
 
 @compile_workload begin
-    sir_df = simulate_sir(2.0, 4.0, 999.0, 1.0, 0.0:1.0:10.0)
+    sir_df = simulate_sir(
+        Dict(:R_0 => 2.0, :D_inf => 4.0),
+        Dict(:S => 999.0, :I => 1.0, :R => 0.0),
+        0.0:1.0:10.0,
+    )
 
     θ_seitl = Dict(
         :R_0 => 2.0,
