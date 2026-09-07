@@ -435,7 +435,7 @@ Notice how the same `@model` definition can be used for both simulation (here) a
 The figure above shows what the priors imply for the *observations*, because those are what we will hold against data.
 The same draws also give the *latent* incidence: the infections the model says happened, whether or not anyone wrote them down.
 `returned` collects the trajectory the model simulated for each draw, so both quantities come out of one push-forward and `expected_observations` turns one into the other.
-How far apart they sit is set by a reporting rate the data have not yet spoken about.
+The reporting rate drawn from the prior determines how much the latent incidence differs from the observations.
 
 ```{julia}
 prior_trajs = vec(returned(prior_model, prior_draws))
@@ -517,7 +517,7 @@ println("```julia\n", source_for(gillespie_step_seitl!), "\n```")
 - **`randexp(rng) / total_rate`**: Waiting time to next event follows Exp(total_rate)
 - **Event selection**: Cumulative sum trick to select event with probability proportional to its rate
 - **`event == 2`**: E→I transitions are counted as new cases (daily incidence)
-- **`rng`**: The generator is an argument rather than a global, so you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
+- **`rng`**: The generator is an argument, so you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
 :::
 
 :::
