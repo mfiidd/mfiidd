@@ -104,7 +104,6 @@ epi1 = DataFrame(
     ]
 )
 
-# Built once and reused; see the note on `remake` in the MCMC session
 sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
 
 # Define our SIR model in Turing.jl (same as MCMC session)

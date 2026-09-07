@@ -109,7 +109,6 @@ function sir_ode!(du, u, p, t)
     du[3] = γ * I
 end
 
-# Built once and reused; see the note on `remake` in the MCMC session
 sir_prob = ODEProblem(sir_ode!, zeros(3), (0.0, 1.0), [1.0, 0.5])
 
 """

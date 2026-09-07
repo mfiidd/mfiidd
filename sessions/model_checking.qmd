@@ -98,7 +98,6 @@ function sir_ode!(du, u, p, t)
     du[4] = β * S * I / N  # Cumulative incidence
 end
 
-# Built once and reused; see the note on `remake` in the MCMC session
 sir_prob = ODEProblem(sir_ode!, zeros(4), (0.0, 1.0), [2.5, 5.0])
 
 function simulate_sir(R_0, D_inf, init_state, times)
