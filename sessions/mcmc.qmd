@@ -443,7 +443,7 @@ summarystats(chain_normal_mh)
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- `summarystats(chain)` - prints summary statistics for all parameters in the chain, including the mean, the standard deviation and the convergence diagnostics.
+- `summarystats(chain)` - returns a table with the mean, the standard deviation, MCSE (Monte Carlo standard error), ESS (effective sample size), R̂ (a convergence diagnostic) and the 5%, 50% and 95% quantiles, for every parameter in the chain. The [MCMC diagnostics session](mcmc_diagnostics.qmd) explains what each of these means and when to worry about it.
 - `chain[:x]` - extracts the samples for parameter `x` from the chain. You can use this to access any parameter defined in your `@model` function.
 :::
 
@@ -773,16 +773,6 @@ What NUTS gives you automatically:
 2. Efficient exploration: uses gradients to navigate parameter space intelligently.
 3. Automatic warmup: built-in adaptation period, no manual burn-in decisions.
 4. Better convergence: typically needs far fewer samples than Metropolis-Hastings.
-
-```{julia}
-# Built-in convergence diagnostics
-summarystats(chain_nuts)
-```
-
-::: {.callout-tip collapse="true"}
-## Code explainer
-- `summarystats(chain)` - returns a table with mean, std, MCSE (Monte Carlo Standard Error), ESS (Effective Sample Size), R̂ (convergence diagnostic) and the 5%, 50% and 95% quantiles. We'll learn what these mean in the next session.
-:::
 
 ::: {.callout-tip}
 ## Which sampler should I use?
