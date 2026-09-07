@@ -263,9 +263,7 @@ end
 ## Step 3: Prediction and loss function
 
 ```{julia}
-# Built once and reused; see the note on `remake` in the MCMC session. Training
-# calls `predict_ude` once per gradient evaluation, so the problem construction
-# would otherwise be repeated a few thousand times.
+# Built once and reused; training calls this a few thousand times
 ude_prob = ODEProblem(sir_ude!, u0, tspan, ComponentArray{Float64}(nn_params = p_nn))
 
 """

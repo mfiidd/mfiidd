@@ -491,7 +491,6 @@ sir_prob = ODEProblem(sir_ode!, [999, 1, 0], (0.0, 1.0), [2.5, 5.0])
     R_0 ~ truncated(Normal(2.5, 1.5), lower=1.0)
     D_inf ~ truncated(Normal(5.0, 3.0), lower=0.5)
 
-    # Simulate ODE
     prob = remake(
         sir_prob, u0 = init_state, p = [R_0, D_inf], tspan = (times[1], times[end])
     )
