@@ -240,8 +240,8 @@ If your prior predictive check shows wildly varying trajectories - some with 0 c
 ## Latent quantities
 
 The plot above shows what the priors imply for the *observations*, because those are what we will later hold against data.
-The same draws also give the *latent* quantities the model never reports: the S, I and R trajectories, and anything built from them.
-The obvious one here is the effective reproduction number, $R_t = R_0 \, S(t) / N$.
+The same draws also give the *latent* quantities, i.e. S, I and R trajectories, and anything derived from them.
+For example, we can plot $R_t = R_0 \, S(t) / N$.
 
 ```{julia}
 reproduction_number(traj, R_0, N) = R_0 .* traj.S ./ N
