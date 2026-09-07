@@ -4,7 +4,7 @@ using Turing: @model
 """
     SEITL_PRIORS
 
-Weakly informative priors on the six SEITL parameters, in the order
+Weakly informative priors on the six SEITL and SEIT4L parameters, in the order
 `[R_0, D_lat, D_inf, α, D_imm, ρ]`.
 
 Each is centred on what the influenza literature reports, and its spread sets

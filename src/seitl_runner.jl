@@ -6,13 +6,12 @@ using SSMProblems: StateSpaceModel
 """
     run_particle_filter(θ, obs, n_particles; init_state)
 
-Run a bootstrap particle filter for the SEITL structure and return the
-estimated log-likelihood.
+Run a bootstrap particle filter for SEITL or SEIT4L and return the estimated
+log-likelihood.
 
-`init_state` sets `k`, the number of temporary immunity sub-stages: five
-compartments [S, E, I, T, L] give one, eight [S, E, I, T1, T2, T3, T4, L] give
-four, which is the SEIT4L the sessions fit. The components, the filter and the
-observation process are the same at any `k`.
+Which model is filtered follows from `init_state`: five compartments
+[S, E, I, T, L] give SEITL, eight [S, E, I, T1, T2, T3, T4, L] give SEIT4L. The
+components, the filter and the observation process are the same either way.
 
 # Arguments
 - `θ`: Parameter dictionary (must include :R_0, :D_lat, :D_inf, :α, :D_imm, :ρ)

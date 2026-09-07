@@ -3,19 +3,13 @@ using Distributions
 using SSMProblems
 
 """
-SEITL latent dynamics.
-
-SEITL is the compartment structure S → E → I → T → L: susceptible, exposed,
-infectious, temporarily immune and long-term immune, with waning from T back to
-S. `k` is the number of sub-stages the T compartment is split into, which sets
-the shape of the immunity duration: exponential at `k = 1`, Erlang at higher
-`k`. The sessions fit `k = 1` and `k = 4`, the latter written SEIT4L.
+SEITL latent dynamics, for any number of temporary immunity stages.
 
 State vector: [S, E, I, T_1 ... T_k, L, daily_inc]
 
-The last element tracks daily incidence for the observation process. `k` is
-read from the state that `SEITLInitial` supplies rather than fixed by the
-type.
+The last element tracks daily incidence for the observation process. SEITL is
+the k = 1 case and SEIT4L the k = 4 case, so the number of stages is read from
+the state that `SEITLInitial` supplies rather than fixed by the type.
 """
 struct SEITLDynamics <: SSMProblems.LatentDynamics
     θ::Dict{Symbol, Float64}
@@ -50,8 +44,8 @@ end
 """
 Initial state distribution (deterministic).
 
-The length of `init_state` sets `k`: five compartments [S, E, I, T, L] give
-one temporary immunity stage, eight [S, E, I, T1, T2, T3, T4, L] give four.
+The length of `init_state` is what selects the model: five compartments
+[S, E, I, T, L] give SEITL, eight [S, E, I, T1, T2, T3, T4, L] give SEIT4L.
 """
 struct SEITLInitial <: SSMProblems.StatePrior
     init_state::Vector{Float64}
