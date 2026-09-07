@@ -265,7 +265,6 @@ This generates posterior predictive samples in two steps:
 2. **`predict(..., chain)`** — for each parameter sample in the chain, runs the model forward and samples new observations from the Poisson distribution.
 
 The result is a chain-like object, and `predictions[@varname(obs)]` gives the whole predicted vector for each posterior sample, so `[i, 1]` picks the `i`-th sample of the first chain and returns all `n_obs` values at once.
-This is worth noticing if you have used MCMCChains before, where a vector-valued `obs` is flattened into separate `obs[1]`, `obs[2]`, ... columns that you then have to reassemble.
 :::
 
 ```{julia}
