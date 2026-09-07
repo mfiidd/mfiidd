@@ -55,7 +55,7 @@ function run_particle_filter(
 
     # Define SSM components
     initial = SEITLInitial(init_state_f64)
-    dynamics = SEITLDynamics(θ_f64, init_state_f64)
+    dynamics = SEITLDynamics(θ_f64, length(init_state_f64) - 4)
     observation = PoissonObservation(θ_f64[:ρ])
 
     # Create state-space model
@@ -93,7 +93,7 @@ function filtered_incidence(
     θ_f64 = Dict{Symbol, Float64}(k => value(v) for (k, v) in θ)
     model = StateSpaceModel(
         SEITLInitial(collect(Float64.(init_state))),
-        SEITLDynamics(θ_f64, init_state),
+        SEITLDynamics(θ_f64, length(init_state) - 4),
         PoissonObservation(θ_f64[:ρ]),
     )
 

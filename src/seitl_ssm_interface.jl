@@ -11,22 +11,31 @@ The last element tracks daily incidence for the observation process. SEITL is
 the k = 1 case and SEIT4L the k = 4 case, so the number of stages is read from
 the state that `SEITLInitial` supplies rather than fixed by the type.
 """
-struct SEITLDynamics{S} <: SSMProblems.LatentDynamics
+struct SEITLDynamics{K} <: SSMProblems.LatentDynamics
     θ::Dict{Symbol, Float64}
-    step!::S
 end
 
 """
-    SEITLDynamics(θ, init_state)
+    SEITLDynamics(θ, k)
 
-Pick the Gillespie stepper matching `init_state` and hold it, so the choice is
-made once when the dynamics are built rather than on every particle at every
-step. `S` is the stepper's own type, which keeps the field concrete.
+Build dynamics with `k` temporary immunity sub-stages. `k` is a type parameter,
+so [`seitl_stepper`](@ref) resolves to the right Gillespie stepper when the
+method is compiled and no test of the state survives into the filter's inner
+loop.
+
+`k` must agree with the compartment count of the initial state the filter is
+given, which is `k + 4`. `run_particle_filter` derives one from the other so
+they cannot disagree; construct the two by hand and it is on you to match them.
 """
-function SEITLDynamics(θ::Dict{Symbol, Float64}, init_state::AbstractVector{<:Real})
-    step! = length(init_state) == 5 ? gillespie_step_seitl! : gillespie_step_seit4l!
-    return SEITLDynamics{typeof(step!)}(θ, step!)
-end
+SEITLDynamics(θ::Dict{Symbol, Float64}, k::Integer) = SEITLDynamics{Int(k)}(θ)
+
+"""
+    seitl_stepper(dyn)
+
+The Gillespie stepper for the number of sub-stages `dyn` declares.
+"""
+seitl_stepper(::SEITLDynamics{1}) = gillespie_step_seitl!
+seitl_stepper(::SEITLDynamics{4}) = gillespie_step_seit4l!
 
 function SSMProblems.simulate(
     rng::AbstractRNG,
@@ -37,7 +46,7 @@ function SSMProblems.simulate(
 )
     ## Drop the incidence slot, leaving the compartments the stepper works on
     state = collect(prev_state[1:(end - 1)])
-    return vcat(state, dyn.step!(rng, state, dyn.θ))  ## re-append daily incidence
+    return vcat(state, seitl_stepper(dyn)(rng, state, dyn.θ))  ## re-append incidence
 end
 
 """

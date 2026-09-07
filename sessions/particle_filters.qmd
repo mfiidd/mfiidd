@@ -382,7 +382,7 @@ A few Julia features worth unpacking:
 
 How the pieces fit together:
 
-- The state vector is [S, E, I, T1, T2, T3, T4, L, daily_inc] for SEIT4L, and [S, E, I, T, L, daily_inc] for SEITL - the last element tracks daily incidence for the observation process either way
+- The state vector is [S, E, I, T1, T2, T3, T4, L, daily_inc] - the 9th element tracks daily incidence for the observation process
 - `SEITLDynamics` wraps the Gillespie simulator, calling one step of it each day
 - `PoissonObservation` assumes observed cases follow Poisson(ρ × true_incidence)
 
