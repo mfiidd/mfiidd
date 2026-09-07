@@ -369,7 +369,7 @@ The next section turns that disagreement into a number.
 R̂ turns the comparison you have just looked at into a number.
 It weighs the variance within each chain against the variance between chains, and comes out at 1 when the two agree.
 [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full) recommend treating anything above 1.01 as a warning.
-The older and looser threshold of 1.1 is still widely quoted, and a chain that fails that one is in trouble rather than borderline.
+The older and looser threshold of 1.1 is still widely quoted, and a chain that fails that one is in trouble.
 
 ::: {.callout-note collapse="true"}
 ## Where R̂ comes from
