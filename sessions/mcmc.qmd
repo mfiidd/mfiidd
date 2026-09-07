@@ -743,20 +743,28 @@ Notice that:
 
 - NUTS mixes better: it explores the parameter space more efficiently.
 - NUTS needs fewer samples for the same quality.
-- NUTS had automatic warmup: no manual burn-in needed, see below.
+- NUTS discards its warmup for you, using a default length rather than one you choose, see below.
 
 ::: {.callout-tip collapse="true"}
 ## What is burn-in?
 MCMC chains start at an arbitrary point in parameter space, which may be far from the high-probability region. The initial samples as the chain "finds its way" to the posterior are called *burn-in* (or *warmup*). These samples don't represent the posterior and are typically discarded.
 
-With Metropolis-Hastings, you need to decide how many burn-in samples to discard by inspecting trace plots. NUTS handles this automatically: it uses the warmup period to adapt its step size and mass matrix, then discards those samples for you.
+Plain Metropolis-Hastings does not adapt, so nothing is discarded for you and you decide how much to drop by inspecting trace plots.
+NUTS spends its warmup adapting the step size and the mass matrix, and discards those iterations before returning the chain.
+`NUTS()` adapts for `min(1000, N ÷ 2)` iterations, so asking for 2000 samples gives 1000 warmup iterations and asking for 500 gives 250.
+That number is a default rather than an absence of burn-in, and you can set it yourself as the first argument: `NUTS(2000, 0.65)`.
+
+RAM works the same way, which the comparison above hides.
+The `num_warmup = 5000` we passed to it earlier is adaptation that is also discarded.
+The real division is between samplers that adapt during a discarded warmup, which is NUTS and RAM, and samplers that do not, which is plain `MH`.
+What NUTS adds over RAM is that the warmup length has a sensible default, so you are less likely to have to think about it.
 :::
 
 What NUTS gives you automatically:
 
 1. No tuning required: adapts step size and mass matrix during warmup.
 2. Efficient exploration: uses gradients to navigate parameter space intelligently.
-3. Automatic warmup: built-in adaptation period, no manual burn-in decisions.
+3. Default warmup length: the adaptation period is one fewer thing to set.
 4. Better convergence: typically needs far fewer samples than Metropolis-Hastings.
 
 ```{julia}
