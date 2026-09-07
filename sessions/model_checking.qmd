@@ -581,7 +581,7 @@ A more rigorous check asks: *does my inference procedure recover true parameters
 
 If your inference is correct, the *rank* of $\theta^*$ among the posterior samples is uniformly distributed.
 Coverage follows from that as a consequence: a 95% credible interval contains the truth 95% of the time.
-Rank uniformity is the stronger statement, because it uses the whole posterior rather than one interval.
+Checking the ranks is the stronger check, because a whole histogram of ranks can fail in ways that the coverage of a single interval will not show.
 
 ::: {.callout-note collapse="true"}
 ## Why the ranks are uniform
@@ -593,10 +593,8 @@ So $\theta^*$ is itself a draw from the posterior it is about to be ranked again
 That makes it statistically indistinguishable from the $L$ posterior samples drawn in step 3.
 All $L + 1$ values are exchangeable draws from the same distribution, so $\theta^*$ is equally likely to hold any position among them and its rank is uniform on $\{0, 1, \ldots, L\}$.
 
-Notice what did not enter that argument: anything about the model being a good description of reality.
-The uniformity follows from the loop being self-consistent, because the data were simulated from the same model that is then fitted to them.
-This is why SBC tests the inference procedure rather than the model, and why it sits apart from the predictive checks above.
-A model can be badly wrong about the world and still pass SBC.
+Nothing in that argument says the model describes reality.
+The data were simulated from the same model that is then fitted to them, so SBC tests the inference procedure rather than the model, and a model can be badly wrong about the world and still pass.
 :::
 
 ```{julia}
@@ -652,11 +650,8 @@ If the posteriors are too narrow, the truth falls outside their bulk more often 
 If they are too wide, the truth sits near the middle too often, giving a ∩ shape.
 If they are biased in one direction, the ranks slope.
 
-You will meet this histogram again under another name.
+You may meet this histogram again under another name.
 A probability integral transform (PIT) histogram asks whether a *forecast* is calibrated, by evaluating the predictive CDF at the observed value, where SBC asks whether the *inference procedure* is calibrated, by ranking a known truth among posterior draws.
-The two read identically: ∪-shaped for overconfident, ∩-shaped for underconfident, sloped for biased.
-One caution, because this course fits count data throughout.
-The clean equivalence holds for continuous predictive distributions, and for counts the plain PIT is not uniform even for a perfect forecast, so a randomised or non-randomised variant is needed.
 [Nowcasting and forecasting infectious disease dynamics](https://nfidd.github.io/nfidd/) uses PIT histograms throughout.
 
 ::: {.callout-note}
