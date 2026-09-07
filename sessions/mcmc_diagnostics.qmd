@@ -314,7 +314,6 @@ In VS Code, you can set this permanently in settings: search for "Julia: Num Thr
 
 ```{julia}
 #| output: false
-# Run several chains, each starting from its own initial values
 # Detect available threads to avoid overwhelming CI systems
 n_chains = max(2, min(4, Threads.nthreads()))
 println("Running $n_chains chains in parallel ($(Threads.nthreads()) threads available)")
@@ -333,8 +332,7 @@ It is a random walk with a proposal standard deviation of 0.001, far too small t
 
 ```{julia}
 #| output: false
-# A random walk with tiny steps. Each chain starts somewhere different and
-# cannot get from there to the posterior in 2000 iterations.
+# 1e-6 chosen after trying 1e-4, which converges within the run
 chain_stuck = sample(model, MH([1e-6 0.0; 0.0 1e-6]), MCMCThreads(), 2000, n_chains)
 ```
 
@@ -357,10 +355,6 @@ plot(p1, p2, layout = (2, 1), size = (800, 600))
 
 In the top panel the chains lie on top of each other and you cannot tell them apart.
 In the bottom panel the chains sit at different levels and are still moving after 2000 iterations.
-Read one of those chains on its own and you have to judge whether what you are seeing is slow mixing or a chain that has not arrived yet.
-Read them together and it is not a judgement call.
-
-The next section turns that disagreement into a number.
 
 # Quantitative diagnostics
 
@@ -397,7 +391,21 @@ $\tau$ is the same quantity that sets the effective sample size in the next sect
 A chain can be perfectly converged and still fail the 1.01 bar if it is short and heavily autocorrelated.
 
 The statistic is due to [Gelman and Rubin (1992)](https://doi.org/10.1214/ss/1177011136).
-What `rhat` computes is the rank-normalised split version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which splits each chain in half before comparing, so that a chain drifting within itself is caught as well, and works with the ranks of the draws rather than the draws themselves, so that it does not rely on the posterior having a finite variance.
+What `rhat` reports is the rank-normalised version of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full), which is the formula above wrapped in three steps.
+
+**Split.** Each of the $m$ chains is cut in half, and the formula is applied to the $2m$ half-chains of $n/2$ draws. The `## Split-R̂` section below says what this buys.
+
+**Rank normalise.** Pool all $S$ draws across every chain, rank them with ties averaged to give $r_i$, and push the ranks through the normal quantile function:
+
+$$z_i = \Phi^{-1}\!\left(\frac{r_i - 3/8}{S + 1/4}\right)$$
+
+The $3/8$ is the Blom offset the implementation cites. Two things follow. R̂ becomes defined even for a posterior with no finite variance, because $W$ and $B$ are now computed on the $z$. And it stops depending on how you parameterise, since ranks only see order, so fitting a rate or its logarithm gives the same answer.
+
+**Fold, and take the worst.** The formula so far compares where the chains sit, so chains that agree on the centre and disagree on the spread pass it. The draws are therefore also folded around the pooled median, $f_i = \lvert x_i - \operatorname{median}(x) \rvert$, which turns a difference in scale into a difference in location, and the same rank-normalised R̂ is computed on those. What you get back is the larger of the two:
+
+$$\hat{R}_{\text{rank}} = \max\left(\hat{R}_{\text{bulk}},\ \hat{R}_{\text{fold}}\right)$$
+
+In `MCMCDiagnosticTools` the folded one is `kind = :tail`. That is unrelated to tail *ESS* in the advanced section below, which is about extreme quantiles rather than folded draws.
 :::
 
 ```{julia}
@@ -489,31 +497,8 @@ An ESS close to N means little autocorrelation and efficient sampling. An ESS mu
 ESS can come out slightly *above* N.
 NUTS sometimes produces mildly anti-correlated draws, which carry a little more information than independent ones.
 
-### Bulk and tail ESS
-
 The number above is the bulk ESS, which is what `ess` reports by default.
-Bulk ESS describes the centre of the distribution, which is what sits behind a posterior mean.
-Tail ESS describes the extremes, which is what credible interval endpoints depend on.
-
-```{julia}
-# Different types of ESS
-ess_bulk = DataFrame(ess(chain_multi, kind = :bulk))    # Central part of distribution
-ess_tail = DataFrame(ess(chain_multi, kind = :tail))    # Tails of distribution
-
-println("Bulk ESS (central posterior):")
-for row in eachrow(ess_bulk)
-    println("  $(row.param): $(round(row.stat, digits = 0))")
-end
-
-println("\nTail ESS (posterior tails):")
-for row in eachrow(ess_tail)
-    println("  $(row.param): $(round(row.stat, digits = 0))")
-end
-```
-
-The two need not agree, and it is the smaller of them that limits what you can report.
-They are close here, with the tail slightly ahead.
-A posterior that the sampler crosses easily in the middle but reaches only occasionally at the edges gives the opposite pattern, and an interval quoted from it is less well determined than the posterior mean printed beside it.
+There is a second one for the tails, and the advanced section below covers both.
 
 ## 3. Monte Carlo Standard Error (MCSE)
 
@@ -530,35 +515,30 @@ $$\text{MCSE} \approx \frac{\text{posterior SD}}{\sqrt{N_{\text{eff}}}}$$
 The posterior SD is the spread you are trying to report.
 MCSE is how precisely a finite run has located the centre of that spread.
 The effective sample size is the only thing standing between them, so the only way to shrink an MCSE is to raise ESS, by sampling longer or by mixing better.
-Turing computes it with the rank-normalised estimators of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full).
+The ESS in that denominator is the one for the mean computed on the untransformed draws, not the bulk ESS printed above.
+It cannot be the bulk ESS: rank normalisation replaces the draws with normal scores, and you cannot divide a posterior standard deviation measured in units of $R_0$ by an effective sample size derived from normal scores.
+So do not expect to reproduce the MCSE by hand from the bulk ESS on this page.
+The estimators are those of [Vehtari et al. (2021)](https://projecteuclid.org/journals/bayesian-analysis/volume-16/issue-2/Rank-Normalization-Folding-and-Localization--An-Improved-R%cb%86-for/10.1214/20-BA1221.full).
 :::
 
 ```{julia}
 mcse_values = DataFrame(mcse(chain_multi))
 posterior_means = DataFrame(mean(chain_multi))
-posterior_sds = DataFrame(std(chain_multi))
 
-println("Posterior mean, its MCSE, and the decimals that survive it:")
+println("Posterior means ± MCSE:")
 for row in eachrow(mcse_values)
     param = row.param
     mcse_val = row.stat
-    # Get the mean and the spread for this parameter
     mean_val = posterior_means[posterior_means.param .== Ref(param), :stat][1]
-    sd_val = posterior_sds[posterior_sds.param .== Ref(param), :stat][1]
-    # Compare MCSE against the posterior SD, which is the spread being reported
-    frac_sd = mcse_val / sd_val * 100
-    decimals = max(0, floor(Int, -log10(mcse_val)))
+    rel_error = mcse_val / abs(mean_val) * 100
     println(
         "  $param: $(round(mean_val, digits = 3)) ± ",
         "$(round(mcse_val, digits = 4)) ",
-        "($(round(frac_sd, digits = 1))% of the posterior SD, ",
-        "$decimals decimal places)"
+        "($(round(rel_error, digits = 2))% relative error)"
     )
 end
 ```
 
-Read the MCSE against the posterior SD rather than against the mean, because the mean moves if you shift where the parameter is measured from and the MCSE does not.
-Read it also as a number of digits.
 Report $R_0 = 2.31$ with an MCSE of 0.05 and the second decimal place is sampler noise, because a different seed moves it.
 Sample until the MCSE is small next to the precision you want to claim.
 
@@ -567,30 +547,20 @@ Sample until the MCSE is small next to the precision you want to claim.
 ## Problem 1: Poor mixing (chain gets stuck)
 
 Chains get stuck for a few common reasons: a sampler too basic for the geometry, proposal steps that are the wrong size, or correlated parameters and narrow ridges in the posterior.
-Multimodality does it too, and has its own entry below.
+Multimodality does it too (see below).
 
-The first thing to try is a better algorithm — NUTS handles most well-behaved posteriors — and running longer. If that isn't enough, reparametrise the model to give the posterior a friendlier shape, and run multiple chains from different starting points so stuck chains show up as outliers.
+The first thing to try is a better algorithm — NUTS handles most well-behaved posteriors — and running longer. If that isn't enough, reparametrise the model to give the posterior a friendlier shape. Against the chains you are already running, a stuck one shows up as an outlier.
 
 With gradient-based samplers like NUTS, mixing problems are uncommon when the model is specified correctly, the posterior is reasonably well-behaved, and the priors aren't pathological.
 
-One pathological prior is worth naming, because it is common in epidemic models and does not look like what it is.
-The flat prior used earlier in the course allows $R_0$ up to 20, and [the introduction session](introduction.qmd) shows what those draws produce, an epidemic that infects almost the whole population within days.
-Start a chain there and the solver struggles or fails on that trajectory, the predicted incidence becomes enormous, and the likelihood comes back as something the sampler cannot use.
-The chain then sits where it started, or the sampler spends its warmup retrying, and the trace looks like poor mixing when the real problem is that the model cannot be evaluated where the sampler began.
-The remedies are priors that do not reach into those regions and initial values chosen rather than drawn.
-The course already carries two guards for this without naming the failure mode, an early return that avoids calling the solver on parameters the prior has ruled out, in [the Julia ecosystem session](julia_ecosystem.qmd), and a floor on the Poisson rate, in [Model checking](model_checking.qmd).
+A chain started where the model cannot be solved will not move, and the trace looks like poor mixing rather than what it is.
+The flat `Uniform(1, 20)` prior in [the introduction session](introduction.qmd) is the usual way to end up there, and the guards against it are in [the Julia ecosystem session](julia_ecosystem.qmd) and [Model checking](model_checking.qmd).
 
-Where a chain starts is a choice, and by default it is not made with the prior in mind.
-For Hamiltonian samplers Turing initialises with `InitFromUniform()`, which draws uniformly on $[-2, 2]$ on the *unconstrained* scale rather than on the parameter's own, following Stan.
-What that means for $R_0$ depends on the prior it is transformed through.
-Under this session's `truncated(Normal(2.5, 1.5), lower = 1.0)` it puts $R_0$ between 1.1 and 8.4, which is harmless.
-Under the flat `Uniform(1, 20)` used earlier in the course it puts $R_0$ between 3.3 and 17.7, so a chain cannot start anywhere near the 2.4 the posterior settles on, and often starts among the explosive trajectories described above.
-
-Two alternatives are passed through `initial_params`.
-`InitFromPrior()` draws from the prior, and `InitFromParams((; R_0 = 2.5, D_inf = 2.0))` sets the values yourself.
-Neither is a general fix, because `InitFromPrior()` is only as good as the prior it draws from.
-A draw from `Uniform(1, 20)` puts $R_0$ above 15 about a quarter of the time, which is what the default does as well.
-That is a second argument for weakly informative priors, alongside the prior predictive checks in [Model checking](model_checking.qmd).
+Where a chain starts is a choice, and the default does not make it with the prior in mind.
+For Hamiltonian samplers Turing uses `InitFromUniform()`, which draws on $[-2, 2]$ on the unconstrained scale, following Stan.
+Under this session's prior that puts $R_0$ between 1.1 and 8.4, but under `Uniform(1, 20)` it puts $R_0$ between 3.3 and 17.7, so no chain can start near the 2.4 the posterior settles on.
+`InitFromPrior()` and `InitFromParams((; R_0 = 2.5, D_inf = 2.0))` are the alternatives, passed through `initial_params`.
+Drawing from the prior is only as good as the prior, though: `Uniform(1, 20)` puts $R_0$ above 15 about a quarter of the time, which is what the default does too.
 
 ## Problem 2: Divergent transitions (for HMC/NUTS)
 
@@ -624,13 +594,14 @@ It plays the role that `adapt_delta` does in Stan.
 
 Some posteriors have multiple peaks, and a single chain can settle into one and never see the others. The standard responses are:
 
-- Run multiple chains from different starting points, chosen rather than left to the default where the default does not suit the model (see [Problem 1](#problem-1-poor-mixing-chain-gets-stuck))
 - Use more advanced samplers (parallel tempering, etc.)
 - Watch R̂ — it will flag chains that end up in different modes
 
 ::: {.callout-note title = "Example: Detecting multimodality" collapse = "true"}
 
-Here's an artificial example with two modes to show how multiple chains help:
+The chains in the [several chains](#several-chains) section had not converged.
+These ones have. Each settles into a mode and stays there, and they disagree because the posterior genuinely has two answers.
+R̂ cannot tell those two situations apart, which is why it is a warning rather than a diagnosis.
 
 ```{julia}
 # Create a artificial multimodal example
@@ -758,16 +729,58 @@ This section covers refinements to the basic diagnostics above. If you're short 
 
 ## Split-R̂
 
-Modern R̂ splits each chain in half for more robust diagnostics:
+Each of the $m$ chains is cut in half, giving $2m$ half-chains of $n/2$ draws, and the ordinary R̂ formula is applied to those.
+Comparing whole chains against each other cannot see a chain that is drifting within itself, because that chain contributes one mean like any other; splitting turns the drift into a disagreement between its own two halves.
+It is also what lets R̂ mean anything at all when you have only one chain.
 
 ```{julia}
-# This is what rhat() actually computes - split chains for better diagnostics
 rhat_split = DataFrame(rhat(chain_multi))
 println("Split-R̂ values (recommended):")
 for row in eachrow(rhat_split)
     println("  $(row.param): $(round(row.stat, digits = 4))")
 end
 ```
+
+## Bulk and tail ESS
+
+Bulk ESS governs how well the centre of the distribution is resolved, so it is the number behind a posterior mean or median.
+Tail ESS governs the extreme quantiles, so it is the number behind the ends of a credible interval, and it is the one to check before quoting a 95% interval.
+A chain can have plenty of bulk ESS and still not support the interval you were about to report.
+
+::: {.callout-note collapse="true"}
+## What the two are computed on
+
+Bulk ESS is the effective sample size of the rank-normalised draws, using the same $z$ as the R̂ callout in the previous section:
+
+$$\text{bulk ESS} = \text{ESS}(z)$$
+
+Tail ESS is not an effective sample size of the draws at all. It is computed for the estimators of the two 5% quantiles, from the indicator series for whether a draw falls below each, and reports the worse of them:
+
+$$\text{tail ESS} = \min\big(\text{ESS}(q_{0.05}),\ \text{ESS}(q_{0.95})\big)$$
+
+That `min` is why tail ESS is often, though not always, the smaller number.
+
+Note the symmetry with R̂, and the trap in it. R̂ reports the **larger** of its bulk and tail, because either failure is a failure. ESS reports the **smaller**, because either shortage limits what you can report. The word "tail" means different things in the two: folded draws for R̂, extreme quantiles for ESS.
+:::
+
+```{julia}
+ess_bulk = DataFrame(ess(chain_multi, kind = :bulk))
+ess_tail = DataFrame(ess(chain_multi, kind = :tail))
+
+println("Bulk ESS (central posterior):")
+for row in eachrow(ess_bulk)
+    println("  $(row.param): $(round(row.stat, digits = 0))")
+end
+
+println("\nTail ESS (posterior tails):")
+for row in eachrow(ess_tail)
+    println("  $(row.param): $(round(row.stat, digits = 0))")
+end
+```
+
+The two need not agree, and it is the smaller of them that limits what you can report.
+They are close here, with the tail slightly ahead.
+A posterior that the sampler crosses easily in the middle but reaches only occasionally at the edges gives the opposite pattern, and an interval quoted from it is less well determined than the posterior mean printed beside it.
 
 ## Energy diagnostics (for HMC/NUTS)
 
