@@ -86,12 +86,17 @@ iterative **workflow**:
 So far the course has covered specifying, fitting and diagnosing. This session
 covers the two checking steps, and what to do when they fail.
 
-## Why bother?
+## Why bother? {.smaller}
 
-- A model that fits badly will give you **confidently wrong** answers.
-- Convergence diagnostics cannot detect a misspecified likelihood, a missing
-  mechanism, or priors that rule out the truth.
+- A model that fits badly can give you **confidently wrong** answers.
+- Clean convergence diagnostics are **not** evidence that the model is right.
 - Checking is cheap relative to the cost of publishing a wrong estimate.
+
+. . .
+
+A missing mechanism often leaves a ridge or a funnel that the diagnostics flag.
+A Poisson likelihood on overdispersed data does not: the chain is healthy and the
+posterior is overconfident.
 
 . . .
 
