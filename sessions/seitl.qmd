@@ -517,7 +517,7 @@ println("```julia\n", source_for(gillespie_step_seitl!), "\n```")
 - **`randexp(rng) / total_rate`**: Waiting time to next event follows Exp(total_rate)
 - **Event selection**: Cumulative sum trick to select event with probability proportional to its rate
 - **`event == 2`**: E→I transitions are counted as new cases (daily incidence)
-- **`rng`**: The generator is an argument rather than a global, so the particle filter can control the randomness of each particle and you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
+- **`rng`**: The generator is an argument rather than a global, so you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
 :::
 
 :::
