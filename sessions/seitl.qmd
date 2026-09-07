@@ -506,7 +506,10 @@ plot!(p)
 ```
 
 ::: {.callout-note}
-Just like with the deterministic model, you can use the Turing `@model` for prior predictive checks by sampling parameters from priors (without conditioning on data). The same `@model` definition will be used for inference in the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions — condition with `| (; obs = data)` when fitting, leave unconditioned when simulating. See the [unified approach callout](#sec-unified-approach) at the end of this session for the full pattern.
+Just like with the deterministic model, you can use the Turing `@model` for prior predictive checks by sampling parameters from priors, without conditioning on data.
+Condition with `| (; obs = data)` when fitting, and leave the model unconditioned when simulating.
+The [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions reuse the simulators from this session rather than its `@model` definition, because the likelihood of a stochastic model cannot be written down in closed form and has to be estimated by a particle filter.
+See the [unified approach](#sec-unified-approach) section at the end of this session for the full pattern.
 :::
 
 ::: {.callout-tip title="Exercise: Explore stochastic SEITL dynamics"}
