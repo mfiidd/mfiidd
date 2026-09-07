@@ -86,11 +86,10 @@ iterative **workflow**:
 So far the course has covered specifying, fitting and diagnosing. This session
 covers the two checking steps, and what to do when they fail.
 
-## Why bother?
+## Why bother? {.smaller}
 
-- A model that fits badly will give you **confidently wrong** answers.
-- Convergence diagnostics cannot detect a misspecified likelihood, a missing
-  mechanism, or priors that rule out the truth.
+- A model that fits badly can give you **confidently wrong** answers.
+- Clean convergence diagnostics are **not** evidence that the model is right.
 - Checking is cheap relative to the cost of publishing a wrong estimate.
 
 . . .
@@ -113,6 +112,13 @@ $$\theta^{(i)} \sim p(\theta), \qquad y^{(i)} \sim p(y \mid \theta^{(i)})$$
 Then ask: do these simulated epidemics look like something that could plausibly
 happen?
 
+## What our priors imply
+
+![](images/model_checking_prior_predictive.svg)
+
+Two hundred draws from this session's priors, on an island of 284. Most burn
+through the population in a week.
+
 ## What it catches
 
 - Priors that put weight on **impossible** outcomes — attack rates above 100%,
@@ -126,7 +132,7 @@ happen?
 
 . . .
 
-This is the cheapest check in the workflow: it needs no data and no fitting.
+This needs no data and no fitting.
 
 ## A warning about vague priors
 
@@ -134,11 +140,10 @@ This is the cheapest check in the workflow: it needs no data and no fitting.
 
 . . .
 
-A flat prior on $R_0$ from 1 to 20 sounds humble. Push it through the model and
-most of that range produces epidemics that infect the entire population within a
-fortnight.
+You saw this in the first session: `Uniform(1, 20)` on $R_0$ sounds reasonable but
+most of its range produces infeasible epidemics.
 
-Vague on the parameter is not vague on the outcome.
+A uniform says an $R_0$ of 19 is exactly as plausible as one of 3.
 
 # Posterior predictive checks
 
@@ -153,6 +158,10 @@ $$\theta^{(i)} \sim p(\theta \mid y), \qquad y^{\text{rep},(i)} \sim p(y \mid \t
 
 If the model is adequate, the observed data should look like a typical draw from
 this distribution, not an outlier.
+
+## The SIR model on Tristan da Cunha
+
+![](images/model_checking_posterior_predictive.svg)
 
 ## What to look for
 
@@ -179,6 +188,10 @@ $$p_B = \Pr\big(T(y^\text{rep}) \geq T(y) \mid y\big)$$
 
 These are **not** frequentist p-values and should not be thresholded at 0.05.
 They are a diagnostic for "which feature is my model missing", not a test.
+
+## Total cases
+
+![](images/model_checking_ppc_total.svg)
 
 ## Residuals: observed minus predicted, over time {.smaller}
 
@@ -235,17 +248,21 @@ across datasets:
 
 If the model and sampler are working, those ranks are **uniformly distributed**.
 
+::: {.fragment}
+$\theta^\text{true}$ is itself a draw from the posterior it is ranked against, so
+its rank is uniform by construction. Nothing about the model being right enters
+it: SBC tests the **inference**, not the model.
+:::
+
 ## Reading an SBC histogram
 
-- **Uniform** — inference is calibrated
-- **∪-shaped** — posteriors too narrow, overconfident
-- **∩-shaped** — posteriors too wide, underconfident
-- **Sloped** — systematic bias in one direction
+![](images/model_checking_sbc_shapes.svg)
+
+The grey band is where a uniform histogram should sit.
 
 . . .
 
-SBC is expensive: it means fitting the model hundreds of times. Reserve it for
-models you intend to rely on repeatedly.
+SBC is expensive: it means fitting the model hundreds of times.
 
 # When checks fail
 
@@ -253,28 +270,36 @@ models you intend to rely on repeatedly.
 
 Failure is information. In rough order of what to try:
 
-1. **Revisit the observation model** — overdispersion, under-reporting,
-   reporting delays. Often the cheapest fix.
-2. **Revisit the priors** — are they excluding the region the data prefer?
-3. **Revisit the structure** — is there a mechanism the model is missing?
+1. **Revisit the priors** — are they excluding the region the data prefer?
+2. **Revisit the structure** — is there a mechanism the model is missing?
    Waning immunity, age structure, time-varying transmission.
-4. **Revisit the data** — are the observations really what you think they are?
+3. **Revisit the data** — are the observations really what you think they are?
+4. **Revisit the observation model** — overdispersion, under-reporting,
+   reporting delays (Session 8).
 
 . . .
 
-Resist the temptation to keep adding parameters until the fit looks good. A
-model that fits everything predicts nothing.
+A model that fits everything is likely not to predict anything well.
 
 ## When is a model good enough?
 
-There is no threshold. The honest answer is: when it captures the features
-relevant to the question, and you understand the ways it does not.
+There is no threshold.
 
 . . .
 
-Document the checks you ran, including the ones that failed. A reader who knows
-where the model breaks can judge how far to trust it. A reader shown only the
-good plots cannot.
+Good enough means
+
+- it captures the features relevant to **your question**
+- you understand the ways it does not
+
+. . .
+
+Document the checks you ran, including the ones that failed.
+
+. . .
+
+A reader who knows where the model breaks can judge how far to trust it. A
+reader shown only the final results cannot.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
