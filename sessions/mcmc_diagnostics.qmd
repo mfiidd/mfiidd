@@ -580,6 +580,18 @@ The chain then sits where it started, or the sampler spends its warmup retrying,
 The remedies are priors that do not reach into those regions and initial values chosen rather than drawn.
 The course already carries two guards for this without naming the failure mode, an early return that avoids calling the solver on parameters the prior has ruled out, in [the Julia ecosystem session](julia_ecosystem.qmd), and a floor on the Poisson rate, in [Model checking](model_checking.qmd).
 
+Where a chain starts is a choice, and by default it is not made with the prior in mind.
+For Hamiltonian samplers Turing initialises with `InitFromUniform()`, which draws uniformly on $[-2, 2]$ on the *unconstrained* scale rather than on the parameter's own, following Stan.
+What that means for $R_0$ depends on the prior it is transformed through.
+Under this session's `truncated(Normal(2.5, 1.5), lower = 1.0)` it puts $R_0$ between 1.1 and 8.4, which is harmless.
+Under the flat `Uniform(1, 20)` used earlier in the course it puts $R_0$ between 3.3 and 17.7, so a chain cannot start anywhere near the 2.4 the posterior settles on, and often starts among the explosive trajectories described above.
+
+Two alternatives are passed through `initial_params`.
+`InitFromPrior()` draws from the prior, and `InitFromParams((; R_0 = 2.5, D_inf = 2.0))` sets the values yourself.
+Neither is a general fix, because `InitFromPrior()` is only as good as the prior it draws from.
+A draw from `Uniform(1, 20)` puts $R_0$ above 15 about a quarter of the time, which is what the default does as well.
+That is a second argument for weakly informative priors, alongside the prior predictive checks in [Model checking](model_checking.qmd).
+
 ## Problem 2: Divergent transitions (for HMC/NUTS)
 
 NUTS simulates a ball rolling over the posterior surface. A *divergent transition* occurs when the simulation becomes numerically unstable — the ball "flies off" to implausible values instead of following the contour. This typically happens when the posterior has sharp ridges or funnels: the step size that works in flat regions is too large for the narrow parts, causing numerical errors to explode.
@@ -612,7 +624,7 @@ It plays the role that `adapt_delta` does in Stan.
 
 Some posteriors have multiple peaks, and a single chain can settle into one and never see the others. The standard responses are:
 
-- Run multiple chains from different starting points
+- Run multiple chains from different starting points, chosen rather than left to the default where the default does not suit the model (see [Problem 1](#problem-1-poor-mixing-chain-gets-stuck))
 - Use more advanced samplers (parallel tempering, etc.)
 - Watch R̂ — it will flag chains that end up in different modes
 
