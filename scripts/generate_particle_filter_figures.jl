@@ -108,6 +108,67 @@ weights = exp.(log_weights .- maximum(log_weights))
 weights ./= sum(weights)
 ess = 1 / sum(abs2, weights)
 
+# ---------------------------------------------------------------------------
+# The build-up: one draw, then many
+#
+# The deck introduces the estimator a step at a time, so these two figures show
+# the same 200 trajectories with progressively more painted on: one of them
+# alone, then all of them, then all of them with the weights revealed. They
+# reuse `trajectories` rather than drawing again, both so the three figures
+# really are the same particles and so that adding them here does not consume
+# random numbers and shift every figure below.
+# ---------------------------------------------------------------------------
+
+"""
+    plot_data(; title)
+
+An empty incidence-against-day panel with the observations on it, shared by the
+three figures of the build-up so they line up when shown in sequence.
+"""
+function plot_data(; title)
+    plt = plot(
+        xlabel = "Day",
+        ylabel = "Reported cases",
+        title = title,
+        legend = :topright,
+        size = (900, 460),
+        ylims = (0, 1.05 * maximum(flu_tdc.obs)),
+    )
+    scatter!(
+        plt,
+        flu_tdc.time,
+        flu_tdc.obs,
+        color = :firebrick,
+        markersize = 4,
+        label = "Observed",
+    )
+    return plt
+end
+
+## One draw. The first of the 200, not the best of them: a typical draw is what
+## the slide is about.
+p_one = plot_data(title = "One trajectory drawn from p(x | θ)")
+plot!(
+    p_one,
+    flu_tdc.time,
+    θ[:ρ] .* trajectories[1],
+    color = :steelblue,
+    linewidth = 3,
+    label = @sprintf("log p(y | x, θ) = %.0f", log_weights[1]),
+)
+save_figure(p_one, "pf_one_draw.svg")
+println("Wrote pf_one_draw.svg to sessions/slides/images/")
+
+## The same 200 with none of them singled out. The next figure is this one with
+## the weights revealed, so nothing here may hint at which two win.
+p_many = plot_data(title = @sprintf("%d trajectories drawn from p(x | θ)", J))
+for inc in trajectories
+    plot!(p_many, flu_tdc.time, θ[:ρ] .* inc, alpha = 0.13, color = :steelblue, label = "")
+end
+plot!(p_many, [], [], alpha = 0.6, color = :steelblue, label = "$J trajectories")
+save_figure(p_many, "pf_many_draws.svg")
+println("Wrote pf_many_draws.svg to sessions/slides/images/")
+
 order = sortperm(weights, rev = true)
 top_two = order[1:2]
 top_share = sum(weights[top_two])
@@ -147,7 +208,12 @@ for (rank, j) in enumerate(top_two)
 end
 
 scatter!(
-    p_traj, flu_tdc.time, flu_tdc.obs, color = :firebrick, markersize = 4, label = "Observed"
+    p_traj,
+    flu_tdc.time,
+    flu_tdc.obs,
+    color = :firebrick,
+    markersize = 4,
+    label = "Observed",
 )
 
 p_weights = bar(
@@ -167,7 +233,11 @@ save_figure(
 
 @printf(
     "log p(y|x,θ): best %.0f, worst %.0f; top weight %.2f; ESS %.1f of %d\n",
-    maximum(log_weights), minimum(log_weights), maximum(weights), ess, J
+    maximum(log_weights),
+    minimum(log_weights),
+    maximum(weights),
+    ess,
+    J
 )
 println("Wrote pf_naive_monte_carlo.svg to sessions/slides/images/")
 
@@ -215,6 +285,30 @@ end
 ess_plain = run_filter(resample = false)
 ess_filter = run_filter(resample = true)
 
+## The naive estimator on its own, scored on the first t days only. This is the
+## deck's argument for going sequential at all: the fall is roughly a straight
+## line on a log scale, so it is exponential in the number of days, and a bigger
+## J cannot keep up with it. Drawn on the same axes as the comparison below so
+## the two slides line up.
+p_ess_naive = plot(
+    flu_tdc.time,
+    ess_plain,
+    label = "",
+    color = :firebrick,
+    linewidth = 3,
+    xlabel = "Days scored",
+    ylabel = "Effective sample size",
+    title = "Sampling whole trajectories",
+    yscale = :log10,
+    ylims = (0.8, 1.5J),
+    legend = :topright,
+    size = (900, 460),
+)
+hline!(p_ess_naive, [J], color = :grey, linestyle = :dash, label = "All $J trajectories")
+
+save_figure(p_ess_naive, "pf_naive_ess_by_day.svg")
+println("Wrote pf_naive_ess_by_day.svg to sessions/slides/images/")
+
 p_ess = plot(
     flu_tdc.time,
     ess_plain,
@@ -222,20 +316,30 @@ p_ess = plot(
     color = :firebrick,
     linewidth = 3,
     xlabel = "Day",
-    ylabel = "Effective number of particles",
-    title = "What resampling buys",
+    ylabel = "Effective sample size",
+    title = "With and without resampling",
     yscale = :log10,
     ylims = (0.8, 1.5J),
     legend = :right,
     size = (900, 460),
 )
-plot!(p_ess, flu_tdc.time, ess_filter, label = "Resampling", color = :steelblue, linewidth = 3)
+plot!(
+    p_ess,
+    flu_tdc.time,
+    ess_filter,
+    label = "Resampling",
+    color = :steelblue,
+    linewidth = 3,
+)
 hline!(p_ess, [J], color = :grey, linestyle = :dash, label = "All $J particles")
 
 save_figure(p_ess, "pf_degeneracy.svg")
 
 @printf(
     "ESS after 10 days: %.1f without resampling, %.1f with; at the end: %.2f vs %.1f\n",
-    ess_plain[10], ess_filter[10], ess_plain[end], ess_filter[end]
+    ess_plain[10],
+    ess_filter[10],
+    ess_plain[end],
+    ess_filter[end]
 )
 println("Wrote pf_degeneracy.svg to sessions/slides/images/")

@@ -12,8 +12,7 @@ $$p(\theta \mid y) \propto p(y \mid \theta)\, p(\theta)$$
 
 . . .
 
-One $\theta$ gives one trajectory, so the likelihood is a single calculation:
-solve the ODE, evaluate the observation model, done.
+One $\theta$ gives one trajectory, so the likelihood is one calculation.
 
 . . .
 
@@ -21,108 +20,128 @@ Stochastic models break this.
 
 ## The marginal likelihood
 
-The model has a latent state $x$ — the trajectory it actually took — which we do
-not observe. To get the likelihood of $\theta$ we must **marginalise** over
-every trajectory it could have taken:
+The model has a latent state $x$, the trajectory it actually took, which we do not observe.
 
-$$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta)\, p(x \mid \theta)$$
+$$p(y \mid \theta) = \int p(y \mid x, \theta)\, p(x \mid \theta) \, \mathrm{d}x$$
 
-## The deterministic case is easy
+Getting the likelihood of $\theta$ means averaging over every trajectory the model could have taken.
 
-For a deterministic model, $\theta$ determines the trajectory exactly:
+## The deterministic case
 
-$$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta) \times \mathbb{1}_{x = f(\theta)}
+$\theta$ determines the trajectory exactly:
+
+$$p(y \mid \theta) = \int p(y \mid x, \theta)\, \delta\big(x - f(\theta)\big) \, \mathrm{d}x
 = p\big(y \mid x = f(\theta), \theta\big)$$
 
 . . .
 
-The sum collapses to a single term. That is why everything has worked so far.
+The integral collapses to a single point.
+That is why everything has worked so far.
 
-## The stochastic case is not
+## The stochastic case
 
-$$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta)\, p(x \mid \theta)$$
+$$p(y \mid \theta) = \int p(y \mid x, \theta)\, p(x \mid \theta) \, \mathrm{d}x$$
 
 . . .
 
-Now $x$ is no longer known, and the number of possible trajectories is
-potentially astronomical — every combination of every event at every time.
+The integral runs over every sequence of events the model could produce, and the times at which they happen.
 
-## Monte Carlo, first attempt
+# Estimating the integral
 
-Sample $J$ trajectories from the model and average the likelihood of the data
-under each. Simulating the model *is* drawing $x_j \sim p(x \mid \theta)$, which
-is what makes the plain average the right estimator of the sum:
+## One draw
+
+![](images/pf_one_draw.svg){.pfwide}
+
+Simulating the model draws $x_1 \sim p(x \mid \theta)$.
+Scoring it against the data gives $p(y \mid x_1, \theta)$, an unbiased but very noisy estimate of the likelihood.
+
+## Many draws
+
+![](images/pf_many_draws.svg){.pfwide}
 
 $$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} p(y \mid x_j, \theta)$$
 
-. . .
+Each trajectory is one way the epidemic could have gone.
+Its [weight]{.alert} is the probability of the data if it had gone that way.
+A trajectory with a higher weight counts for more in the average.
 
-Given the whole trajectory the observations are independent, so each term is
-itself a product over the days:
-
-$$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} \prod_{t=1}^{T} w_{t,j},
-\qquad w_{t,j} = p(y_t \mid x_{t,j}, \theta)$$
-
-## Two hundred trajectories, an effective two {.smaller}
+## One weight per trajectory {.smaller}
 
 ![](images/pf_naive_monte_carlo.svg){.pfwide}
 
-Each $x_j$ is simulated **blind**, so passing near all 59 observations at once is
-vanishingly rare.
+One weight has to cover all 59 observations.
+Two of the 200 hold 88% of the total.
 
-## Lucky once, not fifty-nine times
+## The estimate gets noisier every day {.smaller}
 
-A blind trajectory has to match the data on **all 59 days at once**. One day is
-easy; fifty-nine in a row is not, and that is the collapse you just saw.
+![](images/pf_naive_ess_by_day.svg){.pfwide}
 
-. . .
-
-So stop asking for it. Score the particles one day at a time, and at the end of
-each day throw away the ones the data have ruled out.
+Scored on day 1 alone, the effective sample size is close to all 200.
+By day 10 it is 6, and by day 30 about 1.
 
 . . .
 
-Every day then starts from trajectories that are still plausible, so the model is
-only ever asked to be lucky **once**.
+The estimate then rests on one or two draws, so it changes wildly from run to run.
 
-## One factor per observation
+. . .
 
-The likelihood already breaks into one-day-ahead forecasts:
+The fall is close to a straight line on a log scale, so a bigger $J$ cannot keep up.
+
+# The particle filter
+
+## The likelihood factorises
 
 $$p(y \mid \theta) = p(y_1 \mid \theta)\; p(y_2 \mid y_1, \theta) \cdots
 p(y_T \mid y_{1:T-1}, \theta)$$
 
-Each factor asks the same question: *given everything so far, how well did the
-model predict today?*
+Each factor asks how well the model predicted one day, given everything before it.
 
 . . .
 
-The particles are our ensemble of guesses about where the epidemic actually is.
+We track the possible trajectories with a set of $J$ [particles]{.alert}.
 
-## Score first, prune second {.smaller}
+## Initialise
 
-Each day:
+![](images/particle_filter_03.svg){.pfwide}
 
-1. propagate every particle one day
-2. weight it by how well it predicted today, $w_{t,j} = p(y_t \mid x_{t,j}, \theta)$
-3. average those weights — that is today's factor
-4. resample in proportion to $w_{t,j}$, and go again
+$J$ particles start from the same state, each with weight $1/J$.
 
-$$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
+## Propagate
+
+![](images/particle_filter_04.svg){.pfwide}
+
+Every particle takes one step of the model.
+
+## Weigh
+
+![](images/particle_filter_05.svg){.pfwide}
+
+The weight is the probability of today's count under that particle, $w_{t,j} = p(y_t \mid x_{t,j}, \theta)$.
+
+## Weighting alone changes nothing
+
+Let the weights accumulate across days, so each particle carries the product of its own weights:
+
+$$\frac{1}{J}\sum_{j} \prod_{t} w_{t,j}
+= \frac{1}{J}\sum_{j} p(y \mid x_j, \theta)$$
 
 . . .
 
-Step 3 averages over **all** $J$ particles, including the ones step 4 is about to
-discard. Pruning decides where tomorrow starts; it does not change what today
-scored. So keeping only the good particles cannot inflate the likelihood.
+That is the estimator we started with.
+The factorisation gives us a point between days at which to discard particles.
 
 . . .
 
-This is **sequential Monte Carlo**, better known as **particle filtering**.
+Otherwise all 200 are simulated to day 59, including the 198 that contribute almost nothing.
 
-# The particle filter
+## Resample
 
-## The algorithm
+![](images/particle_filter_06.svg){.pfwide}
+
+Draw $J$ particles from the current ones in proportion to their weights.
+Every weight resets to $1/J$.
+
+## Five days of propagate, weigh, resample
 
 ::: {.r-stack}
 ![](images/particle_filter_01.svg){.pfwide .fragment .fade-out fragment-index=1}
@@ -167,42 +186,56 @@ This is **sequential Monte Carlo**, better known as **particle filtering**.
 :::
 
 ::: {.cite}
-Four particles here. Red diamonds are the data, yellow circles the particles,
-sized by weight, struck through when nobody resampled them.
+Four particles here.
+Red diamonds are the data, yellow circles the particles, sized by weight, struck through when nobody resampled them.
 :::
 
-## Why resample?
+## The estimator
+
+Average the weights each day, before resampling:
+
+$$\hat{p}(y \mid \theta) = \prod_{t=1}^{T} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
+
+. . .
+
+The average runs over all $J$ particles, including the ones resampling is about to discard.
+That is why resampling cannot inflate the estimate.
+
+. . .
+
+This is **sequential Monte Carlo**.
+
+## Particle degeneracy
 
 ![](images/pf_degeneracy.svg){.pfwide}
 
-Without resampling the 200 particles are worth an effective 6 by day 10 and
-exactly 1 from day 30 on: one trajectory, carrying the whole estimate.
+Without resampling the effective sample size is 6 by day 10, and about 1 from day 30 on.
+
+## Depletion
+
+![](images/particle_filter_19.svg){.pfwide}
+
+Follow the arrows back from day 5.
+The survivors all descend from a few of the day 1 particles.
 
 . . .
 
-This is **particle degeneracy**, and it is the central practical problem.
-Resampling concentrates effort where the data say the trajectory actually went.
-
-. . .
-
-The cost is **depletion**: repeatedly copying survivors means the particles
-share ancestry, so diversity falls over time.
+Early states end up represented by fewer and fewer distinct particles, which limits what the filter can say about the start of the epidemic.
 
 ## How many particles?
 
-- Too few and the likelihood estimate is noisy, which will wreck the sampler
-  that uses it.
+- Too few and the likelihood estimate is noisy, which will wreck the sampler that uses it.
 - Too many and every likelihood evaluation becomes expensive.
 
 . . .
 
-The likelihood estimate is **unbiased** but **stochastic**: run it twice with
-the same $\theta$ and you get two different numbers.
+The estimate is **unbiased** but **stochastic**.
+Run it twice at the same $\theta$ and you get two different numbers.
 
 . . .
 
-How noisy is too noisy? Measure the spread of $\log \hat{p}$ at one $\theta$, and
-pick $J$ from that. You do this in the practical.
+Measure the spread of $\log \hat{p}$ at one $\theta$ and pick $J$ from that.
+You do this in the practical.
 
 ## The whole thing, in code {.smaller .scrollable}
 
@@ -233,8 +266,7 @@ function bootstrap_filter(rng, θ, obs, n_particles; init_state)
 end
 ```
 
-Four steps, one loop. In the practical you read this one line by line, then swap
-it for the bootstrap filter in `GeneralisedFilters.jl` behind the same interface.
+In the practical you read this one line by line, then swap it for the bootstrap filter in `GeneralisedFilters.jl` behind the same interface.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
