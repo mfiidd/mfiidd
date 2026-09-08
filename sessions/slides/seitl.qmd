@@ -4,6 +4,33 @@ title: "Modelling interlude"
 subtitle: "Stochastic models and the state-space view"
 ---
 
+# Where we left off
+
+## The checks failed
+
+![](images/model_checking_posterior_predictive.svg)
+
+An SIR model fitted to Tristan da Cunha. Too small, too late, too few.
+
+## So we change something
+
+The parameters are not the problem. [Two]{.alert} changes to the SIR model:
+
+. . .
+
+1. **Add a mechanism.** SIR cannot infect anyone twice, and 92 islanders were.
+   No $R_0$ repairs a structure that forbids it.
+
+. . .
+
+2. **Add stochasticity.** The ODE treats 284 people as a smooth quantity.
+   At that size, chance decides how big the second wave is — or whether there is
+   one.
+
+. . .
+
+They are independent. This session does all four combinations.
+
 # The state-space view
 
 ## What we really want to know
@@ -96,32 +123,13 @@ $$p(x, \theta \mid y) = p(\theta \mid y)\, p(x \mid \theta, y)$$
 
 # The model we will fit
 
-## Tristan da Cunha, 1971
+## The island
 
 ![](images/TdC.png){.step}
 
 ::: {.cite}
-The most remote inhabited island in the world: 284 people, one ship every few
-months.
+284 people, one ship every few months.
 :::
-
-## An outbreak in a closed population {.smaller}
-
-An influenza-like illness arrived with a visiting ship and infected most of the
-island over eight weeks.
-
-. . .
-
-Two features make it the standard teaching example:
-
-- **Closed** — nobody arrived or left, so there is no importation to explain
-  anything away
-- **Two waves** — the epidemic subsided and then came back, in a population with
-  no new susceptibles
-
-. . .
-
-That second wave is the whole problem. A simple SIR model cannot produce it.
 
 ## SEITL
 
@@ -202,9 +210,9 @@ roughly the average duration.
 
 In the practical you will
 
-- meet the Tristan da Cunha influenza outbreak
-- build the SEITL model, which adds a latent state to the SIR structure
+- build the SEITL model, which adds the mechanism the checks asked for
 - simulate it both deterministically and stochastically
+- see which of the two changes is doing the work
 - see why the stochastic version needs different inference machinery
 
 #

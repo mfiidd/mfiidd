@@ -98,6 +98,31 @@ The aim is not to prove the model is *correct*. Every model is wrong. The aim is
 to find the ways in which it is wrong that **matter for the question you are
 asking**.
 
+# The outbreak
+
+## Tristan da Cunha, 1971
+
+![](images/TdC.png){.step}
+
+::: {.cite}
+The most remote inhabited island in the world: 284 people, one ship every few
+months.
+:::
+
+## An outbreak in a closed population {.smaller}
+
+An influenza-like illness arrived with a visiting ship and infected most of the
+island over eight weeks.
+
+. . .
+
+Two features make it the standard teaching example:
+
+- **Closed** — nobody arrived or left, so there is no importation to explain
+  anything away
+- **Two waves** — the epidemic subsided and then came back, in a population with
+  no new susceptibles
+
 # Prior predictive checks
 
 ## Before you see the data
