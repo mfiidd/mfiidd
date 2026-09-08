@@ -31,7 +31,7 @@ Even if the distribution of the infectious period is the same for all islanders,
 This is *demographic stochasticity*, and in a population this small it drives the dynamics rather than jittering them.
 Whether the epidemic takes off at all, and how large the second wave is, are partly matters of luck.
 
-The two changes are orthogonal, and this session goes through all four combinations, because it is worth knowing which of the two is doing the work.
+The two changes are independent, and this session makes each of them in turn.
 Stochastic simulation costs much more to run and, as the next sessions show, far more to fit, so it is worth understanding when you need it.
 
 This session focuses on modelling rather than fitting, which returns in the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions.
