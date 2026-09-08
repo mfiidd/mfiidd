@@ -33,7 +33,7 @@ const PARAMETERS = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
 """
     pmmh(obs, n_particles, particle_filter)
 
-PMMH model: weakly informative priors on the six parameters, with the
+PMMH model: priors centred on the literature values in the SEITL session, with the
 log-likelihood estimated by `particle_filter` and added through `@addlogprob!`.
 
 `ForwardDiff.value` strips the Duals that Turing's gradient-based initialisation
@@ -41,12 +41,12 @@ probe pushes through the model. The particle filter is not differentiable, and
 its resampling step errors on Dual-valued weights.
 """
 @model function pmmh(obs, n_particles, particle_filter)
-    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    R_0 ~ truncated(Normal(6.0, 4.0), lower = 1.0)
     D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
-    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
-    α ~ Beta(2, 2)
-    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
-    ρ ~ Beta(2, 2)
+    D_inf ~ truncated(Normal(2.0, 1.0), lower = 0.5)
+    α ~ Beta(4, 3)
+    D_imm ~ truncated(Normal(15.0, 5.0), lower = 1.0)
+    ρ ~ Beta(9, 6)
 
     θ = Dict(
         :R_0 => ForwardDiff.value(R_0),

@@ -267,13 +267,14 @@ Pass `simulate` to choose how the trajectory is produced.
     # is the incidence over the day the i-th observation counts
     @assert length(times) == n_obs + 1 "times must have one more point than there are observations"
 
-    # Weakly informative priors
-    R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
+    # Priors centred on the literature values listed above, wide enough that
+    # the data can move them well outside the suggested ranges
+    R_0 ~ truncated(Normal(6.0, 4.0), lower=1.0)
     D_lat ~ truncated(Normal(2.0, 1.0), lower=0.5)
-    D_inf ~ truncated(Normal(3.0, 2.0), lower=0.5)
-    α ~ Beta(2, 2)
-    D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
-    ρ ~ Beta(2, 2)
+    D_inf ~ truncated(Normal(2.0, 1.0), lower=0.5)
+    α ~ Beta(4, 3)
+    D_imm ~ truncated(Normal(15.0, 5.0), lower=1.0)
+    ρ ~ Beta(9, 6)
 
     # Create parameter dictionary
     θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf,
@@ -753,7 +754,7 @@ Throughout this session, you've defined models using the `@model` macro with the
 ```julia
 @model function my_model(times, init_state, n_obs)
     # 1. Define priors
-    R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
+    R_0 ~ truncated(Normal(6.0, 4.0), lower=1.0)
     # ... other parameters
 
     # 2. Simulate trajectory

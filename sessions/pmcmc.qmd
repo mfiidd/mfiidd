@@ -179,13 +179,13 @@ PMMH model for SEIT4L inference.
 Uses GeneralisedFilters for likelihood estimation.
 """
 @model function pmmh_seit4l(obs, n_particles)
-    # Weakly informative priors
-    R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
+    # Priors from the literature values in the SEITL session
+    R_0 ~ truncated(Normal(6.0, 4.0), lower=1.0)
     D_lat ~ truncated(Normal(2.0, 1.0), lower=0.5)
-    D_inf ~ truncated(Normal(3.0, 2.0), lower=0.5)
-    α ~ Beta(2, 2)
-    D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
-    ρ ~ Beta(2, 2)
+    D_inf ~ truncated(Normal(2.0, 1.0), lower=0.5)
+    α ~ Beta(4, 3)
+    D_imm ~ truncated(Normal(15.0, 5.0), lower=1.0)
+    ρ ~ Beta(9, 6)
 
     # Create parameter dictionary; extract underlying values so ForwardDiff
     # Duals (used only by Turing's gradient-based init probe) don't flow into
@@ -382,13 +382,13 @@ end
 seit4l_prob = ODEProblem(seit4l_ode!, zeros(9), (0.0, 1.0), zeros(5))
 
 @model function seit4l_deterministic_model(init_state, times, n_obs)
-    # Weakly informative priors
-    R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
+    # Priors from the literature values in the SEITL session
+    R_0 ~ truncated(Normal(6.0, 4.0), lower=1.0)
     D_lat ~ truncated(Normal(2.0, 1.0), lower=0.5)
-    D_inf ~ truncated(Normal(3.0, 2.0), lower=0.5)
-    α ~ Beta(2, 2)
-    D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
-    ρ ~ Beta(2, 2)
+    D_inf ~ truncated(Normal(2.0, 1.0), lower=0.5)
+    α ~ Beta(4, 3)
+    D_imm ~ truncated(Normal(15.0, 5.0), lower=1.0)
+    ρ ~ Beta(9, 6)
 
     # Solve ODE; promote u0 to the parameter element type so ForwardDiff Duals
     # propagate through the solution
