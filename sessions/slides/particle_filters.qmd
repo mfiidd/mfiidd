@@ -82,8 +82,6 @@ $$\hat{p}(y \mid \theta) = \prod_{t} \Big( \frac{1}{J}\sum_{j=1}^{J} w_{t,j} \Bi
 
 . . .
 
-The same $w_{t,j}$, the same particles — with the sum and the product swapped.
-
 If we weight trajectories by $w_{t,j}$ and resample in proportion at every
 observation, then the particles entering step $t$ are approximately drawn from
 $p(x_t \mid y_{1:t-1}, \theta)$, so the data are steering them.
@@ -92,36 +90,30 @@ $p(x_t \mid y_{1:t-1}, \theta)$, so the data are steering them.
 
 This is **sequential Monte Carlo**, better known as **particle filtering**.
 
-## Can we swap them? {.smaller}
+## Two estimators, two sets of trajectories {.smaller}
 
-$$\underbrace{\prod_{t} \frac{1}{J}\sum_{j} w_{t,j}}_{\text{filter}}
+$$\underbrace{\frac{1}{J}\sum_{j} \prod_{t} w_{t,j}}_{\text{simulate blind}}
 \qquad\text{against}\qquad
-\underbrace{\frac{1}{J}\sum_{j} \prod_{t} w_{t,j}}_{\text{simulate blind}}$$
+\underbrace{\prod_{t} \frac{1}{J}\sum_{j} w_{t,j}}_{\text{filter}}$$
 
-Both are computable, and both are **unbiased** for $p(y \mid \theta)$. So the
-answer is not about bias.
-
-. . .
-
-The right is importance sampling from the prior over whole trajectories. Its
-variance grows **exponentially in $T$** — that is the collapse you just saw, and
-it is why the swap is a firm no.
-
-## On the log scale {.smaller}
-
-Compute $\log \hat{p} = \sum_t \log\big(\frac{1}{J}\sum_j w_{t,j}\big)$, each
-inner sum by log-sum-exp. Never form the weights on the natural scale.
+This looks like a reordering. It is not: $w_{t,j}$ means a different thing on
+each side.
 
 . . .
 
-But $\log \hat{p}$ is **not** unbiased for $\log p$. Jensen puts it low by about
-$\sigma^2/2$, where $\sigma^2 = \mathrm{Var}(\log \hat{p})$.
+On the left, $x_j$ is a whole path drawn from $p(x \mid \theta)$, and the data
+never touch it.
 
 . . .
 
-Fine for particle MCMC, which needs unbiasedness on the natural scale and gets
-it. **Not** fine for dropping into an optimiser, or into a WAIC-style calculation,
-as though it were the log-likelihood.
+On the right, the particles at day $t$ have already been resampled on days $1$ to
+$t-1$. They are no longer draws from $p(x \mid \theta)$ — the data have picked
+them.
+
+. . .
+
+Both are unbiased. The variance of the one on the left grows **exponentially in
+$T$**, which is the collapse you just saw.
 
 # The particle filter
 
