@@ -1,6 +1,6 @@
 ---
-footer: "Fitting stochastic models"
-title: "Fitting stochastic models"
+footer: "Estimating the likelihood"
+title: "Estimating the likelihood"
 subtitle: "Sequential Monte Carlo and particle filters"
 ---
 
@@ -148,7 +148,7 @@ This is **sequential Monte Carlo**, better known as **particle filtering**.
 ![](images/particle_filter_19.svg){.pfwide .fragment fragment-index=18}
 :::
 
-::: {.r-stack}
+::: {.stepstack}
 [[**Initialise**]{.alert} $x_0 \sim p(x_0 \mid \theta), \quad w_0 = 1/J$]{.fragment .current-visible fragment-index=2}
 [[**Propagate**]{.alert} $x_1 \sim p(x_1 \mid x_0, \theta)$]{.fragment .current-visible fragment-index=3}
 [[**Weight**]{.alert} $w_1 = p(y_1 \mid x_1, \theta)$]{.fragment .current-visible fragment-index=4}

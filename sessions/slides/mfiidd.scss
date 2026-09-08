@@ -104,11 +104,26 @@ $presentation-font-smaller: 0.85;
   display: contents;
 }
 
-// Text overlaid in an `.r-stack` needs the same treatment as the images: without
-// a cell of its own each span auto-places into its own grid row, so a stack of
-// captions reserves a row per caption and walks off the bottom of the slide.
-.reveal .slides section .r-stack > p > span,
-.reveal .slides section .r-stack > span {
+// A stack of overlaid *text*, one line revealed per fragment. `.r-stack` cannot
+// be reused for this: it carries a `min-height` sized for a figure, so a second
+// one on the same slide claims another half-screen and pushes everything below
+// it off the bottom. Same overlay mechanics, no height claim.
+//
+// The `display: contents` on the paragraph is needed for the same reason as it
+// is on the figure stacks: Pandoc collects a run of spans into one `<p>`, which
+// would otherwise be the only grid item.
+.reveal .slides section .stepstack {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+.reveal .slides section .stepstack > p {
+  display: contents;
+}
+
+.reveal .slides section .stepstack > p > span,
+.reveal .slides section .stepstack > span {
   grid-area: 1 / 1;
   align-self: center;
   justify-self: center;
