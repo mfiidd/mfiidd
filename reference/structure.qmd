@@ -38,6 +38,8 @@ Work through them in order, or use this map to plan your time.
 
 > SEITL Interlude (Susceptible–Exposed–Infectious–Temporary immunity–Long-term immunity) → Particle Filters → Particle MCMC
 
+The Tristan da Cunha outbreak is introduced in Model Checking, where an SIR model is fitted to it and fails. The SEITL interlude builds the model that failure points to.
+
 **Advanced sessions** (2-3 hours each) - independent, pick based on interest:
 
 > - **Observation Models** — requires MCMC (can skip stochastic track)

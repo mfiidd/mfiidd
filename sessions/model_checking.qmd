@@ -18,6 +18,7 @@ order: 4
 You've learned how to fit models and diagnose MCMC convergence.
 But a converged chain doesn't mean your model is *correct* - it just means the sampler has explored the posterior properly.
 This session focuses on a different question: **does your model actually describe the data well?**
+We ask it of a real outbreak, on Tristan da Cunha in 1971, which the rest of the course goes on to fit.
 
 Model checking is about building trust in your inferences.
 A model that doesn't generate data resembling your observations shouldn't be trusted to make predictions or inform policy.
@@ -27,7 +28,7 @@ A model that doesn't generate data resembling your observations shouldn't be tru
 In this session you will:
 
 1. Use prior predictive checks to validate model specification
-2. Use posterior predictive checks to assess model fit
+2. Use posterior predictive checks to assess model fit, on an outbreak the model cannot reproduce
 3. Read a posterior predictive p-value near 0 or 1 as the model missing that feature, rather than as a significant test result
 4. Interpret residual patterns to diagnose model problems
 5. Use simulation-based calibration to check that the inference procedure recovers parameters it was given, and read its rank histogram
@@ -66,6 +67,54 @@ using StatsBase
 ```{julia}
 Random.seed!(1234)
 ```
+
+# Tristan da Cunha outbreak
+
+![](../figures/TdC.png)
+
+[Tristan da Cunha](http://en.wikipedia.org/wiki/Tristan_da_Cunha) is a volcanic island in the South Atlantic Ocean.
+It has been inhabited since the $19^{th}$ century and in 1971, the 284 islanders were living in the single village of the island: Edinburgh of the Seven Seas.
+Whereas the internal contacts were typical of close-knit village communities, contacts with the outside world were infrequent and mostly due to fishing vessels that occasionally took passengers to or from the island.
+These ships were often the cause of introduction of new diseases into the population.
+As for influenza, no outbreak had been reported since an epidemic of A/H1N1 in 1954.
+In this context of a small population with limited immunity against influenza, an unusual epidemic occurred in 1971, 3 years after the global emergence of the new subtype A/H3N2.
+
+On August 13, a ship returning from Cape Town landed five islanders on Tristan da Cunha.
+Three of them had developed acute respiratory disease during the 8-day voyage and the other two presented similar symptoms immediately after landing.
+Various family gatherings welcomed their disembarkation and in the ensuing days an epidemic started to spread rapidly throughout the whole island population.
+After three weeks of propagation, while the epidemic was declining, some islanders developed second episodes of illness and a second peak of cases was recorded.
+The epidemic faded out after this second wave and lasted a total of 59 days.
+Despite the lack of virological data, serological evidence indicates that all episodes of illness were due to influenza A/H3N2.
+
+Among the 284 islanders, 273 (96%) experienced at least one episode of illness and 92 (32%) experienced two, which is remarkable for influenza.
+Unfortunately, only 312 of the 365 attacks (85%) are known to within a single day of accuracy and constitute the dataset reported by [Mantle & Tyrrell in 1973](http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2130434/).
+
+The dataset of daily incidence can be loaded and plotted as follows:
+
+```{julia}
+# Load Tristan da Cunha data
+# Alternatively, you can load directly from GitHub:
+# flu_tdc_url = "https://raw.githubusercontent.com/mfiidd/mfiidd/main/data/flu_tdc_1971.csv"
+# flu_tdc = CSV.read(download(flu_tdc_url), DataFrame)
+flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
+
+# Display first few rows
+first(flu_tdc, 6)
+```
+
+```{julia}
+# Plot daily observed incidence
+scatter(
+    flu_tdc.time, flu_tdc.obs,
+    xlabel = "Time (days)", ylabel = "Daily incidence",
+    label = "Observed cases", markersize = 4, color = :red,
+    title = "Tristan da Cunha 1971 Influenza Outbreak"
+)
+```
+
+The two waves are the reason this dataset is worth fitting in a session about model checking.
+A simple SIR model has no way to infect anybody twice, and 312 attacks in a population of 284 means somebody was.
+We fit it anyway, and spend the session on what the checks say about a model we already have reason to doubt.
 
 # The Bayesian workflow
 
@@ -272,13 +321,13 @@ After fitting the model, posterior predictive checks ask: *can the fitted model 
 
 ::: {.callout-note}
 ## What to expect
-The SIR model we're about to fit will not capture the Tristan da Cunha data well - specifically, it will miss the second wave around day 25-35. SIR assumes permanent immunity after recovery, so it cannot produce two waves from a single introduction. Posterior predictive checks reveal when our model structure is inadequate, motivating the SEITL and SEIT4L models in later sessions, which add a stage of temporary immunity so that people can be infected twice.
+We already have grounds to expect this fit to fail, from the attack totals alone.
+What the checks add is *where* it fails and *how*, and that is the part that points at what to change.
+Read them as a diagnosis rather than as a verdict we have already reached.
 :::
 
 ```{julia}
-# Load data and fit model
-flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
-
+# Fit the SIR model to the outbreak loaded above
 model = sir_model(times, init_state, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
 chain = sample(model, NUTS(), 1000, progress=false)
 ```
@@ -324,7 +373,7 @@ plot!(p_ppc, legend=:topright)
 - Are there systematic patterns the model misses?
 - Does the model capture the variability in the data?
 
-For the Tristan da Cunha data with a simple SIR model, you'll likely see the model fails to capture the **second wave**. This is expected - SIR doesn't have temporary immunity. This motivates the SEITL/SEIT4L models in later sessions.
+You should see the fit miss badly, and miss on both waves rather than only the second: it settles for a flatter, later, smaller epidemic that splits the difference between them. Hold off on diagnosing why until the exercise at the end of the section.
 
 ## Posterior latent quantities
 
@@ -527,7 +576,7 @@ If the model instead captures the shape of the epidemic but not the spread of th
 
 Residual patterns point to specific fixes. Temporal trends in residuals suggest time-varying parameters or additional compartments. Autocorrelated residuals indicate the model dynamics are incomplete. And if residual variance grows with predicted values (heteroscedasticity), the observation model's variance structure needs adjustment.
 
-Remember that model failure is information. A model that fails to capture the second wave in Tristan da Cunha tells us something important: simple SIR dynamics are insufficient, motivating the temporary immunity models we explore in later sessions.
+Remember that model failure is information. The checks here do not merely say the SIR model is inadequate; they say the total, the timing and the peak cannot be reconciled at once, which is a much sharper statement and points at what to change.
 
 ::: {.callout-tip}
 ## When is a model "good enough"?
@@ -749,12 +798,12 @@ The next session marks a shift in the course. So far, we've focused on **inferen
 - How to verify convergence (MCMC Diagnostics)
 - How to check if your model makes sense (this session)
 
-Now we'll apply these methods to a **real scientific problem**: explaining the unusual two-wave influenza outbreak on Tristan da Cunha in 1971. This requires a more complex model (SEITL) and, because the population was small, stochastic simulation.
+Now we'll build the model this session's checks asked for. Explaining the second wave requires temporary immunity, which the SEITL model adds, and a population of 284 is small enough that stochastic simulation matters.
 
 The next session introduces new concepts (stochastic models, Gillespie algorithm, Erlang distributions), but the inference framework remains the same - you'll use everything you've learned.
 :::
 
-In the [SEITL session](seitl.qmd), we introduce the Tristan da Cunha dataset and the SEITL model with temporary immunity. This sets up the remaining sessions where we'll fit stochastic models using particle methods.
+In the [SEITL session](seitl.qmd), we build the SEITL model with temporary immunity and simulate it stochastically. This sets up the remaining sessions where we'll fit stochastic models using particle methods.
 
 # References
 

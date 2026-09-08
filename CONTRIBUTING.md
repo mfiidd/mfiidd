@@ -89,6 +89,10 @@ It is the island as the ship lands, at the start of day 1: `flu_tdc_1971.csv` da
 Of the five islanders it brought back, three had been ill during the eight day voyage and are past their infectious period, so they start recovered; the two who fell ill on landing start infectious.
 The 312 reported cases exceed N because islanders were infected more than once, which is the observation the SEITL session is built on and the structural failure the single-wave sessions diagnose.
 
+The outbreak is introduced in `sessions/model_checking.qmd`, which is the first session to fit it and the one whose checks fail on it.
+`sessions/seitl.qmd` recalls it in a paragraph and moves on to the model.
+A session that needs the full story links to model checking rather than retelling it.
+
 ### Priors for the SEITL parameters
 
 Every session that puts a prior on the SEITL or SEIT4L parameters uses the same one:

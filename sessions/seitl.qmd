@@ -1,5 +1,5 @@
 ---
-title: "Modelling interlude: Tristan da Cunha outbreak & the SEITL model"
+title: "Modelling interlude: the SEITL model and stochastic simulation"
 format: html
 engine: julia
 order: 5
@@ -13,23 +13,29 @@ order: 5
 
 # Introduction
 
-> **Entering the stochastic tier**: You've completed the core sessions with deterministic ODE models. This session introduces stochastic simulation and a new dataset (Tristan da Cunha) that we'll use for the rest of the course. Fitting resumes in Particle Filters.
+> **Entering the stochastic tier**: You've completed the core sessions with deterministic ODE models, and diagnosed an SIR model that could not reproduce the Tristan da Cunha outbreak. This session builds a model that can, and introduces stochastic simulation. Fitting resumes in Particle Filters.
 
-This session focuses on modelling rather than fitting (fitting returns in the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions). The aim is to familiarise you with a real dataset - the Tristan da Cunha outbreak - and a new model called SEITL. This dataset and model serve as the running example for all remaining sessions.
+We have a model, we ran posterior predictive checks on it, and it went wrong.
+So we change something. This session is about the two things there are to change, and they are independent of each other.
+
+**We add a mechanism.**
+The SIR model cannot infect anybody twice, and the outbreak infected 92 islanders twice.
+No value of $R_0$, $D_\mathrm{inf}$ or $\rho$ repairs that, because it is the structure that forbids it.
+The SEITL model adds a temporary immune stage that drains back into susceptible, so a second wave can run through people the first wave already had.
 The name follows its compartments: susceptible, exposed, infectious, temporarily immune and long-term immune.
 SEIT4L is the same model with the temporary immunity stage split into four, which is where its 4 comes from.
 
-As you will read below, the SEITL model has been proposed as a mechanistic explanation for a two-wave influenza A/H3N2 epidemic that occurred on the remote island of Tristan da Cunha in 1971.
-Given the small population size of this island (284 inhabitants), random effects at the individual level may have had important consequences at the population level.
-For instance, even if the distribution of the infectious period is the same for all islanders, some islanders will stay infectious longer than others just by chance and might therefore produce more secondary cases.
-This phenomenon is called *demographic stochasticity* and it could have played a significant role in the dynamics of the epidemic on Tristan da Cunha.
+**We add stochasticity.**
+The ODE model treats 284 people as a smooth quantity, and they are not.
+Even if the distribution of the infectious period is the same for all islanders, some will stay infectious longer than others by chance and produce more secondary cases.
+This is *demographic stochasticity*, and in a population this small it drives the dynamics rather than jittering them.
+Whether the epidemic takes off at all, and how large the second wave is, are partly matters of luck.
 
-Unsurprisingly, to account for demographic stochasticity we need a stochastic model.
-However, as you will see in this session and the following, simulating and fitting a stochastic model is much more computationally costly than doing so for a deterministic model.
-This is why it is important to understand when and why you need to use stochastic or deterministic models.
-In fact, we hope that by the end of the day you'll be convinced that both approaches are complementary.
+The two changes are orthogonal, and this session goes through all four combinations, because it is worth knowing which of the two is doing the work.
+Stochastic simulation costs much more to run and, as the next sessions show, far more to fit, so it is worth understanding when you need it.
 
-Finally, because this session is devoted to modelling rather than fitting, we thought it was useful to show you how you can make your model biologically more realistic by using distributions for the time spent in each compartment that are more realistic than the exponential distribution.
+This session focuses on modelling rather than fitting, which returns in the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions.
+It also takes the opportunity to make the model biologically more realistic, by using distributions for the time spent in each compartment that beat the exponential.
 
 # Objectives
 
@@ -54,7 +60,7 @@ We set `Random.seed!(1234)` for reproducibility within a session, but the key in
 
 ::: {.callout-note}
 ## Course roadmap
-This session marks a transition in the course. We move from general inference methods (MCMC, diagnostics, model checking) to applying them to a specific scientific question: explaining the two-wave Tristan da Cunha outbreak.
+This session marks a transition in the course. We move from general inference methods (MCMC, diagnostics, model checking) to the modelling the last session's failed checks call for, and to the stochastic simulation a population of 284 requires.
 
 The remaining sessions build on the SEITL/SEIT4L models introduced here:
 
@@ -102,43 +108,15 @@ We set a random seed for reproducibility.
 Random.seed!(1234)
 ```
 
-But first of all, let's have a look at the data.
+# The outbreak, in brief
 
-# Tristan da Cunha outbreak
-
-![](../figures/TdC.png)
-
-[Tristan da Cunha](http://en.wikipedia.org/wiki/Tristan_da_Cunha) is a volcanic island in the South Atlantic Ocean.
-It has been inhabited since the $19^{th}$ century and in 1971, the 284 islanders were living in the single village of the island: Edinburgh of the Seven Seas.
-Whereas the internal contacts were typical of close-knit village communities, contacts with the outside world were infrequent and mostly due to fishing vessels that occasionally took passengers to or from the island.
-These ships were often the cause of introduction of new diseases into the population.
-As for influenza, no outbreak had been reported since an epidemic of A/H1N1 in 1954.
-In this context of a small population with limited immunity against influenza, an unusual epidemic occurred in 1971, 3 years after the global emergence of the new subtype A/H3N2.
-
-On August 13, a ship returning from Cape Town landed five islanders on Tristan da Cunha.
-Three of them had developed acute respiratory disease during the 8-day voyage and the other two presented similar symptoms immediately after landing.
-Various family gatherings welcomed their disembarkation and in the ensuing days an epidemic started to spread rapidly throughout the whole island population.
-After three weeks of propagation, while the epidemic was declining, some islanders developed second episodes of illness and a second peak of cases was recorded.
-The epidemic faded out after this second wave and lasted a total of 59 days.
-Despite the lack of virological data, serological evidence indicates that all episodes of illness were due to influenza A/H3N2.
-
-Among the 284 islanders, 273 (96%) experienced at least one episode of illness and 92 (32%) experienced two, which is remarkable for influenza.
-Unfortunately, only 312 of the 365 attacks (85%) are known to within a single day of accuracy and constitute the dataset reported by [Mantle & Tyrrell in 1973](http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2130434/).
-
-The dataset of daily incidence can be loaded and plotted as follows:
+You met the Tristan da Cunha outbreak in the [model checking session](model_checking.qmd) and fitted an SIR model to it: 284 islanders, 312 recorded attacks over 59 days, and a second peak three weeks in that a single wave of infection cannot produce.
+The checks said the structure was wrong.
+This session builds one that can produce a second wave, and simulates it stochastically because 284 people are few enough for chance to matter.
 
 ```{julia}
-# Load Tristan da Cunha data
-# Alternatively, you can load directly from GitHub:
-# flu_tdc_url = "https://raw.githubusercontent.com/mfiidd/mfiidd/main/data/flu_tdc_1971.csv"
-# flu_tdc = CSV.read(download(flu_tdc_url), DataFrame)
 flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
 
-# Display first few rows
-first(flu_tdc, 6)
-```
-
-```{julia}
 # Plot daily observed incidence
 scatter(
     flu_tdc.time, flu_tdc.obs,
