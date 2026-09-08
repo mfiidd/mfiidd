@@ -87,7 +87,7 @@ each day throw away the ones the data have ruled out.
 Every day then starts from trajectories that are still plausible, so the model is
 only ever asked to be lucky **once**.
 
-## One factor per observation {.smaller}
+## One factor per observation
 
 The likelihood already breaks into one-day-ahead forecasts:
 
@@ -100,19 +100,22 @@ model predict today?*
 . . .
 
 The particles are our ensemble of guesses about where the epidemic actually is.
-So each day:
+
+## Score first, prune second {.smaller}
+
+Each day:
 
 1. propagate every particle one day
 2. weight it by how well it predicted today, $w_{t,j} = p(y_t \mid x_{t,j}, \theta)$
-3. **average those weights — that is today's factor**
+3. average those weights — that is today's factor
 4. resample in proportion to $w_{t,j}$, and go again
+
+$$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
 . . .
 
-**Score first, prune second.** Today's score is banked before anyone is thrown
-away, which is why discarding bad particles does not flatter the answer.
-
-$$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
+Today's score is banked *before* anyone is thrown away, which is why discarding
+bad particles does not flatter the answer.
 
 . . .
 
