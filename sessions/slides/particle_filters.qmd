@@ -124,29 +124,30 @@ $T$**, which is the collapse you just saw.
 ## The algorithm
 
 ::: {.r-stack}
-![](images/pf_walk_01.svg){.pfwide .fragment .fade-out fragment-index=1}
-![](images/pf_walk_02.svg){.pfwide .fragment .current-visible fragment-index=1}
-![](images/pf_walk_03.svg){.pfwide .fragment .current-visible fragment-index=2}
-![](images/pf_walk_04.svg){.pfwide .fragment .current-visible fragment-index=3}
-![](images/pf_walk_05.svg){.pfwide .fragment .current-visible fragment-index=4}
-![](images/pf_walk_06.svg){.pfwide .fragment .current-visible fragment-index=5}
-![](images/pf_walk_07.svg){.pfwide .fragment .current-visible fragment-index=6}
-![](images/pf_walk_08.svg){.pfwide .fragment .current-visible fragment-index=7}
-![](images/pf_walk_09.svg){.pfwide .fragment .current-visible fragment-index=8}
-![](images/pf_walk_10.svg){.pfwide .fragment .current-visible fragment-index=9}
-![](images/pf_walk_11.svg){.pfwide .fragment .current-visible fragment-index=10}
-![](images/pf_walk_12.svg){.pfwide .fragment .current-visible fragment-index=11}
-![](images/pf_walk_13.svg){.pfwide .fragment .current-visible fragment-index=12}
-![](images/pf_walk_14.svg){.pfwide .fragment .current-visible fragment-index=13}
-![](images/pf_walk_15.svg){.pfwide .fragment .current-visible fragment-index=14}
-![](images/pf_walk_16.svg){.pfwide .fragment fragment-index=15}
+![](images/particle_filter_01.svg){.pfwide .fragment .fade-out fragment-index=1}
+![](images/particle_filter_02.svg){.pfwide .fragment .current-visible fragment-index=1}
+![](images/particle_filter_03.svg){.pfwide .fragment .current-visible fragment-index=2}
+![](images/particle_filter_04.svg){.pfwide .fragment .current-visible fragment-index=3}
+![](images/particle_filter_05.svg){.pfwide .fragment .current-visible fragment-index=4}
+![](images/particle_filter_06.svg){.pfwide .fragment .current-visible fragment-index=5}
+![](images/particle_filter_07.svg){.pfwide .fragment .current-visible fragment-index=6}
+![](images/particle_filter_08.svg){.pfwide .fragment .current-visible fragment-index=7}
+![](images/particle_filter_09.svg){.pfwide .fragment .current-visible fragment-index=8}
+![](images/particle_filter_10.svg){.pfwide .fragment .current-visible fragment-index=9}
+![](images/particle_filter_11.svg){.pfwide .fragment .current-visible fragment-index=10}
+![](images/particle_filter_12.svg){.pfwide .fragment .current-visible fragment-index=11}
+![](images/particle_filter_13.svg){.pfwide .fragment .current-visible fragment-index=12}
+![](images/particle_filter_14.svg){.pfwide .fragment .current-visible fragment-index=13}
+![](images/particle_filter_15.svg){.pfwide .fragment .current-visible fragment-index=14}
+![](images/particle_filter_16.svg){.pfwide .fragment .current-visible fragment-index=15}
+![](images/particle_filter_17.svg){.pfwide .fragment .current-visible fragment-index=16}
+![](images/particle_filter_18.svg){.pfwide .fragment .current-visible fragment-index=17}
+![](images/particle_filter_19.svg){.pfwide .fragment fragment-index=18}
 :::
 
 ::: {.cite}
-Red diamonds are the data, gold circles the particles. Five observations, five
-particles, and the whole run rather than one cycle. Here the starting particles
-are spread to keep them apart; in the practical the island's initial state is
-known exactly, so $p(x_0 \mid \theta)$ is a point and they all start together.
+Red diamonds are the data, yellow circles the particles, sized by weight. Struck
+through when nobody resampled them.
 :::
 
 ## Why resample?
