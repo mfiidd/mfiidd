@@ -104,6 +104,16 @@ $presentation-font-smaller: 0.85;
   display: contents;
 }
 
+// Text overlaid in an `.r-stack` needs the same treatment as the images: without
+// a cell of its own each span auto-places into its own grid row, so a stack of
+// captions reserves a row per caption and walks off the bottom of the slide.
+.reveal .slides section .r-stack > p > span,
+.reveal .slides section .r-stack > span {
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: center;
+}
+
 .reveal .slides section .r-stack > p > img,
 .reveal .slides section .r-stack > img {
   grid-area: 1 / 1;
