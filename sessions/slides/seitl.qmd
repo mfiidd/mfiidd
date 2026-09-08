@@ -1,6 +1,6 @@
 ---
-footer: "Putting it all together"
-title: "Putting it all together"
+footer: "Modelling interlude"
+title: "Modelling interlude"
 subtitle: "Stochastic models and the state-space view"
 ---
 
@@ -30,24 +30,13 @@ every time, so the state has a *distribution*, $p(x \mid \theta)$.
 That extra layer, between the parameters and the data, is what the rest of this
 session is about.
 
-## Hierarchical model
+## Three layers
 
 ![](images/bhm.png){.step .tall}
 
 Parameters, then states, then observations: each layer depends on the one above.
-Such a model is called a **Bayesian hierarchical model**, or, when the states
-form a time series, a **state-space model**.
-
-## The same three layers, on a real problem {.smaller}
-
-![](images/DAG.png){.step .tall}
-
-Influenza transmission in the UK: parameters at the top, a stochastic epidemic in
-the middle, several data streams at the bottom. Larger than ours, same structure.
-
-::: {.cite}
-Baguelin et al. (2013)
-:::
+When the states form a time series, a model with this structure is called a
+**state-space model**.
 
 ## Combining the probabilities
 
