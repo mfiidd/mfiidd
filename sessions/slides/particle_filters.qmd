@@ -107,25 +107,6 @@ The right is importance sampling from the prior over whole trajectories. Its
 variance grows **exponentially in $T$** — that is the collapse you just saw, and
 it is why the swap is a firm no.
 
-## Why the left one works {.smaller}
-
-Each factor $\frac{1}{J}\sum_j w_{t,j}$ estimates $p(y_t \mid y_{1:t-1}, \theta)$
-*conditional on the particles that survived*. Each is conditionally biased, and a
-product of biased factors should compound the error.
-
-. . .
-
-It does not. Resampling makes the telescoping come out exactly, and the product
-is unbiased on the nose.
-
-. . .
-
-That is not a technicality. It is what licenses **particle MCMC**: put $\hat{p}$
-into a Metropolis acceptance ratio and the chain still targets the *exact*
-posterior, because the noise is absorbed into an extended target on the particle
-system. Swapping the operators keeps unbiasedness and destroys the variance
-control — and variance is what decides whether the chain mixes.
-
 ## On the log scale {.smaller}
 
 Compute $\log \hat{p} = \sum_t \log\big(\frac{1}{J}\sum_j w_{t,j}\big)$, each
