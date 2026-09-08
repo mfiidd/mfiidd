@@ -151,6 +151,16 @@ $presentation-font-smaller: 0.85;
   max-height: 620px;
 }
 
+// Full-slide particle filter figures: the stepped walk, and the two diagnostic
+// panels. Sized against the slide rather than the window for the same reason as
+// `.bigpic` — reveal scales a fixed 1050x700 slide to fit, so a `vh` cap shrinks
+// the figure relative to its own slide as the window gets smaller.
+.reveal .slides section img.pfwide {
+  width: 100%;
+  height: auto;
+  max-height: 470px;
+}
+
 .reveal .slides section img.tall {
   max-height: 76vh;
 }

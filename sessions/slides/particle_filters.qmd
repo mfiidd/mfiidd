@@ -47,63 +47,143 @@ $$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta)\, p(x \mid \theta)$$
 . . .
 
 Now $x$ is no longer known, and the number of possible trajectories is
-astronomical — every combination of every event at every time.
+potentially astronomical — every combination of every event at every time.
 
 We cannot enumerate them.
 
-## Monte Carlo to the rescue
+## Monte Carlo, first attempt
 
-Approximate the sum by a sample of $J$ **particles**, each one a simulated
-trajectory:
+Sample $J$ trajectories from the model and average the likelihood of the data
+under each. Simulating the model *is* drawing $x_j \sim p(x \mid \theta)$, which
+is what makes the plain average the right estimator of the sum:
 
-$$p(y \mid \theta) \approx \frac{1}{J}\sum_{j=1}^{J} p(y \mid x_j, \theta)$$
+$$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} p(y \mid x_j, \theta)$$
+
+. . .
+
+Given the whole trajectory the observations are independent, so each term is
+itself a product over the days:
+
+$$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} \prod_{t=1}^{T} w_{t,j},
+\qquad w_{t,j} = p(y_t \mid x_{t,j}, \theta)$$
+
+. . .
+
+Unbiased, and hopeless.
+
+## Two hundred trajectories, an effective two {.smaller}
+
+![](images/pf_naive_monte_carlo.svg){.pfwide}
+
+Each $x_j$ is simulated **blind**, so passing near all 59 observations at once is
+vanishingly rare.
+
+## Filtering: use the data as you go
+
+Do not wait until the end to compare with the data. Compare at *every*
+observation, and keep the trajectories that are doing well:
+
+$$\hat{p}(y \mid \theta) = \prod_{t} \Big( \frac{1}{J}\sum_{j=1}^{J} w_{t,j} \Big),
+\qquad w_{t,j} = p(y_t \mid x_{t,j}, \theta)$$
+
+. . .
+
+The same $w_{t,j}$, the same particles — with the sum and the product swapped.
+
+If we weight trajectories by $w_{t,j}$ and resample in proportion at every
+observation, then the particles entering step $t$ are approximately drawn from
+$p(x_t \mid y_{1:t-1}, \theta)$, so the data are steering them.
 
 . . .
 
 This is **sequential Monte Carlo**, better known as **particle filtering**.
 
+## Can we swap them? {.smaller}
+
+$$\underbrace{\prod_{t} \frac{1}{J}\sum_{j} w_{t,j}}_{\text{filter}}
+\qquad\text{against}\qquad
+\underbrace{\frac{1}{J}\sum_{j} \prod_{t} w_{t,j}}_{\text{simulate blind}}$$
+
+Both are computable, and both are **unbiased** for $p(y \mid \theta)$. So the
+answer is not about bias.
+
+. . .
+
+The right is importance sampling from the prior over whole trajectories. Its
+variance grows **exponentially in $T$** — that is the collapse you just saw, and
+it is why the swap is a firm no.
+
+## Why the left one works {.smaller}
+
+Each factor $\frac{1}{J}\sum_j w_{t,j}$ estimates $p(y_t \mid y_{1:t-1}, \theta)$
+*conditional on the particles that survived*. Each is conditionally biased, and a
+product of biased factors should compound the error.
+
+. . .
+
+It does not. Resampling makes the telescoping come out exactly, and the product
+is unbiased on the nose.
+
+. . .
+
+That is not a technicality. It is what licenses **particle MCMC**: put $\hat{p}$
+into a Metropolis acceptance ratio and the chain still targets the *exact*
+posterior, because the noise is absorbed into an extended target on the particle
+system. Swapping the operators keeps unbiasedness and destroys the variance
+control — and variance is what decides whether the chain mixes.
+
+## On the log scale {.smaller}
+
+Compute $\log \hat{p} = \sum_t \log\big(\frac{1}{J}\sum_j w_{t,j}\big)$, each
+inner sum by log-sum-exp. Never form the weights on the natural scale.
+
+. . .
+
+But $\log \hat{p}$ is **not** unbiased for $\log p$. Jensen puts it low by about
+$\sigma^2/2$, where $\sigma^2 = \mathrm{Var}(\log \hat{p})$.
+
+. . .
+
+Fine for particle MCMC, which needs unbiasedness on the natural scale and gets
+it. **Not** fine for dropping into an optimiser, or into a WAIC-style calculation,
+as though it were the log-likelihood.
+
 # The particle filter
 
-## The algorithm {.smaller}
+## The algorithm
 
-::::: {.columns}
-:::: {.column width="60%"}
 ::: {.r-stack}
-![](images/pf_1_initialise.png){.step .fragment .fade-out fragment-index=1}
-![](images/pf_2_propagate.png){.step .fragment .current-visible fragment-index=1}
-![](images/pf_3_weight.png){.step .fragment .current-visible fragment-index=2}
-![](images/pf_4_resample.png){.step .fragment fragment-index=3}
-:::
-::::
-:::: {.column width="40%"}
-**Initialise** — $J$ particles, each of weight $1/J$
-
-::: {.fragment fragment-index=1}
-**Propagate** — simulate each to the next observation
-:::
-
-::: {.fragment fragment-index=2}
-**Weight** — by $w_j = p(y_t \mid x_j, \theta)$, drawn as size
-:::
-
-::: {.fragment fragment-index=3}
-**Resample** — in proportion to weight: good ones copied, bad ones die
-:::
-::::
-:::::
-
-::: {.fragment fragment-index=4}
-Repeat to the end of the data; the average weight estimates $p(y \mid \theta)$.
+![](images/pf_walk_01.svg){.pfwide .fragment .fade-out fragment-index=1}
+![](images/pf_walk_02.svg){.pfwide .fragment .current-visible fragment-index=1}
+![](images/pf_walk_03.svg){.pfwide .fragment .current-visible fragment-index=2}
+![](images/pf_walk_04.svg){.pfwide .fragment .current-visible fragment-index=3}
+![](images/pf_walk_05.svg){.pfwide .fragment .current-visible fragment-index=4}
+![](images/pf_walk_06.svg){.pfwide .fragment .current-visible fragment-index=5}
+![](images/pf_walk_07.svg){.pfwide .fragment .current-visible fragment-index=6}
+![](images/pf_walk_08.svg){.pfwide .fragment .current-visible fragment-index=7}
+![](images/pf_walk_09.svg){.pfwide .fragment .current-visible fragment-index=8}
+![](images/pf_walk_10.svg){.pfwide .fragment .current-visible fragment-index=9}
+![](images/pf_walk_11.svg){.pfwide .fragment .current-visible fragment-index=10}
+![](images/pf_walk_12.svg){.pfwide .fragment .current-visible fragment-index=11}
+![](images/pf_walk_13.svg){.pfwide .fragment .current-visible fragment-index=12}
+![](images/pf_walk_14.svg){.pfwide .fragment .current-visible fragment-index=13}
+![](images/pf_walk_15.svg){.pfwide .fragment .current-visible fragment-index=14}
+![](images/pf_walk_16.svg){.pfwide .fragment fragment-index=15}
 :::
 
 ::: {.cite}
-Red diamonds are the data, yellow circles the particles.
+Red diamonds are the data, gold circles the particles. Five observations, five
+particles, and the whole run rather than one cycle. Here the starting particles
+are spread to keep them apart; in the practical the island's initial state is
+known exactly, so $p(x_0 \mid \theta)$ is a point and they all start together.
 :::
 
 ## Why resample?
 
-Without resampling, after a few time steps almost all the weight sits on one or
-two particles and the rest contribute nothing.
+![](images/pf_degeneracy.svg){.pfwide}
+
+Without resampling the 200 particles are worth an effective 6 by day 10 and
+exactly 1 from day 30 on: one trajectory, carrying the whole estimate.
 
 . . .
 
@@ -124,8 +204,14 @@ share ancestry, so diversity falls over time.
 . . .
 
 The likelihood estimate is **unbiased** but **stochastic**: run it twice with
-the same $\theta$ and you get two different numbers. That has consequences we
-deal with in the next session.
+the same $\theta$ and you get two different numbers.
+
+. . .
+
+Tune $J$ against the spread of $\log \hat{p}$ at a representative $\theta$, near
+the posterior mode. Too noisy and the chain sticks for long stretches on a lucky
+estimate; too precise and you are buying particles rather than mixing. You
+measure it in the practical.
 
 ## The whole thing, in code {.smaller .scrollable}
 
@@ -156,7 +242,8 @@ function bootstrap_filter(rng, θ, obs, n_particles; init_state)
 end
 ```
 
-Four steps, one loop. The practical builds it a step at a time.
+Four steps, one loop. In the practical you read this one line by line, then swap
+it for the bootstrap filter in `GeneralisedFilters.jl` behind the same interface.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
