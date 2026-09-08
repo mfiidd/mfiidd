@@ -798,7 +798,7 @@ The next session marks a shift in the course. So far, we've focused on **inferen
 - How to verify convergence (MCMC Diagnostics)
 - How to check if your model makes sense (this session)
 
-Now we'll build the model this session's checks asked for. Explaining the second wave requires temporary immunity, which the SEITL model adds, and a population of 284 is small enough that stochastic simulation matters.
+Now we'll build the model this session's checks asked for. Explaining the second wave requires temporary immunity, which the SEITL model adds. In addition, a population of 284 is small enough that stochastic simulation matters.
 
 The next session introduces new concepts (stochastic models, Gillespie algorithm, Erlang distributions), but the inference framework remains the same - you'll use everything you've learned.
 :::
