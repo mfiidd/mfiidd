@@ -353,7 +353,7 @@ For production use, we define the model using the [SSMProblems.jl](https://turin
 A state-space model has three components:
 
 1. **Initial state distribution** (`SEITLInitial`) - where does the system start?
-2. **Transition dynamics** (`SEITLDynamics`) - how does the state evolve? (dispatches to the Gillespie stepper matching the number of compartments)
+2. **Transition dynamics** (`SEITLDynamics`) - how does the state evolve? (the stage count is declared when it is built, and dispatch picks the Gillespie stepper from it)
 3. **Observation process** (`PoissonObservation`) - how do observations relate to the state?
 
 Here is the full interface implementation (defined in [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl)). Each type carries a docstring spelling out its state vector and the method it implements — useful for reference once you've read the prose above.
