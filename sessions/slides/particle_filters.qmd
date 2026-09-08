@@ -72,19 +72,23 @@ $$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} \prod_{t=1}^{T} w_{t,j},
 Each $x_j$ is simulated **blind**, so passing near all 59 observations at once is
 vanishingly rare.
 
-## Filtering: use the data as you go
+## One factor per observation {.smaller}
 
-Do not wait until the end to compare with the data. Compare at *every*
-observation, and keep the trajectories that are doing well:
+After a resampling step every particle carries weight $1/J$ again. So at each
+observation:
 
-$$\hat{p}(y \mid \theta) = \prod_{t} \Big( \frac{1}{J}\sum_{j=1}^{J} w_{t,j} \Big),
-\qquad w_{t,j} = p(y_t \mid x_{t,j}, \theta)$$
+1. propagate each particle one day
+2. weight it, $w_{t,j} = p(y_t \mid x_{t,j}, \theta)$
+3. average, giving that day's factor
+4. resample in proportion to $w_{t,j}$, which returns every weight to $1/J$
+
+$$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
 . . .
 
-If we weight trajectories by $w_{t,j}$ and resample in proportion at every
-observation, then the particles entering step $t$ are approximately drawn from
-$p(x_t \mid y_{1:t-1}, \theta)$, so the data are steering them.
+Step 3 is an *unweighted* average, and can be, because step 4 left the particles
+equally weighted. Earlier observations act through **which particles are still
+there**, not through a weight carried forward.
 
 . . .
 
