@@ -168,6 +168,11 @@ This is **sequential Monte Carlo**, better known as **particle filtering**.
 [$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j} w_{t,j}$]{.fragment fragment-index=18}
 :::
 
+::: {.cite}
+Four particles here. Red diamonds are the data, yellow circles the particles,
+sized by weight, struck through when nobody resampled them.
+:::
+
 ## Why resample?
 
 ![](images/pf_degeneracy.svg){.pfwide}
