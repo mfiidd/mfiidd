@@ -63,7 +63,6 @@ The cost is one extra parameter.
 
 Both fits use the same SIR model on Tristan da Cunha.
 Only the observation model differs.
-35 of the 59 days fall inside the Poisson interval, 53 inside the negative binomial.
 
 ## Why it matters for inference
 
