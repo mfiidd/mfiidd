@@ -28,7 +28,7 @@ A model that doesn't generate data resembling your observations shouldn't be tru
 In this session you will:
 
 1. Use prior predictive checks to validate model specification
-2. Use posterior predictive checks to assess model fit, on an outbreak the model cannot reproduce
+2. Use posterior predictive checks to assess model fit
 3. Read a posterior predictive p-value near 0 or 1 as the model missing that feature, rather than as a significant test result
 4. Interpret residual patterns to diagnose model problems
 5. Use simulation-based calibration to check that the inference procedure recovers parameters it was given, and read its rank histogram
