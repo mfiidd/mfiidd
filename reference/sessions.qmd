@@ -108,7 +108,7 @@ Tuesday 8 September: 19.00
 
 Wednesday 9 September: 09.30-09.45
 
--   Day 2 review (15 mins)
+-   [Day 2 review](../sessions/slides/day2_review.qmd) (15 mins)
 
 ## Session 6: Particle filters
 

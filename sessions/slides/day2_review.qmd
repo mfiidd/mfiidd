@@ -1,0 +1,58 @@
+---
+footer: "Day 2 review"
+title: "Where we have got to"
+subtitle: "Model fitting and inference for infectious disease dynamics"
+---
+
+## Has the chain converged?
+
+![](images/hairy_caterpillar.jpg){.step}
+
+Straight, plump at both ends, several chains on top of each other. Then put a
+number on it: $\hat{R} = \sqrt{\hat{V}/W}$ compares the variance between chains
+with the variance within them, and wants to be below 1.01.
+
+## Before you see the data
+
+![](images/model_checking_prior_predictive.svg){.step}
+
+$\theta^{(i)} \sim p(\theta), \qquad y^{(i)} \sim p(y \mid \theta^{(i)})$
+
+Two hundred draws from our priors, on an island of 284. Most burn through the
+population in a week.
+
+## After fitting
+
+![](images/model_checking_posterior_predictive.svg){.step}
+
+$\theta^{(i)} \sim p(\theta \mid y), \qquad y^{\text{rep},(i)} \sim p(y \mid \theta^{(i)})$
+
+The fitted SIR model produces the first wave and has nothing to say about the
+second.
+
+## Tristan da Cunha, 1971
+
+![](images/TdC.png){.step}
+
+284 people and two waves. [SEITL]{.alert} adds temporary immunity so that a
+fraction of those infected return to susceptible — and in a population this
+small, chance decides how many.
+
+## Which makes the likelihood an integral
+
+![](images/Big_picture_stochastic_models.png){.step}
+
+$$p(\text{data} \mid \theta) = \int_{X} p(\text{data} \mid X, \theta)\, p(X \mid \theta)$$
+
+The state $X$ is hidden and random, so every trajectory the model could have
+taken contributes. That is where today starts.
+
+## {{< fa laptop-code >}} Questions? {background-color="#447099" transition="fade-in"}
+
+Anything from yesterday worth revisiting.
+
+#
+
+[MCMC diagnostics](../mcmc_diagnostics.qmd) &middot;
+[Model checking](../model_checking.qmd) &middot;
+[SEITL](../seitl.qmd)
