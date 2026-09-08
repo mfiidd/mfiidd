@@ -6,6 +6,22 @@ subtitle: "Model fitting and inference for infectious disease dynamics"
 
 # Observation models
 
+## What an observation model is for
+
+![](images/likelihood_data_model_dist.svg){.step}
+
+A deterministic model gives one smooth trajectory.
+The counts do not sit on it.
+
+## Two jobs
+
+The distribution around the prediction is what makes a likelihood exist.
+A curve on its own gives every observation that misses it a probability of zero.
+
+. . .
+
+It is also where the observation process lives: under-reporting, and the variation of counts around what the model expects.
+
 ## The choice we have been making so far
 
 Every likelihood in this course so far has assumed
@@ -34,8 +50,6 @@ Weekend effects, reporting delays, outbreak investigations and clustered transmi
 ## One parameter, so one spread
 
 ![](images/observation_poisson_spread.svg)
-
-The mean fixes the spread.
 
 ## Overdispersion
 
