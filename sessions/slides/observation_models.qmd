@@ -62,10 +62,6 @@ $$y_t \sim \text{NegativeBinomial}(\lambda_t, \phi)$$
 - $\phi \to \infty$ recovers the Poisson
 - small $\phi$ allows a much wider spread at the same mean
 
-. . .
-
-The cost is one extra parameter.
-
 ## The same mean, three spreads
 
 ![](images/observation_overdispersion.svg)
