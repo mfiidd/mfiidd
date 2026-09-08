@@ -55,6 +55,7 @@ using Plots
 using StatsPlots
 using Turing
 using FlexiChains ## chain objects and diagnostics
+using FlexiChains: @varname ## refer to a model variable by name
 using Random
 using LinearAlgebra
 using DrWatson
@@ -90,9 +91,13 @@ scatter(
 
 We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 
-# Simple SIR model for comparison
+# The model we are fitting
 
-For this session, let's use a simpler SIR model to make the concepts clearer.
+The transmission model is the SIR model from the earlier sessions, and $\rho$, the
+fraction of infections that are reported, is the one the
+[model checking session](model_checking.qmd) fitted.
+Neither of them changes in this session.
+What changes is the distribution we put around the prediction $\rho \cdot I_t$.
 
 These two functions live in [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl) and arrived with `using MFIIDD` above.
 
@@ -103,34 +108,23 @@ println("```julia\n", source_for(sir_ode!), "\n\n", source_for(simulate_sir), "\
 ```
 
 ```{julia}
-# Try some parameters
 ## `times` starts at 0.0, the left edge of the first observation day, because the
 ## incidence over that day is S(0) - S(1) and there is no way to form it without a
 ## point at 0. `traj.Inc[i + 1]` is then the incidence over the day the i-th
 ## observation counts
 times = [0.0; flu_tdc.time]
-θ_test = Dict(:R_0 => 10.0, :D_inf => 2.5)
 
 ## The island as the ship lands, at the start of day 1. Of the five islanders it
 ## brought back, three had been ill during the eight day voyage and are past their
 ## infectious period, so they start recovered; the two who fell ill on landing
 ## start infectious. N = 284, the island population
-init_test = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
-
-traj_test = simulate_sir(θ_test, init_test, times)
-
-# Plot
-plot(flu_tdc.time, traj_test.Inc[2:end],
-     label="Predicted incidence", linewidth=2, color=:blue)
-scatter!(flu_tdc.time, flu_tdc.obs,
-         label="Observed cases", markersize=4, color=:red,
-         xlabel="Time (days)", ylabel="Cases",
-         title="SIR Model vs Observed Data")
+init_state = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
 ```
 
-Not a perfect fit, but good enough for illustration!
+Each fit below is checked against the data with a posterior predictive interval.
+The [model checking session](model_checking.qmd) covers what else those checks
+can tell you.
 
-In your own work, you should run [prior and posterior predictive checks](model_checking.qmd) when fitting models. We skip them here to focus on observation model choices.
 # The Poisson likelihood
 
 ## What we have used so far
@@ -165,7 +159,7 @@ We fit this model:
 
 ```{julia}
 # Fit with NUTS
-model_poisson = sir_poisson(times, init_test, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
+model_poisson = sir_poisson(times, init_state, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
 chain_poisson = sample(model_poisson, NUTS(0.65), 500, progress=false)
 # The 0.65 is the target acceptance rate for NUTS — higher values (closer to 1)
 # make the sampler more conservative, lower values allow larger steps.
@@ -181,6 +175,44 @@ plot(chain_poisson[[:R_0, :D_inf, :ρ]], size=(900, 600))
 # Summary statistics
 summarystats(chain_poisson)
 ```
+
+## Does it reproduce the data?
+
+Each fit is checked the same way, so the check is worth writing once.
+
+```{julia}
+#| output: false
+function plot_predictive(model, chain, title)
+    ## Draw replicate observations from the fitted model, one set per posterior draw
+    predictions = predict(decondition(model), chain)
+    draws = predictions[@varname(obs)]
+    per_day = [[draws[i, 1][t] for i in axes(draws, 1)] for t in 1:length(flu_tdc.obs)]
+
+    lower = [quantile(day, 0.025) for day in per_day]
+    middle = [quantile(day, 0.5) for day in per_day]
+    upper = [quantile(day, 0.975) for day in per_day]
+
+    p = plot(flu_tdc.time, middle,
+             ribbon = (middle .- lower, upper .- middle),
+             linewidth = 2, color = :blue, fillalpha = 0.3,
+             label = "95% predictive interval",
+             xlabel = "Time (days)", ylabel = "Daily cases", title = title)
+    scatter!(p, flu_tdc.time, flu_tdc.obs,
+             label = "Observed", markersize = 3, color = :red)
+
+    covered = count(lower .<= flu_tdc.obs .<= upper)
+    return p, covered
+end
+```
+
+```{julia}
+p_poisson, covered_poisson = plot_predictive(model_poisson, chain_poisson, "Poisson")
+p_poisson
+```
+
+The interval covers `{julia} covered_poisson` of the `{julia} length(flu_tdc.obs)`
+days.
+A 95% interval should cover about `{julia} round(Int, 0.95 * length(flu_tdc.obs))`.
 
 ## What does Poisson assume?
 
@@ -216,7 +248,7 @@ What do you find, and what would it imply for the parameter estimates?
 ```{julia}
 # Residual variance against mean prediction, under the Poisson fit
 θ_fit = Dict(:R_0 => mean(chain_poisson[:R_0]), :D_inf => mean(chain_poisson[:D_inf]))
-pred_fit = mean(chain_poisson[:ρ]) .* simulate_sir(θ_fit, init_test, times).Inc[2:end]
+pred_fit = mean(chain_poisson[:ρ]) .* simulate_sir(θ_fit, init_state, times).Inc[2:end]
 resid_fit = flu_tdc.obs .- pred_fit
 
 println("mean prediction:    ", round(mean(pred_fit), digits = 2))
@@ -308,18 +340,61 @@ Then fit it below and check.
 
 # The negative binomial likelihood
 
-## Allowing for overdispersion
+## What does the negative binomial assume?
 
-The negative binomial adds a second parameter, so the variance is free to exceed
-the mean. For epidemic case counts that is the common situation rather than the
-exception, which makes this the more usual starting point in practice:
+The negative binomial keeps the same mean and adds a second parameter, so the
+variance is free to exceed it:
 
-$$\text{obs}_t \sim \text{NegativeBinomial}(\mu_t, \phi)$$
+$$\text{obs}_t \sim \text{NegativeBinomial}(\mu_t, \phi), \qquad
+\text{Var}(\text{obs}_t) = \mu_t + \frac{\mu_t^2}{\phi}$$
 
-where:
+where $\mu_t = \rho \cdot I_t$ and $\phi$ controls the overdispersion. Large $\phi$
+recovers the Poisson, and small $\phi$ gives a much wider spread at the same mean.
 
-- $\mu_t = \rho \cdot I_t$ (mean)
-- $\phi$ controls overdispersion (variance = $\mu + \mu^2/\phi$)
+```{julia}
+# The same mean, three spreads
+counts = 0:80
+p = plot(title="Same mean of 20, different spreads",
+         xlabel="Count", ylabel="Probability")
+
+plot!(p, counts, pdf.(Poisson(20), counts),
+      label="Poisson (σ²=20)", linewidth=2)
+
+for φ in [5.0, 1.0]
+    ## Julia parameterises the negative binomial by (r, p), so a mean μ with
+    ## overdispersion φ is r=φ and p=φ/(φ+μ)
+    dist = NegativeBinomial(φ, φ/(φ+20.0))
+    plot!(p, counts, pdf.(dist, counts),
+          label="NegBin φ=$(Int(φ)) (σ²=$(round(Int, var(dist))))", linewidth=2)
+end
+p
+```
+
+The extra variance grows with the *square* of the mean, so a busy day is allowed
+to be further out than a quiet one.
+
+Everything else the Poisson assumed still holds. Observations are conditionally
+independent given the trajectory, and the same fraction of infections is reported
+on every day. Overdispersion is the only assumption the negative binomial relaxes.
+
+::: {.callout-tip title="Exercise: what would you expect φ to be?"}
+Look back at the ratio of residual variance to mean prediction you computed for
+the Poisson fit. If that ratio came entirely from overdispersion, and the mean
+prediction were about 5 cases a day, roughly what $\phi$ would reproduce it?
+
+Use $\text{Var} = \mu + \mu^2/\phi$ and solve for $\phi$.
+:::
+
+::: {.callout-tip title="Solution" collapse="true"}
+With $\mu = 5$ and a variance 25 times the mean, $125 = 5 + 25/\phi$, so
+$\phi \approx 0.2$. The fit below returns a $\phi$ of about 0.5, in the same
+region.
+
+The calculation assumes the whole ratio is overdispersion, which it is not: the
+mean itself is wrong, and the fitted $\phi$ is absorbing both.
+:::
+
+## Fitting it
 
 ```{julia}
 @model function sir_negbin(times, init_state, n_obs)
@@ -350,10 +425,20 @@ end
 Now fit it, so that the predictions you just committed to can be checked.
 
 ```{julia}
-model_negbin = sir_negbin(times, init_test, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
+model_negbin = sir_negbin(times, init_state, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
 chain_negbin = sample(model_negbin, NUTS(0.65), 500, progress=false)
 summarystats(chain_negbin)
 ```
+
+```{julia}
+p_negbin, covered_negbin = plot_predictive(model_negbin, chain_negbin,
+                                           "Negative binomial")
+p_negbin
+```
+
+The interval now covers `{julia} covered_negbin` days against the Poisson's
+`{julia} covered_poisson`. It does so by being wide rather than by following the
+data: the trajectory underneath it still peaks in the wrong place.
 
 ```{julia}
 # Compare the two observation models on the parameter they disagree about most
@@ -389,15 +474,25 @@ println("φ posterior: median $(round(median(φ_post), digits = 2)), ",
         "$(round(quantile(φ_post, 0.975), digits = 2))]")
 ```
 
-**Honest question**: Why Negative Binomial?
+## Why the negative binomial?
 
-- Mechanistic justification: Weak (no clear biological process)
-- Empirical justification: Fits better than Poisson
-- Convenience: Easy to compute, works with MCMC
+There is a mechanism behind it. A negative binomial is a Poisson whose rate
+varies from day to day with a gamma distribution, so it is what you get when the
+reporting rate is not constant and you have not modelled why. Clustered
+transmission produces the same shape: household outbreaks and superspreading
+events deliver several cases at once, so counts vary more than independent
+arrivals would.
 
-**Is this really different from choosing a distance metric?**
+Two weaker reasons also apply. It fits these data better than the Poisson, and it
+is cheap to evaluate inside MCMC.
 
-# Interlude: Likelihood as Distance
+What it does not do is tell you which of those mechanisms was at work, or
+distinguish any of them from a mean that is simply wrong.
+
+Either way, the choice between the two is a choice about how much a departure
+from the prediction should cost, which is the subject of the next section.
+
+# Interlude: likelihood as distance
 
 ## Likelihood as distance
 
@@ -447,17 +542,20 @@ This reveals that different likelihoods are just different ways of measuring dis
 
 ::: {.callout-tip title="Learning points"}
 
-- Parametric likelihoods are pragmatic choices rather than mechanistic truths: we
-  pick Poisson or negative binomial for convenience, not because they describe
-  how reporting really works
+- An observation model is a claim about how cases reach the data. The common
+  choices have a mechanism behind them, and a negative binomial is a Poisson
+  whose rate varies, which is what clustered transmission and uneven reporting
+  both produce
 - The Poisson assumption that variance equals the mean is testable, and
   surveillance data routinely breaks it
 - A negative log-likelihood is a distance function, so choosing an observation
   model is choosing how to measure the gap between prediction and data
 - An observation model that is too tight makes the posterior overconfident.
-  Loosening it widens the intervals honestly and moves the mean, but not towards
-  the days the model fits worst: a mean that is wrong for structural reasons is
-  not fixed by the observation model
+  Loosening it widens the intervals and moves the mean, but a mean that is wrong
+  for structural reasons is not fixed by the observation model
+- Some problems look like observation-model problems and are not. A delay between
+  an event and its report, or a reporting fraction that changes part-way through
+  an outbreak, needs a change to the model rather than a wider likelihood
 
 :::
 
