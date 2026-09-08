@@ -373,7 +373,7 @@ plot!(p_ppc, legend=:topright)
 - Are there systematic patterns the model misses?
 - Does the model capture the variability in the data?
 
-You should see the fit miss badly, and miss on both waves rather than only the second: it settles for a flatter, later, smaller epidemic that splits the difference between them. Hold off on diagnosing why until the exercise at the end of the section.
+You should see the fit miss both waves: it settles for a flatter, later, smaller epidemic that splits the difference between them.
 
 ## Posterior latent quantities
 
