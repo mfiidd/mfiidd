@@ -18,7 +18,8 @@ We want to do this on the basis of **observations** (data), $y$.
 ## Why the state needs its own layer
 
 In a [deterministic]{.alert} model the state is a *function* of the parameters:
-one $\theta$, one trajectory, and $x$ is not something to be inferred.
+one $\theta$, one trajectory, and $x$ is not something that needs to be 
+separately inferred.
 
 . . .
 
@@ -112,7 +113,7 @@ island over eight weeks.
 
 . . .
 
-Two features make it the standard teaching example:
+Two features make it interesting for our purposes:
 
 - **Closed** — nobody arrived or left, so there is no importation to explain
   anything away
@@ -121,7 +122,7 @@ Two features make it the standard teaching example:
 
 . . .
 
-That second wave is the whole problem. A simple SIR model cannot produce it.
+The second wave cannot be reproduced by a simple SIR model.
 
 ## SEITL
 
@@ -130,7 +131,7 @@ That second wave is the whole problem. A simple SIR model cannot produce it.
 . . .
 
 **T** is temporary immunity, and only a fraction $\alpha$ goes on to **L**,
-long-term immunity. The rest return to susceptible — and can drive a second wave.
+long-term immunity. The rest return to susceptible and can drive a second wave.
 
 ## Two independent choices {.smaller}
 
@@ -150,7 +151,7 @@ practical does both so you can see the difference.
 
 ## Why stochastic, here
 
-With 284 people, chance is not a rounding error.
+With 284 people, random events play a relatively large role.
 
 . . .
 
@@ -160,8 +161,7 @@ With 284 people, chance is not a rounding error.
 
 . . .
 
-Demographic noise scales roughly as $1/\sqrt{N}$. On an island of 284 it is a
-first-order effect, and it is why the rest of the course needs heavier machinery.
+Demographic noise scales roughly as $1/\sqrt{N}$.
 
 ## Simulating it: Gillespie {.smaller}
 
@@ -177,7 +177,7 @@ one at a time.
 
 . . .
 
-Exact, and slow. Every infection and recovery is an individual event.
+Exact, but slow. Every infection and recovery is an individual event.
 
 ## SEIT4L: why four compartments {.smaller}
 
@@ -203,7 +203,7 @@ roughly the average duration.
 In the practical you will
 
 - meet the Tristan da Cunha influenza outbreak
-- build the SEITL model, which adds a latent state to the SIR structure
+- build the SEITL model
 - simulate it both deterministically and stochastically
 - see why the stochastic version needs different inference machinery
 
