@@ -25,6 +25,15 @@ Random.seed!(20260908)
 
 const IMAGE_DIR = joinpath(@__DIR__, "..", "sessions", "slides", "images")
 
+## The trace figure runs two PMMH chains with the committed chains' warmup
+## budget, which takes the best part of an hour and wants the machine to itself.
+## Name stages on the command line to run them separately:
+##
+##     julia --project=. scripts/generate_pmcmc_figures.jl trace
+##
+## With no argument every stage runs.
+const STAGES = isempty(ARGS) ? ["noise", "tradeoff", "trace"] : ARGS
+
 ## Deck figures are projected, so they need larger type than a notebook plot.
 default(
     legendfontsize = 11,
@@ -102,6 +111,8 @@ end
 # 1. The estimator is noisy: same θ, different answer every run
 # ---------------------------------------------------------------------------
 
+if "noise" in STAGES
+
 ## 64 against 256: both land on a readable common axis, and the pair brackets
 ## the point where the estimator enters the band the next figure shades. Below
 ## about 32 particles the estimator is heavy-tailed enough that a single unlucky
@@ -161,10 +172,13 @@ vline!(
 )
 
 save_figure(p_noise, "pmmh_likelihood_noise.svg")
+end
 
 # ---------------------------------------------------------------------------
 # 2. The trade-off: noise falls with J, cost rises with J
 # ---------------------------------------------------------------------------
+
+if "tradeoff" in STAGES
 
 const TRADEOFF_PARTICLES = [8, 16, 32, 64, 128, 256, 512, 1024]
 const N_REPS_TRADEOFF = 150
@@ -219,6 +233,7 @@ p_cost = plot(
 
 p_tradeoff = plot(p_sd, p_cost, layout = (1, 2), size = (1100, 460))
 save_figure(p_tradeoff, "pmmh_particle_tradeoff.svg")
+end
 
 # ---------------------------------------------------------------------------
 # 3. What that noise does to the chain
@@ -235,7 +250,7 @@ save_figure(p_tradeoff, "pmmh_particle_tradeoff.svg")
 ## 2000 warmup iterations even the 256-particle chain accepts 3% of proposals,
 ## against the 23% the saved chain reaches. The saved chain cannot supply this
 ## figure itself, being thinned by 50, which erases the plateaus.
-const TRACE_ITERATIONS = 12_000
+const TRACE_ITERATIONS = 8_000
 const TRACE_WARMUP = N_WARMUP
 
 """
@@ -257,6 +272,8 @@ function short_chain(n_particles)
     )
     return chain_frame(chain).R_0, acceptance_rate(chain)
 end
+
+if "trace" in STAGES
 
 trace_few, accept_few = short_chain(16)
 trace_enough, accept_enough = short_chain(256)
@@ -295,11 +312,18 @@ p_sticky = plot(
 )
 
 save_figure(p_sticky, "pmmh_sticky_trace.svg")
-
-println("Reference log-likelihood: ", round(reference, digits = 2))
-for (J, sd, ms) in zip(TRADEOFF_PARTICLES, tradeoff_sd, tradeoff_ms)
-    @printf("  J = %5d   SD %7.2f   %7.1f ms/run\n", J, sd, ms)
 end
-@printf("Acceptance: 16 particles %.1f%%, 256 particles %.1f%%\n",
-    100 * accept_few, 100 * accept_enough)
+
+if "noise" in STAGES
+    println("Reference log-likelihood: ", round(reference, digits = 2))
+end
+if "tradeoff" in STAGES
+    for (J, sd, ms) in zip(TRADEOFF_PARTICLES, tradeoff_sd, tradeoff_ms)
+        @printf("  J = %5d   SD %7.2f   %7.1f ms/run\n", J, sd, ms)
+    end
+end
+if "trace" in STAGES
+    @printf("Acceptance: 16 particles %.1f%%, 256 particles %.1f%%\n",
+        100 * accept_few, 100 * accept_enough)
+end
 println("Written to ", IMAGE_DIR)
