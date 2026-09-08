@@ -107,6 +107,9 @@ The negative log-likelihood of one observation, as a function of how far it sits
 
 ![](images/observation_distance.svg)
 
+The flatter the tail, the less a badly missed day costs.
+Day 7 costs the Poisson about 66 log units and the negative binomial about 8.
+
 ## Today's question
 
 Once you see the likelihood as a distance, an obvious one follows: what if we chose the distance [directly]{.alert}?

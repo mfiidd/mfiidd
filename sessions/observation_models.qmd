@@ -487,6 +487,10 @@ is cheap to evaluate inside MCMC.
 What it does not do is tell you which of those mechanisms was at work, or
 distinguish any of them from a mean that is simply wrong.
 
+The two fits differ in one thing: what they charge the model for a day that
+misses the prediction. That charge is what moved $R_0$, so it is worth looking at
+on its own.
+
 # Interlude: likelihood as distance
 
 ## Likelihood as distance
@@ -527,11 +531,33 @@ plot!(predicted_range, gaussian_distance,
       label="Gaussian(σ=3)", linewidth=2, linestyle=:dash)
 ```
 
-This reveals that different likelihoods are just different ways of measuring distance:
+Each curve is at its lowest where the prediction meets the observation and rises
+as the two part company. What differs is how steeply, and on which side:
 
-- Poisson: Penalises deviations inversely proportional to predicted value
-- Negative Binomial: Similar but allows more flexibility (overdispersion)
-- Gaussian: Constant penalty regardless of scale
+- Poisson: penalises deviations relative to the predicted value rather than in
+  absolute cases, so the same gap costs more at a low prediction than at a high one
+- Negative binomial: the same shape with a much flatter upper tail, so a
+  prediction well below the observation costs little
+- Gaussian: penalises the absolute gap symmetrically, at a cost that does not
+  depend on the size of the counts
+
+That flat tail is what moved the fit. Day 7 of the outbreak reports 47 cases where
+the Poisson fit predicts about 5:
+
+```{julia}
+# What each observation model charges for day 7
+obs_day7, pred_day7 = 47, 5.0
+φ_fit = median(φ_post)
+
+println("Poisson:  ", round(-logpdf(Poisson(pred_day7), obs_day7), digits = 1))
+println("NegBin:   ", round(-logpdf(NegativeBinomial(φ_fit, φ_fit/(φ_fit+pred_day7)),
+                                    obs_day7), digits = 1))
+```
+
+The Poisson is charged about eight times as much for that single day as the
+negative binomial. That is the shift in the comparison table above, seen from the
+observation model rather than from the chain: a likelihood that charges less for
+a badly missed day leaves the parameters freer to go elsewhere.
 
 # Learning points
 
