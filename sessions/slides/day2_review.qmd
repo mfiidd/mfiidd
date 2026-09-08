@@ -4,13 +4,13 @@ title: "Where we have got to"
 subtitle: "Model fitting and inference for infectious disease dynamics"
 ---
 
-## Has the chain converged?
+## Have the chains converged?
 
 ![](images/hairy_caterpillar.jpg){.step}
 
-Straight, plump at both ends, several chains on top of each other. Then put a
-number on it: $\hat{R} = \sqrt{\hat{V}/W}$ compares the variance between chains
-with the variance within them, and wants to be below 1.01.
+Straight, plump at both ends, several chains on top of each other.
+$\hat{R} = \sqrt{\hat{V}/W}$ compares the variance between chains with the
+variance within them. We want this to be below 1.01.
 
 ## Before you see the data
 
@@ -18,8 +18,7 @@ with the variance within them, and wants to be below 1.01.
 
 $\theta^{(i)} \sim p(\theta), \qquad y^{(i)} \sim p(y \mid \theta^{(i)})$
 
-Two hundred draws from our priors, on an island of 284. Most burn through the
-population in a week.
+Two hundred draws from our priors. Most burn through the population in a week.
 
 ## After fitting
 
@@ -40,12 +39,14 @@ small, chance decides how many.
 
 ## Which makes the likelihood an integral
 
-![](images/Big_picture_stochastic_models.png){.step}
+![](images/SEIT4L.jpg){.step}
 
 $$p(\text{data} \mid \theta) = \int_{X} p(\text{data} \mid X, \theta)\, p(X \mid \theta)$$
 
-The state $X$ is hidden and random, so every trajectory the model could have
-taken contributes. That is where today starts.
+Run a [stochastic]{.alert} model twice and you get two different trajectories, so
+the state $X$ is hidden and random and every path it could have taken counts.
+[SEIT4L]{.alert}, with the temporary immunity split four ways, is the version we
+fit from here on. That is where today starts.
 
 ## {{< fa laptop-code >}} Questions? {background-color="#447099" transition="fade-in"}
 
