@@ -8,12 +8,10 @@ subtitle: "Model fitting and inference for infectious disease dynamics"
 
 ![](images/likelihood_data_model_dist.svg){.step}
 
-::: {.fragment}
 Each observation gets a distribution around the model output,
 $p(\text{data point } i \mid \theta)$. If they are conditionally independent given $\theta$:
 
 $$\log p(\text{data} \mid \theta) = \sum_{i} \log p(\text{data point } i \mid \theta)$$
-:::
 
 ##  {.center}
 
@@ -30,14 +28,14 @@ variable, so we can sample from it.
 
 ## Rejection sampling
 
-![](images/RS23.png){.step}
+![](images/rejection_sampling.gif){.step}
 
 It draws from the posterior, but the acceptance rate collapses as the number of
 parameters grows.
 
 ## Metropolis-Hastings
 
-![](images/MH6.png){.step}
+![](images/metropolis_hastings.gif){.step}
 
 Propose $\theta^*$ from where you are, and accept with probability
 
@@ -45,14 +43,12 @@ $$r = \min\left(1, \frac{f(\theta^*)\,q(\theta \mid \theta^*)}{f(\theta)\,q(\the
 
 ## NUTS
 
-Random-walk proposals ignore the shape of the posterior. Hamiltonian Monte
-Carlo uses the **gradient** to move with it, and [NUTS]{.alert} adapts the step
-size and stops each trajectory when it turns back on itself.
+![](images/nuts.gif){.step}
 
-::: {.fragment}
-Usually no proposal tuning at all, and therefore a sensible default if it can
-be used.
-:::
+Hamiltonian Monte Carlo uses the **gradient** to move with the shape of the
+posterior, and [NUTS]{.alert} adapts the step size and stops each trajectory
+when it turns back on itself. Usually no proposal tuning at all, and therefore
+a sensible default if it can be used.
 
 ## {{< fa laptop-code >}} Questions? {background-color="#447099" transition="fade-in"}
 
