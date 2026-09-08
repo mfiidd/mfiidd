@@ -96,8 +96,6 @@ We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 The transmission model is the SIR model from the earlier sessions, and $\rho$, the
 fraction of infections that are reported, is the one the
 [model checking session](model_checking.qmd) fitted.
-Neither of them changes in this session.
-What changes is the distribution we put around the prediction $\rho \cdot I_t$.
 
 These two functions live in [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl) and arrived with `using MFIIDD` above.
 
@@ -122,7 +120,6 @@ init_state = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
 ```
 
 Each fit below is checked against the data with a posterior predictive interval.
-The [model checking session](model_checking.qmd) covers what else those checks
 can tell you.
 
 # The Poisson likelihood
@@ -178,7 +175,7 @@ summarystats(chain_poisson)
 
 ## Does it reproduce the data?
 
-Each fit is checked the same way, so the check is worth writing once.
+Each fit is checked the same way.
 
 ```{julia}
 #| output: false
@@ -476,7 +473,7 @@ println("φ posterior: median $(round(median(φ_post), digits = 2)), ",
 
 ## Why the negative binomial?
 
-There is a mechanism behind it. A negative binomial is a Poisson whose rate
+A negative binomial is a Poisson whose rate
 varies from day to day with a gamma distribution, so it is what you get when the
 reporting rate is not constant and you have not modelled why. Clustered
 transmission produces the same shape: household outbreaks and superspreading
@@ -489,7 +486,6 @@ is cheap to evaluate inside MCMC.
 What it does not do is tell you which of those mechanisms was at work, or
 distinguish any of them from a mean that is simply wrong.
 
-Either way, the choice between the two is a choice about how much a departure
 from the prediction should cost, which is the subject of the next section.
 
 # Interlude: likelihood as distance
