@@ -27,8 +27,8 @@ population in a week.
 
 $\theta^{(i)} \sim p(\theta \mid y), \qquad y^{\text{rep},(i)} \sim p(y \mid \theta^{(i)})$
 
-The fitted SIR model produces the first wave and has nothing to say about the
-second.
+The fit misses both waves: a flatter, later, smaller epidemic that splits the
+difference between them.
 
 ## Tristan da Cunha, 1971
 
