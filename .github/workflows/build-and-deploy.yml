@@ -2,6 +2,11 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   workflow_dispatch:
+    inputs:
+      full_rerender:
+        description: 'Ignore the execution cache and re-run every session'
+        type: boolean
+        default: false
   schedule:
     - cron: '0 0 1 * *'  # Run at 00:00 on the 1st of every month
   push:
@@ -50,6 +55,30 @@ jobs:
               julia --project="$env" -e 'using Pkg; Pkg.instantiate()'
             fi
           done
+
+      # `freeze: auto` in _quarto.yml re-executes a session only when its own
+      # .qmd changes, so restoring _freeze/ from an earlier run means a slides
+      # or prose edit no longer pays for every other session's Julia.
+      #
+      # Freeze watches the source document alone. It has no idea that a session
+      # calls into src/, reads data/, or resolves against the Manifest, so a
+      # change to any of those would be served stale from the cache. Those files
+      # are hashed into the key instead: change one and no cache is restored,
+      # which is the full re-render. Add to this list anything else a session
+      # reads at execution time.
+      - name: Restore execution cache
+        if: inputs.full_rerender != true
+        uses: actions/cache@v4
+        with:
+          path: _freeze
+          key: >-
+            freeze-${{ runner.os }}-${{ hashFiles(
+              'src/**', 'Project.toml', 'Manifest.toml',
+              'data/**', '_quarto.yml') }}-${{ github.sha }}
+          restore-keys: >-
+            freeze-${{ runner.os }}-${{ hashFiles(
+              'src/**', 'Project.toml', 'Manifest.toml',
+              'data/**', '_quarto.yml') }}-
 
       - name: Render site
         run: quarto render
