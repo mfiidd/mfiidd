@@ -23,8 +23,10 @@ $$p(\theta \mid \text{data}) \propto p(\text{data} \mid \theta)\, p(\theta)$$
 
 ![](images/rs_n_00100000.png){.step}
 
-$p(\theta \mid \text{data})$ is the probability distribution of a random
-variable, so we can sample from it.
+We want means, quantiles, forecasts, scenarios, and a mechanistic model gives us
+none of them in closed form. Draws $\theta_1, \theta_2, \ldots$ from
+$p(\theta \mid \text{data})$ give all of them: average them, take their
+quantiles, or run the model once for each draw.
 
 ## Rejection sampling
 
