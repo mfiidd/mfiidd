@@ -168,11 +168,6 @@ This is **sequential Monte Carlo**, better known as **particle filtering**.
 [$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j} w_{t,j}$]{.fragment fragment-index=18}
 :::
 
-::: {.cite}
-Four particles here. Red diamonds are the data, yellow circles the particles,
-sized by weight, struck through when nobody resampled them.
-:::
-
 ## Why resample?
 
 ![](images/pf_degeneracy.svg){.pfwide}
@@ -203,10 +198,8 @@ the same $\theta$ and you get two different numbers.
 
 . . .
 
-Tune $J$ against the spread of $\log \hat{p}$ at a representative $\theta$, near
-the posterior mode. Too noisy and the chain sticks for long stretches on a lucky
-estimate; too precise and you are buying particles rather than mixing. You
-measure it in the practical.
+How noisy is too noisy? Measure the spread of $\log \hat{p}$ at one $\theta$, and
+pick $J$ from that. You do this in the practical.
 
 ## The whole thing, in code {.smaller .scrollable}
 
