@@ -290,15 +290,6 @@ Pass `simulate` to choose how the trajectory is produced.
 end
 ```
 
-Each prior is centred on what the influenza literature reports, and its spread sets how far the parameter may travel before the data have to argue for it.
-$R_0$ is centred on 3, and a standard deviation of 2 puts 95% of the prior between 1.2 and 7.1, which covers influenza comfortably.
-The truncation at 1 is a mechanical bound rather than a belief, because below 1 there is no epidemic to fit.
-The latent and infectious periods are centred on two and three days, with standard deviations of one and two days, giving central intervals of roughly 0.7 to 4 days and 0.7 to 7 days.
-A day or two of latitude is the right amount for a quantity the literature pins down to the nearest day and no closer.
-Temporary immunity is centred on a fortnight with a standard deviation of 10 days, spanning 2 to 35 days, which is close to uninformative on the scale of the parameter and deliberately so, because it is the one we know least about.
-The `Beta(2, 2)` on $\alpha$ and $\rho$ covers the whole unit interval while pulling gently away from 0 and 1, where a proportion of none or all of the population is implausible.
-These are weakly informative priors: they rule out parameter values no influenza outbreak would produce, and leave the rest to the data.
-
 The simulator arrives as a keyword argument.
 The priors, the parameter dictionary and the Poisson observation process do not depend on how the trajectory is produced, so the two modelling choices set out above are orthogonal in the code as well as in the prose.
 
