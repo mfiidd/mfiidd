@@ -65,10 +65,6 @@ itself a product over the days:
 $$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} \prod_{t=1}^{T} w_{t,j},
 \qquad w_{t,j} = p(y_t \mid x_{t,j}, \theta)$$
 
-. . .
-
-Unbiased, and hopeless.
-
 ## Two hundred trajectories, an effective two {.smaller}
 
 ![](images/pf_naive_monte_carlo.svg){.pfwide}
