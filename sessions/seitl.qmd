@@ -16,7 +16,7 @@ order: 5
 > **Entering the stochastic tier**: You've completed the core sessions with deterministic ODE models, and diagnosed an SIR model that could not reproduce the Tristan da Cunha outbreak. This session builds a model that can, and introduces stochastic simulation. Fitting resumes in Particle Filters.
 
 We have a model, we ran posterior predictive checks on it, and it went wrong.
-So we change something. This session is about the two things there are to change, and they are independent of each other.
+So we change something. This session is about the two changes that we'll make to our SIR model.
 
 **We add a mechanism.**
 The SIR model cannot infect anybody twice, and the outbreak infected 92 islanders twice.
