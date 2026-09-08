@@ -29,7 +29,7 @@ The parameters are not the problem. [Two]{.alert} changes to the SIR model:
 
 . . .
 
-They are independent. This session does all four combinations.
+They are independent. This session makes each in turn.
 
 # The state-space view
 
