@@ -114,8 +114,9 @@ $$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
 . . .
 
-Today's score is banked *before* anyone is thrown away, which is why discarding
-bad particles does not flatter the answer.
+Step 3 averages over **all** $J$ particles, including the ones step 4 is about to
+discard. Pruning decides where tomorrow starts; it does not change what today
+scored. So keeping only the good particles cannot inflate the likelihood.
 
 . . .
 
@@ -147,9 +148,29 @@ This is **sequential Monte Carlo**, better known as **particle filtering**.
 ![](images/particle_filter_19.svg){.pfwide .fragment fragment-index=18}
 :::
 
+::: {.r-stack}
+[[**Initialise**]{.alert} $x_0 \sim p(x_0 \mid \theta), \quad w_0 = 1/J$]{.fragment .current-visible fragment-index=2}
+[[**Propagate**]{.alert} $x_1 \sim p(x_1 \mid x_0, \theta)$]{.fragment .current-visible fragment-index=3}
+[[**Weight**]{.alert} $w_1 = p(y_1 \mid x_1, \theta)$]{.fragment .current-visible fragment-index=4}
+[[**Resample**]{.alert} in proportion to $w_1$]{.fragment .current-visible fragment-index=5}
+[[**Propagate**]{.alert} $x_2 \sim p(x_2 \mid x_1, \theta)$]{.fragment .current-visible fragment-index=6}
+[[**Weight**]{.alert} $w_2 = p(y_2 \mid x_2, \theta)$]{.fragment .current-visible fragment-index=7}
+[[**Resample**]{.alert} in proportion to $w_2$]{.fragment .current-visible fragment-index=8}
+[[**Propagate**]{.alert} $x_3 \sim p(x_3 \mid x_2, \theta)$]{.fragment .current-visible fragment-index=9}
+[[**Weight**]{.alert} $w_3 = p(y_3 \mid x_3, \theta)$]{.fragment .current-visible fragment-index=10}
+[[**Resample**]{.alert} in proportion to $w_3$]{.fragment .current-visible fragment-index=11}
+[[**Propagate**]{.alert} $x_4 \sim p(x_4 \mid x_3, \theta)$]{.fragment .current-visible fragment-index=12}
+[[**Weight**]{.alert} $w_4 = p(y_4 \mid x_4, \theta)$]{.fragment .current-visible fragment-index=13}
+[[**Resample**]{.alert} in proportion to $w_4$]{.fragment .current-visible fragment-index=14}
+[[**Propagate**]{.alert} $x_5 \sim p(x_5 \mid x_4, \theta)$]{.fragment .current-visible fragment-index=15}
+[[**Weight**]{.alert} $w_5 = p(y_5 \mid x_5, \theta)$]{.fragment .current-visible fragment-index=16}
+[[**Resample**]{.alert} in proportion to $w_5$]{.fragment .current-visible fragment-index=17}
+[$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j} w_{t,j}$]{.fragment fragment-index=18}
+:::
+
 ::: {.cite}
-Red diamonds are the data, yellow circles the particles, sized by weight. Struck
-through when nobody resampled them.
+Four particles here. Red diamonds are the data, yellow circles the particles,
+sized by weight, struck through when nobody resampled them.
 :::
 
 ## Why resample?
