@@ -23,10 +23,7 @@ $$p(\theta \mid \text{data}) \propto p(\text{data} \mid \theta)\, p(\theta)$$
 
 ![](images/rs_n_00100000.png){.step}
 
-We want means, quantiles, forecasts, scenarios, and a mechanistic model gives us
-none of them in closed form. Draws $\theta_1, \theta_2, \ldots$ from
-$p(\theta \mid \text{data})$ give all of them: average them, take their
-quantiles, or run the model once for each draw.
+Samples $\theta_1$, $\theta_2$, $\theta_3$, $\ldots$ let us calculate parameter means, quantiles etc. and make predictions from the model.
 
 ## Rejection sampling
 
