@@ -6,7 +6,7 @@ subtitle: "Model fitting and inference for infectious disease dynamics"
 
 # Observation models
 
-## The choice we have been making silently
+## The choice we have been making so far
 
 Every likelihood in this course so far has assumed
 
@@ -97,7 +97,7 @@ The negative log-likelihood of one observation, as a function of how far it sits
 
 ![](images/observation_distance.svg)
 
-## Tonight's question
+## Today's question
 
 Once you see the likelihood as a distance, an obvious one follows: what if we chose the distance [directly]{.alert}?
 

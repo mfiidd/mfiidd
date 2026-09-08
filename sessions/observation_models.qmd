@@ -120,7 +120,6 @@ init_state = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
 ```
 
 Each fit below is checked against the data with a posterior predictive interval.
-can tell you.
 
 # The Poisson likelihood
 
@@ -367,8 +366,8 @@ end
 p
 ```
 
-The extra variance grows with the *square* of the mean, so a busy day is allowed
-to be further out than a quiet one.
+The extra variance grows with the *square* of the mean, so a day with a high
+predicted count is allowed to fall further from it than a day with a low one.
 
 Everything else the Poisson assumed still holds. Observations are conditionally
 independent given the trajectory, and the same fraction of infections is reported
@@ -473,9 +472,9 @@ println("φ posterior: median $(round(median(φ_post), digits = 2)), ",
 
 ## Why the negative binomial?
 
-A negative binomial is a Poisson whose rate
-varies from day to day with a gamma distribution, so it is what you get when the
-reporting rate is not constant and you have not modelled why. Clustered
+A negative binomial is a Poisson whose rate varies from day to day with a gamma
+distribution, so it is what you get when the reporting rate is not constant and
+you have not modelled why. Clustered
 transmission produces the same shape: household outbreaks and superspreading
 events deliver several cases at once, so counts vary more than independent
 arrivals would.
@@ -485,8 +484,6 @@ is cheap to evaluate inside MCMC.
 
 What it does not do is tell you which of those mechanisms was at work, or
 distinguish any of them from a mean that is simply wrong.
-
-from the prediction should cost, which is the subject of the next section.
 
 # Interlude: likelihood as distance
 
