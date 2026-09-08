@@ -92,7 +92,6 @@ Under a negative binomial the same day is merely unusual, so the intervals widen
 
 The interval widens and the estimate moves.
 $D_\mathrm{inf}$ moves too, from about 3.3 days to 6.8.
-A single-wave model still cannot fit a two-wave outbreak.
 
 ## Likelihood as a distance
 
