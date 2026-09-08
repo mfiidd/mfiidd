@@ -4,20 +4,14 @@ title: "Particle MCMC"
 subtitle: "Fitting parameters of stochastic models"
 ---
 
-# Plugging in an estimated likelihood
-
 ## Where we got to
 
-![](images/pf_3_weight.png){.mini}
+![](images/particle_filter_19.svg){.pfwide}
 
-The filter gives an estimate of the marginal likelihood at **one** value of
-$\theta$:
+$$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
-$$\hat{p}(y \mid \theta) = \prod_{t} \Big( \frac{1}{J}\sum_{j=1}^{J} w_{t,j} \Big)$$
-
-. . .
-
-We want the **posterior** over $\theta$.
+An estimate of the marginal likelihood at **one** $\theta$. We want the
+**posterior** over $\theta$.
 
 ## The obvious idea
 
@@ -134,7 +128,8 @@ stochastic trajectory leaves the observations dependent given $\theta$.
 
 . . .
 
-[The structure of the model chooses the criterion.]{.alert}
+[The criterion that is appropriate for model comparison is determined by the
+structure of the model.]{.alert}
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
@@ -144,7 +139,8 @@ In the practical you will
 - run a short chain and see the poor mixing for yourself
 - vary the particle count and watch the trade-off appear
 - work with a pre-computed long chain, and compare against the deterministic fit
-- fit SEIT4L as well, and separate the two with DIC and a predictive check
+- compare SEITL against SEIT4L, from the pre-computed chains, with DIC and a
+  posterior predictive check
 
 
 # Appendix: why PMMH is exact
