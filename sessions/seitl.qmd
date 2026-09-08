@@ -267,15 +267,13 @@ Pass `simulate` to choose how the trajectory is produced.
     # is the incidence over the day the i-th observation counts
     @assert length(times) == n_obs + 1 "times must have one more point than there are observations"
 
-    # Deliberately wide priors — we want the data to drive inference
-    # rather than our prior beliefs. These ranges are generous enough
-    # to include all plausible parameter values for influenza.
-    R_0 ~ Uniform(1.0, 50.0)
-    D_lat ~ Uniform(0.1, 10.0)
-    D_inf ~ Uniform(0.1, 15.0)
-    α ~ Uniform(0.0, 1.0)
-    D_imm ~ Uniform(1.0, 50.0)
-    ρ ~ Uniform(0.0, 1.0)
+    # Weakly informative priors
+    R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
+    D_lat ~ truncated(Normal(2.0, 1.0), lower=0.5)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower=0.5)
+    α ~ Beta(2, 2)
+    D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
+    ρ ~ Beta(2, 2)
 
     # Create parameter dictionary
     θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf,
@@ -427,6 +425,9 @@ scatter!(p, flu_tdc.time, flu_tdc.obs,
 
 plot!(p)
 ```
+
+Every draw is a plausible outbreak, rising over the first week or two to a peak of between 10 and 25 reported cases before a long and noisy decline.
+That is what you want to see from a prior predictive draw, and it is the reason for looking before you fit.
 
 Notice how the same `@model` definition can be used for both simulation (here) and inference (in the [Particle MCMC session](pmcmc.qmd)).
 
@@ -752,7 +753,7 @@ Throughout this session, you've defined models using the `@model` macro with the
 ```julia
 @model function my_model(times, init_state, n_obs)
     # 1. Define priors
-    R_0 ~ Uniform(1.0, 50.0)
+    R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
     # ... other parameters
 
     # 2. Simulate trajectory
