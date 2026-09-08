@@ -348,7 +348,7 @@ where $\mu_t = \rho \cdot I_t$ and $\phi$ controls the overdispersion. Large $\p
 recovers the Poisson, and small $\phi$ gives a much wider spread at the same mean.
 
 ```{julia}
-# The same mean, three spreads
+# The same mean, three observation models
 counts = 0:80
 p = plot(title="Same mean of 20, different spreads",
          xlabel="Count", ylabel="Probability")
