@@ -72,52 +72,51 @@ $$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} \prod_{t=1}^{T} w_{t,j},
 Each $x_j$ is simulated **blind**, so passing near all 59 observations at once is
 vanishingly rare.
 
+## Lucky once, not fifty-nine times
+
+A blind trajectory has to match the data on **all 59 days at once**. One day is
+easy; fifty-nine in a row is not, and that is the collapse you just saw.
+
+. . .
+
+So stop asking for it. Score the particles one day at a time, and at the end of
+each day throw away the ones the data have ruled out.
+
+. . .
+
+Every day then starts from trajectories that are still plausible, so the model is
+only ever asked to be lucky **once**.
+
 ## One factor per observation {.smaller}
 
-After a resampling step every particle carries weight $1/J$ again. So at each
-observation:
+The likelihood already breaks into one-day-ahead forecasts:
 
-1. propagate each particle one day
-2. weight it, $w_{t,j} = p(y_t \mid x_{t,j}, \theta)$
-3. average, giving that day's factor
-4. resample in proportion to $w_{t,j}$, which returns every weight to $1/J$
+$$p(y \mid \theta) = p(y_1 \mid \theta)\; p(y_2 \mid y_1, \theta) \cdots
+p(y_T \mid y_{1:T-1}, \theta)$$
+
+Each factor asks the same question: *given everything so far, how well did the
+model predict today?*
+
+. . .
+
+The particles are our ensemble of guesses about where the epidemic actually is.
+So each day:
+
+1. propagate every particle one day
+2. weight it by how well it predicted today, $w_{t,j} = p(y_t \mid x_{t,j}, \theta)$
+3. **average those weights — that is today's factor**
+4. resample in proportion to $w_{t,j}$, and go again
+
+. . .
+
+**Score first, prune second.** Today's score is banked before anyone is thrown
+away, which is why discarding bad particles does not flatter the answer.
 
 $$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
 . . .
 
-Step 3 is an *unweighted* average, and can be, because step 4 left the particles
-equally weighted. Earlier observations act through **which particles are still
-there**, not through a weight carried forward.
-
-. . .
-
 This is **sequential Monte Carlo**, better known as **particle filtering**.
-
-## Two estimators, two sets of trajectories {.smaller}
-
-$$\underbrace{\frac{1}{J}\sum_{j} \prod_{t} w_{t,j}}_{\text{simulate blind}}
-\qquad\text{against}\qquad
-\underbrace{\prod_{t} \frac{1}{J}\sum_{j} w_{t,j}}_{\text{filter}}$$
-
-This looks like a reordering. It is not: $w_{t,j}$ means a different thing on
-each side.
-
-. . .
-
-On the left, $x_j$ is a whole path drawn from $p(x \mid \theta)$, and the data
-never touch it.
-
-. . .
-
-On the right, the particles at day $t$ have already been resampled on days $1$ to
-$t-1$. They are no longer draws from $p(x \mid \theta)$ — the data have picked
-them.
-
-. . .
-
-Both are unbiased. The variance of the one on the left grows **exponentially in
-$T$**, which is the collapse you just saw.
 
 # The particle filter
 
