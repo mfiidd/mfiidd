@@ -36,7 +36,6 @@ Weekend effects, reporting delays, outbreak investigations and clustered transmi
 ![](images/observation_poisson_spread.svg)
 
 The mean fixes the spread.
-There is nothing left to adjust.
 
 ## Overdispersion
 
