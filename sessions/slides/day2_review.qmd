@@ -29,15 +29,7 @@ $\theta^{(i)} \sim p(\theta \mid y), \qquad y^{\text{rep},(i)} \sim p(y \mid \th
 The fit misses both waves: a flatter, later, smaller epidemic that splits the
 difference between them.
 
-## Tristan da Cunha, 1971
-
-![](images/TdC.png){.step}
-
-284 people and two waves. [SEITL]{.alert} adds temporary immunity so that a
-fraction of those infected return to susceptible — and in a population this
-small, chance decides how many.
-
-## Which makes the likelihood an integral
+## A stochastic model makes the likelihood an integral
 
 ![](images/SEIT4L.jpg){.step}
 
