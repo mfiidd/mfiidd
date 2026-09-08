@@ -49,8 +49,6 @@ $$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta)\, p(x \mid \theta)$$
 Now $x$ is no longer known, and the number of possible trajectories is
 potentially astronomical — every combination of every event at every time.
 
-We cannot enumerate them.
-
 ## Monte Carlo, first attempt
 
 Sample $J$ trajectories from the model and average the likelihood of the data
