@@ -267,15 +267,9 @@ Pass `simulate` to choose how the trajectory is produced.
     # is the incidence over the day the i-th observation counts
     @assert length(times) == n_obs + 1 "times must have one more point than there are observations"
 
-    # Deliberately wide priors — we want the data to drive inference
-    # rather than our prior beliefs. These ranges are generous enough
-    # to include all plausible parameter values for influenza.
-    R_0 ~ Uniform(1.0, 50.0)
-    D_lat ~ Uniform(0.1, 10.0)
-    D_inf ~ Uniform(0.1, 15.0)
-    α ~ Uniform(0.0, 1.0)
-    D_imm ~ Uniform(1.0, 50.0)
-    ρ ~ Uniform(0.0, 1.0)
+    # Weakly informative priors
+    priors ~ to_submodel(seitl_priors(), false)
+    (; R_0, D_lat, D_inf, α, D_imm, ρ) = priors
 
     # Create parameter dictionary
     θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf,
@@ -291,6 +285,23 @@ Pass `simulate` to choose how the trajectory is produced.
     return traj
 end
 ```
+
+The priors come from the course package, as a submodel that `to_submodel` splices in:
+
+```{julia}
+#| echo: false
+#| output: asis
+println("```julia\n", source_for(seitl_priors), "\n```")
+```
+
+Each prior is centred on what the influenza literature reports, and its spread sets how far the parameter may travel before the data have to argue for it.
+$R_0$ is centred on 3, and a standard deviation of 2 puts 95% of the prior between 1.2 and 7.1, which covers influenza comfortably.
+The truncation at 1 is a mechanical bound rather than a belief, because below 1 there is no epidemic to fit.
+The latent and infectious periods are centred on two and three days, with standard deviations of one and two days, giving central intervals of roughly 0.7 to 4 days and 0.7 to 7 days.
+A day or two of latitude is the right amount for a quantity the literature pins down to the nearest day and no closer.
+Temporary immunity is centred on a fortnight with a standard deviation of 10 days, spanning 2 to 35 days, which is close to uninformative on the scale of the parameter and deliberately so, because it is the one we know least about.
+The `Beta(2, 2)` on $\alpha$ and $\rho$ covers the whole unit interval while pulling gently away from 0 and 1, where a proportion of none or all of the population is implausible.
+These are weakly informative priors: they rule out parameter values no influenza outbreak would produce, and leave the rest to the data.
 
 The simulator arrives as a keyword argument.
 The priors, the parameter dictionary and the Poisson observation process do not depend on how the trajectory is produced, so the two modelling choices set out above are orthogonal in the code as well as in the prose.
@@ -427,6 +438,9 @@ scatter!(p, flu_tdc.time, flu_tdc.obs,
 
 plot!(p)
 ```
+
+The draws all give plausible outbreaks, a wave rising over the first two or three weeks and largely decayed by the end of the two months of data.
+That is what you want to see from a prior predictive draw, and it is the reason for looking before you fit.
 
 Notice how the same `@model` definition can be used for both simulation (here) and inference (in the [Particle MCMC session](pmcmc.qmd)).
 
@@ -752,7 +766,7 @@ Throughout this session, you've defined models using the `@model` macro with the
 ```julia
 @model function my_model(times, init_state, n_obs)
     # 1. Define priors
-    R_0 ~ Uniform(1.0, 50.0)
+    R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
     # ... other parameters
 
     # 2. Simulate trajectory
@@ -814,5 +828,20 @@ Particle filters solve this by running many stochastic simulations simultaneousl
 # Going further
 
 * Curious about why we use the Poisson likelihood for count data? Have a look at the bottom of page 3 of this [reference](../references/poisson_obs.pdf) from Germán Rodríguez' [lecture notes on generalized linear models](https://grodri.github.io/glms/notes/).
-* **Stochastic SEIT4L**: We implemented a stochastic version of SEITL but not SEIT4L. As an exercise, try implementing `simulate_seit4l_stochastic` by extending the Gillespie algorithm with additional transitions for the T1→T2→T3→T4 sub-stages. The stoichiometry matrix will need 7 transitions instead of 5.
+* **Stochastic SEIT4L**: We simulated SEITL stochastically but reached for the deterministic SEIT4L. Try writing `simulate_seit4l_stochastic` yourself, extending the Gillespie algorithm with the T1→T2→T3→T4 sub-stages. The stoichiometry needs eight transitions where SEITL needs five. Then run it many times beside `simulate_seitl_stochastic` at the same parameters and compare the spread of the second wave.
+
+::: {.callout-tip title="Solution" collapse="true"}
+The package ships this simulator, and the code below is that function rather than a copy of it, so it cannot drift from what `MFIIDD` actually runs.
+
+```{julia}
+#| echo: false
+#| output: asis
+println("```julia\n", source_for(simulate_seit4l_stochastic), "\n```")
+```
+
+The day-by-day loop is the one `simulate_seitl_stochastic` uses, over nine columns instead of seven, and the eight transitions live in `gillespie_step_seit4l!` rather than being written out again.
+
+What to notice when you compare the two: splitting T into four sub-stages makes the time an individual spends temporarily immune *less* variable, because an Erlang-4 duration is more tightly concentrated than an exponential one with the same mean. Individuals therefore return to susceptibility in a tighter band, so the second wave is sharper and its timing more repeatable across runs, where SEITL smears it out.
+:::
+
 * You might wonder why we only modified the distribution of the $T$ compartment. Indeed, wouldn't it be more realistic to use Erlang distributions for all the other compartments? And why did we use a shape equal to 4 and not 2 or 100? Think about another variant of the SEITL model and implement it by modifying the original version in a similar way as we did for the SEIT4L model. Does it fit the data better?

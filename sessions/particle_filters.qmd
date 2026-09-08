@@ -150,7 +150,7 @@ The particle filter needs to simulate many stochastic trajectories.
 We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), adapted here for the SEIT4L model with its four T compartments.
 The implementation below is shown from the package source rather than repeated by
 hand, so that the page and the code cannot drift apart. This is the function
-`SEIT4LDynamics` calls once per particle per day:
+`SEITLDynamics` calls once per particle per day:
 
 ::: {.callout-note collapse="true"}
 ## Gillespie step implementation
@@ -352,16 +352,16 @@ For production use, we define the model using the [SSMProblems.jl](https://turin
 
 A state-space model has three components:
 
-1. **Initial state distribution** (`SEIT4LInitial`) - where does the system start?
-2. **Transition dynamics** (`SEIT4LDynamics`) - how does the state evolve? (uses `gillespie_step`)
+1. **Initial state distribution** (`SEITLInitial`) - where does the system start?
+2. **Transition dynamics** (`SEITLDynamics`) - how does the state evolve? (the stage count is declared when it is built, and dispatch picks the Gillespie stepper from it)
 3. **Observation process** (`PoissonObservation`) - how do observations relate to the state?
 
-Here is the full interface implementation (defined in [`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl)). Each type carries a docstring spelling out its state vector and the method it implements — useful for reference once you've read the prose above.
+Here is the full interface implementation (defined in [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl)). Each type carries a docstring spelling out its state vector and the method it implements — useful for reference once you've read the prose above.
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_ssm_interface.jl"), "\n```")
+println("```julia\n", source_for("seitl_ssm_interface.jl"), "\n```")
 ```
 
 ::: {.callout-tip collapse="true"}
@@ -369,21 +369,21 @@ println("```julia\n", source_for("seit4l_ssm_interface.jl"), "\n```")
 
 A few Julia features worth unpacking:
 
-- `struct SEIT4LDynamics <: SSMProblems.LatentDynamics` defines a new type — a small container that holds some data (here, the parameter dictionary `θ`). The `<:` means "is a subtype of". `SSMProblems.LatentDynamics` is an *abstract type*: it has no fields of its own, and exists purely to mark "this thing plays the role of a latent-dynamics model". By declaring our struct a subtype, we tell `SSMProblems.jl` that our type fills that role. The same pattern applies to `SEIT4LInitial <: SSMProblems.StatePrior` and `PoissonObservation <: SSMProblems.ObservationProcess`.
+- `struct SEITLDynamics <: SSMProblems.LatentDynamics` defines a new type — a small container that holds some data (here, the parameter dictionary `θ`). The `<:` means "is a subtype of". `SSMProblems.LatentDynamics` is an *abstract type*: it has no fields of its own, and exists purely to mark "this thing plays the role of a latent-dynamics model". By declaring our struct a subtype, we tell `SSMProblems.jl` that our type fills that role. The same pattern applies to `SEITLInitial <: SSMProblems.StatePrior` and `PoissonObservation <: SSMProblems.ObservationProcess`.
 
-- Inside the particle filter, `SSMProblems.jl` calls `simulate(rng, dyn, ...)` and `distribution(obs, ...)` on whatever types it's given. The `dyn::SEIT4LDynamics` annotation on our function definition tells Julia "use this version when `dyn` is one of ours", so our code gets plugged in automatically. We implement `simulate` for the latent dynamics (how the state evolves one step) and for the initial state (how to draw the first state). For the observation model we instead implement `distribution`, which returns a `Distributions.jl` distribution describing how observations arise from a given state.
+- Inside the particle filter, `SSMProblems.jl` calls `simulate(rng, dyn, ...)` and `distribution(obs, ...)` on whatever types it's given. The `dyn::SEITLDynamics` annotation on our function definition tells Julia "use this version when `dyn` is one of ours", so our code gets plugged in automatically. We implement `simulate` for the latent dynamics (how the state evolves one step) and for the initial state (how to draw the first state). For the observation model we instead implement `distribution`, which returns a `Distributions.jl` distribution describing how observations arise from a given state.
 
 - `rng::AbstractRNG` is Julia's abstract random number generator type. Any concrete RNG (the default one, a seeded Mersenne twister, etc.) counts. Threading the `rng` through every simulation step is what lets the particle filter control randomness — set the seed once and you get reproducible particles.
 
 - `kwargs...` at the end of a function signature means "accept any additional keyword arguments". We don't use them here, but `SSMProblems.jl` may pass extra keyword arguments depending on the filter being used, so our methods need to accept them without complaining.
 
-- `vcat(prior.init_state, 0.0)` appends `0.0` to the 8-element state vector to make a 9-element vector. We use the 9th slot to track daily incidence, because the observation process needs to see it. `collect(prev_state[1:8])` grabs the first 8 elements (the compartments) and copies them into a plain `Vector` — some inputs arrive as views or other array-like types, and `gillespie_step` wants a concrete vector.
+- `vcat(prior.init_state, 0.0)` appends `0.0` to the compartment vector to make it one element longer. We use that last slot to track daily incidence, because the observation process needs to see it. `collect(prev_state[1:(end - 1)])` drops it again and copies the compartments into a plain `Vector` — some inputs arrive as views or other array-like types, and the Gillespie steppers want a concrete vector.
 :::
 
 How the pieces fit together:
 
 - The state vector is [S, E, I, T1, T2, T3, T4, L, daily_inc] - the 9th element tracks daily incidence for the observation process
-- `SEIT4LDynamics` wraps the Gillespie simulator, calling `gillespie_step` each day
+- `SEITLDynamics` wraps the Gillespie simulator, calling one step of it each day
 - `PoissonObservation` assumes observed cases follow Poisson(ρ × true_incidence)
 
 ## Running the bootstrap particle filter
@@ -393,7 +393,7 @@ The `run_particle_filter` function assembles the SSM components and runs the boo
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_runner.jl"), "\n```")
+println("```julia\n", source_for("seitl_runner.jl"), "\n```")
 ```
 
 This ties everything together: the initial state, Gillespie dynamics, and Poisson observations form a `StateSpaceModel`, which the bootstrap filter (`BF`) processes to estimate the log-likelihood.

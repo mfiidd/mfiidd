@@ -238,6 +238,70 @@ function simulate_seit4l_deterministic(θ, init_state, times)
     return df
 end
 
+"""
+    simulate_seit4l_stochastic(θ, init_state, times; rng = Random.default_rng())
+
+Simulate the stochastic SEIT4L model using the Gillespie algorithm.
+
+The Erlang-4 transitions are the ones in [`gillespie_step`](@ref), which the
+particle filter also calls, so the simulator on the page and the simulator
+inside the filter are the same code.
+
+# Arguments
+- `θ`: Dict with keys :R_0, :D_lat, :D_inf, :α, :D_imm
+- `init_state`: Dict with keys :S, :E, :I, :T1, :T2, :T3, :T4, :L
+- `times`: Time points (assumed daily: 0, 1, 2, ...)
+- `rng`: Random number generator, for a reproducible trajectory
+
+# Returns
+DataFrame with columns: time, S, E, I, T1, T2, T3, T4, L, Inc (daily incidence)
+"""
+function simulate_seit4l_stochastic(
+    θ,
+    init_state,
+    times;
+    rng::AbstractRNG = Random.default_rng(),
+)
+    ## State: [S, E, I, T1, T2, T3, T4, L]
+    state = Float64[
+        init_state[:S],
+        init_state[:E],
+        init_state[:I],
+        init_state[:T1],
+        init_state[:T2],
+        init_state[:T3],
+        init_state[:T4],
+        init_state[:L],
+    ]
+
+    n_days = length(times)
+    results = DataFrame(
+        time = collect(times),
+        S = zeros(n_days),
+        E = zeros(n_days),
+        I = zeros(n_days),
+        T1 = zeros(n_days),
+        T2 = zeros(n_days),
+        T3 = zeros(n_days),
+        T4 = zeros(n_days),
+        L = zeros(n_days),
+        Inc = zeros(n_days),
+    )
+
+    for (i, t) in enumerate(times)
+        results.S[i], results.E[i], results.I[i] = state[1], state[2], state[3]
+        results.T1[i], results.T2[i] = state[4], state[5]
+        results.T3[i], results.T4[i] = state[6], state[7]
+        results.L[i] = state[8]
+        if i < n_days
+            dt = Float64(times[i + 1] - t)
+            results.Inc[i + 1] = gillespie_step_seit4l!(rng, state, θ, dt)
+        end
+    end
+
+    return results
+end
+
 # =============================================================================
 # Observation Process Helper
 # =============================================================================
