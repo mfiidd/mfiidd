@@ -94,13 +94,15 @@ The 312 reported cases exceed N because islanders were infected more than once, 
 Every session that puts a prior on the SEITL or SEIT4L parameters uses the same one:
 
 ```julia
-R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
+R_0 ~ truncated(Normal(6.0, 4.0), lower=1.0)
 D_lat ~ truncated(Normal(2.0, 1.0), lower=0.5)
-D_inf ~ truncated(Normal(3.0, 2.0), lower=0.5)
-α ~ Beta(2, 2)
-D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
-ρ ~ Beta(2, 2)
+D_inf ~ truncated(Normal(2.0, 1.0), lower=0.5)
+α ~ Beta(4, 3)
+D_imm ~ truncated(Normal(15.0, 5.0), lower=1.0)
+ρ ~ Beta(9, 6)
 ```
+
+Each is centred on the literature value the SEITL session quotes in its hint table, wide enough that the data can move it well outside the suggested range.
 
 There are five copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `seit4l_deterministic_model` in `sessions/pmcmc.qmd`, `scripts/pmmh_setup.jl`, and `PRIORS` in `sessions/neural_posterior_estimation.qmd`, which needs a vector of distributions to draw from and to invert rather than `~` statements.
 Change one and change the rest.
