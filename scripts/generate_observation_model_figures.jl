@@ -141,6 +141,8 @@ for (φ, style) in zip([5.0, 1.0], [:solid, :dash])
     )
 end
 
+vline!(p_over, [20], color = :grey, linestyle = :dot, linewidth = 2, label = "Mean")
+
 save_figure(p_over, "observation_overdispersion.svg")
 
 # ---------------------------------------------------------------------------

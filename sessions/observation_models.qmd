@@ -363,6 +363,8 @@ for φ in [5.0, 1.0]
     plot!(p, counts, pdf.(dist, counts),
           label="NegBin φ=$(Int(φ)) (σ²=$(round(Int, var(dist))))", linewidth=2)
 end
+
+vline!(p, [20], color=:grey, linestyle=:dot, linewidth=2, label="Mean")
 p
 ```
 

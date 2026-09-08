@@ -62,11 +62,11 @@ $$y_t \sim \text{NegativeBinomial}(\lambda_t, \phi)$$
 - $\phi \to \infty$ recovers the Poisson
 - small $\phi$ allows a much wider spread at the same mean
 
-## The same mean, three observation models
+##  {.center}
 
 ![](images/observation_overdispersion.svg)
 
-## What each model expects the data to look like
+## What each model predicts after fitting
 
 ![](images/observation_predictive_bands.svg)
 
@@ -86,11 +86,12 @@ That is near-impossible under Poisson, so the posterior narrows around a traject
 
 Under a negative binomial the same day is merely unusual, so the intervals widen.
 
-## The posteriors disagree
+## The posteriors disagree about $R_0$
 
 ![](images/observation_posteriors.svg)
 
 The interval widens and the estimate moves.
+$D_\mathrm{inf}$ moves too, from about 3.3 days to 6.8.
 A single-wave model still cannot fit a two-wave outbreak.
 
 ## Likelihood as a distance
