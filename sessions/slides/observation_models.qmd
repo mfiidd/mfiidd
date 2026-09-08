@@ -1,6 +1,6 @@
 ---
-footer: "Observation models and ABC"
-title: "Observation models and Approximate Bayesian Computation"
+footer: "Observation models"
+title: "Observation models"
 subtitle: "Model fitting and inference for infectious disease dynamics"
 ---
 
@@ -23,14 +23,19 @@ observation works, and it has consequences.
 
 - The variance **equals** the mean. Expect 100 cases, expect a spread of about
   $\pm 10$.
-- Observations at different times are **conditionally independent** given the
-  trajectory.
 - Every case is reported independently with the same probability.
 
 . . .
 
-Real surveillance data rarely obliges. Weekend effects, reporting delays,
-outbreak investigations and clustered transmission all break these assumptions.
+Writing the likelihood as a product over time points assumes the observations
+are [conditionally independent]{.alert} given the trajectory, as on Monday. That
+is a separate assumption, and it survives changing the distribution.
+
+. . .
+
+Surveillance data breaks both. Weekend dips and reporting delays move the
+reporting probability around; clustered transmission pushes the variance above
+the mean.
 
 ## Overdispersion
 
@@ -62,6 +67,14 @@ Under a negative binomial the same day is merely unusual and the intervals widen
 The trajectory does not move closer: a single-wave model still cannot fit a
 two-wave outbreak.
 
+## The same data, two observation models
+
+![](images/observation_models_poisson_vs_negbin.svg)
+
+The negative binomial covers 90% of the days against the Poisson's 59%, with a
+band 3.7 times wider. Its median curve is [lower]{.alert}, not closer: the noise
+absorbed the misfit instead of the trajectory improving.
+
 ## Likelihood as a distance
 
 The negative log-likelihood of one observation, as a function of how far it sits
@@ -78,12 +91,12 @@ from the prediction, is a **distance function**.
 So a different observation model is a different distance. Which invites the
 question: what if we chose the distance **directly**?
 
-## Tonight's question
+## The question this raises
 
 . . .
 
-Once you see the likelihood as a distance, an obvious one follows: what if we
-chose the distance [directly]{.alert}?
+Once you see the likelihood as a distance: what if we chose the distance
+[directly]{.alert}?
 
 . . .
 
