@@ -4,53 +4,40 @@ title: "Approximate Bayesian Computation"
 subtitle: "Choosing the distance yourself"
 ---
 
-# Yesterday's question
-
-## A likelihood is a distance function
-
-Poisson, negative binomial, Gaussian: each one scores how far the data sit from
-the prediction. Choosing a likelihood is choosing a [distance]{.alert}.
-
-. . .
-
-But a restricted one. Whatever you write has to be a probability density, and
-that is a small corner of the ways two epidemics can differ.
-
-## Any distance you like {.smaller}
-
-Drop the restriction and pick the discrepancy itself. Absolute error. Error in
-the peak, the final size, the shape of a tree.
-
-. . .
-
-Nothing has to normalise, integrate to one, or even be a metric.
-
-. . .
-
-But the distance **is** the model now. ABC returns the posterior given "my
-simulation came within $\epsilon$ of the data, [as measured this way]{.alert}".
-Leave a feature out of the distance and nothing you get back knows about it.
-
-## When you have no choice
-
-ABC is not about cost. A stochastic model's likelihood can be *estimated* — you
-did that yesterday.
-
-. . .
-
-Reach for ABC when there is no $p(y \mid x, \theta)$ to estimate at all: a tree
-shape, an outbreak that "looked like this", a summary with no sampling
-distribution attached.
-
 # Approximate Bayesian Computation
 
-## Motivation
+## You can still run the model
 
-- ABC **approximates** the likelihood using a set of summary statistics $S$.
+You cannot evaluate $p(y \mid \theta)$. You can [simulate]{.alert} from it.
 
-- A summary statistic is
-  - something that is **easy** to calculate and approximates the likelihood
-  - e.g. final size, number of peaks, height or timing of peaks
+. . .
+
+So: draw $\theta$ from the prior, simulate a dataset, and keep $\theta$ if the
+simulation came out **equal to the data**.
+
+. . .
+
+That is not an approximation. The $\theta$ you keep are draws from the posterior.
+
+## Two concessions {.smaller}
+
+Exact equality has probability zero for anything but tiny discrete data. Nothing
+would ever be accepted.
+
+. . .
+
+[**Close, not equal.**]{.alert} Keep $\theta$ when
+$d(y_\text{sim},\, y) < \epsilon$. That buys acceptances, and costs you a
+tolerance you now have to choose.
+
+. . .
+
+[**Summaries, not the whole dataset.**]{.alert} Over 59 days even "close" almost
+never happens. Compare $s(y_\text{sim})$ with $s(y)$ instead.
+
+. . .
+
+Both are forced on you. Neither is free.
 
 ## The approximation {.smaller}
 
@@ -89,8 +76,8 @@ Three things decide whether a choice is any good.
 . . .
 
 [**How many.**]{.alert} Every summary has to land inside $\epsilon$ *at the same
-time*, so acceptance falls off geometrically as you add them. This, not taste, is
-why people use three or four.
+time*, so acceptance falls off geometrically as you add them. That is why people
+use three or four.
 
 . . .
 
@@ -102,11 +89,11 @@ one pins down a different parameter.
 
 [**What scale they are on.**]{.alert} A total in the hundreds and a peak day in
 the tens are not comparable. Weight each by its spread under the prior
-predictive, or the largest summary quietly becomes the only one.
+predictive, or the largest summary becomes the only one that counts.
 
 ## What you are really choosing {.smaller}
 
-A summary is [sufficient]{.alert} if it carries everything the data say about
+A summary is [sufficient]{.alert} if it tells you everything the data say about
 $\theta$. With a sufficient summary $p(\theta \mid s(y))$ **is**
 $p(\theta \mid y)$ — nothing has been lost.
 
@@ -165,6 +152,24 @@ threshold becomes reachable.
 
 The catch: particles need weighting to stay unbiased, which is the same
 propagate-weight-resample structure as the particle filter.
+
+## A likelihood was a distance all along {.smaller}
+
+Poisson, negative binomial, Gaussian: each one already scored how far the data
+sat from the prediction. Choosing a likelihood was choosing a distance; ABC only
+made the choice visible.
+
+. . .
+
+Could you go the other way, and use a likelihood as the summary? The likelihood
+*function* $\theta \mapsto p(y \mid \theta)$ is sufficient, so matching on it
+would be exact.
+
+. . .
+
+But it is a function, not a number. Matching whole curves within $\epsilon$ is no
+easier than matching the data. And if you could evaluate it, you would not be
+here.
 
 ## Is there a correct observation model?
 
