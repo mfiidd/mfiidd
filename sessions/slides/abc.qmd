@@ -1,60 +1,10 @@
 ---
 footer: "Approximate Bayesian Computation"
 title: "Approximate Bayesian Computation"
-subtitle: "Inference when you cannot write down a likelihood"
+subtitle: "Choosing the distance yourself"
 ---
 
-# When you cannot score the model
-
-## Intractable does not mean hard
-
-You can **run** the model. You cannot **score** it — evaluate
-$p(y \mid \theta)$ for the data in front of you.
-
-. . .
-
-Not because the arithmetic is heavy. Because scoring it means summing over more
-possibilities than there are.
-
-## The particle filter was one way out {.smaller}
-
-Yesterday: the state is hidden and random, so the likelihood is an integral, and
-the filter estimated it.
-
-. . .
-
-That needed three things:
-
-1. a state you can **simulate forward**
-2. an observation density $p(y_t \mid x_t)$ you can **evaluate**
-3. observations **through time**, to weight against
-
-. . .
-
-Take any one away and the filter has nothing to grip.
-
-## Three models with no usable likelihood {.smaller}
-
-- [**Final size only.**]{.alert} 273 of 284 islanders infected, 92 of them twice
-  — and nothing about *when*. No time series, so nothing to filter along.
-
-. . .
-
-- [**A phylogeny.**]{.alert} You observe a pathogen tree built from sequences.
-  Scoring it means summing over every transmission history consistent with that
-  tree.
-
-. . .
-
-- [**An individual-based model.**]{.alert} Transmission over explicit households,
-  schools, workplaces. A particle would have to be an entire population.
-
-. . .
-
-You can simulate all three. You cannot write down $p(y \mid \theta)$ for any of
-them.
-
-# Yesterday's question, answered
+# Yesterday's question
 
 ## A likelihood is a distance function
 
@@ -63,7 +13,31 @@ the prediction. Choosing a likelihood is choosing a [distance]{.alert}.
 
 . . .
 
-If you cannot write one down, choose the [distance directly]{.alert} instead.
+So why not choose the distance **directly**?
+
+## When you have to {.smaller}
+
+You can always estimate $p(y \mid \theta)$: simulate, and average
+$p(y \mid x_j, \theta)$ over the simulations. Two things go wrong.
+
+. . .
+
+[**The average degenerates.**]{.alert} $y$ is long, so nearly every simulation
+misses it. That is the collapse you saw yesterday, and the particle filter fixed
+it — by scoring one observation at a time.
+
+. . .
+
+[**There is nothing to average.**]{.alert} You have no
+$p(y \mid x, \theta)$ to evaluate, only a sense of *close*: a tree shape, an
+outbreak that "looked like this", a summary with no sampling distribution
+attached.
+
+. . .
+
+ABC is for the second. Note what this is *not*: a stochastic model on its own is
+no reason to reach for it — you spent two sessions estimating exactly that
+likelihood.
 
 # Approximate Bayesian Computation
 
