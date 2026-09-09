@@ -644,7 +644,7 @@ Here the filter runs once per trajectory you actually want, and only if you want
 
 The filtered envelope tracks the observations because it was told what they were, and it would do the same for a model that generates nothing like this outbreak when left to run.
 Judge the fit on the re-simulated envelope, and read the filtered one as a picture of what the epidemic plausibly did.
-A bootstrap filter also loses ancestral diversity as it runs back through the series, so the filtered spread is tighter than the smoothing distribution really is, most of all in the early days.
+Each of the twenty paths comes from its own filter run at its own posterior draw, which is what keeps them independent: within one run the surviving particles share ever fewer ancestors as you trace them back, so twenty paths from a single run would understate the spread badly.
 :::
 
 
