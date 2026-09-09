@@ -7,7 +7,7 @@ order: 9
 ---
 
 ::: {.callout-note appearance="simple"}
-**Estimated time**: 50 minutes | **Requires**: Observation models
+**Estimated time**: 60 minutes | **Requires**: Observation models
 :::
 
 [Slides](slides/abc.qmd)
@@ -61,6 +61,7 @@ using Random
 using LinearAlgebra
 using DrWatson
 using StatsBase  # For Weights in ABC-SMC
+using MCMCChains ## for the effective sample size of an ABC-MCMC chain
 using FlexiChains ## for ess, used by the ABC-MCMC diagnostics
 using MFIIDD ## the course package, which holds the SEIT4L implementation
 ```
@@ -283,6 +284,19 @@ The three distance functions have different properties:
 - L2: When large deviations are particularly bad (e.g., outbreak peaks).
 - Weighted: When fit quality should be scale-independent (similar to Poisson likelihood).
 
+This is the same comparison as Poisson against negative binomial, which you met
+yesterday. A negative log-likelihood is a distance, and each observation model
+fixes how steeply that distance grows with one day's discrepancy. Take an expected
+count of 5 and double a discrepancy from 10 cases to 20: L1 doubles, the squared
+error inside L2 quadruples, the Poisson negative log-likelihood multiplies by 3,
+and a negative binomial with dispersion 2 multiplies by 2.2. Poisson sits between
+the two distances, and the negative binomial lands close to L1. Near a good fit
+the Poisson term is about $d^2 / 2\lambda$, which is the weighted distance above
+with squares in place of absolute values.
+
+So choosing a distance and choosing an observation model are one decision, made
+twice: how steeply should a surprising observation count against you.
+
 :::
 
 Run ABC with L1 distance:
@@ -440,146 +454,14 @@ the timing information you discarded. A summary that is not sufficient puts a
 floor under the error, and $\epsilon \to 0$ does not lift it.
 :::
 
-## Compare distance metrics
-
-Different distance functions give different results.
-
-::: {.callout-tip title="Exercise: Predict before you run"}
-Before running the cell below, write down your answer to this: if one day's count
-were much higher than the model predicts, which of the three distances (L1, L2
-or the weighted distance) would react most strongly, and why?
-
-Then run it and see whether the ordering matches what you expected.
-:::
-
-::: {.callout-tip title="Solution" collapse="true"}
-L2 reacts most strongly, *provided the rest of the trajectory fits*. It squares
-the deviation, so a single day off by 30 contributes 900 while thirty days off by
-1 contribute 30 between them. Squared distances are dominated by their worst
-point.
-
-L1 adds the absolute deviations, so that same bad day contributes 30 and nothing
-more. It is the forgiving choice, and it is why L1 is a common default in ABC
-when you expect reporting glitches.
-
-The caveat matters here more than usual, and for a reason particular to a
-stochastic model. Run SEIT4L twice at the same parameters and the two runs differ
-by more than the outlier does, so the L2 total is already dominated by ordinary
-run-to-run variation. Against that background a single injected day accounts for a
-smaller share of L2 than the rule of thumb suggests. The rule describes a
-deterministic model with small residuals, which this is not.
-
-The weighted distance depends entirely on the weights. If it upweights the peak
-and the outlier falls near the peak, it can react more sharply than either; if the
-outlier falls somewhere it downweights, it can barely notice.
-
-This is the same comparison as Poisson against negative binomial, which you met
-yesterday. A negative log-likelihood
-is a distance, and each observation model fixes how steeply that distance grows
-with one day's discrepancy $d$.
-
-Take an expected count of 5 and double a discrepancy from 10 cases to 20. L1
-doubles. The squared error inside L2 quadruples. The Poisson negative
-log-likelihood multiplies by 3, so it sits between the two: harder on a large
-discrepancy than L1, gentler than the square. A negative binomial with dispersion
-2 multiplies by 2.2, which puts it close to L1, and its heavier tail keeps
-flattening the penalty as the discrepancy grows.
-
-Near a good fit the Poisson term is about $d^2 / 2\lambda$, which is the weighted
-distance defined above with squares in place of absolute values. So the choice of
-observation model and the choice of distance are one decision, made twice: how
-steeply should a surprising observation count against you.
-:::
-
-The three distances are on different scales, so their raw values say nothing
-about sensitivity. Watch how much each one *moves* when a single day goes wrong.
-
-The cell below takes one simulation, adds thirty cases to day 30 of the data it is
-compared against, and asks two questions of each distance: what share of the
-summed terms comes from that one day, and by what percentage does the distance as
-a whole move. It does this twice, against a simulation that fits the data poorly
-and one that fits it better, because the answer depends on how well the rest of
-the series is explained.
-
-```{julia}
-# Take one simulation, disturb a single day of the data it is compared against,
-# and ask how much of each distance that one day is then responsible for
-test_params = [10.0, 2.5, 0.8]
-test_sim = simulate_abc(test_params)
-
-spiked = copy(observed_data)
-spiked[30] += 30  # one day, thirty extra cases
-
-# Per-day contributions to each distance, before summing
-l1_terms(sim, obs) = abs.(sim .- obs)
-l2_terms(sim, obs) = (sim .- obs) .^ 2
-weighted_terms(sim, obs) = abs.(sim .- obs) ./ (obs .+ 1.0)
-
-# The particle MCMC posterior mean, taken from the chain rather than copied out of
-# it. Note the distance is not small even here: at the best parameters the model
-# still lands 100 to 400 away depending on the run, because it is stochastic
-fitted_params = [mean(pmcmc_chain.R_0), mean(pmcmc_chain.D_inf),
-                 mean(pmcmc_chain.ρ)]
-fitted_sim = simulate_abc(fitted_params)
-
-for (label, sim) in (("poorly fitting simulation", test_sim),
-                     ("closer simulation", fitted_sim))
-    println(label)
-    for (name, terms) in (("L1", l1_terms), ("L2", l2_terms),
-                          ("weighted", weighted_terms))
-        t = terms(sim, spiked)
-        println("  ", rpad(name, 9), " day 30 contributes ",
-                round(100 * t[30] / sum(t), digits=1), "% of the summed terms")
-    end
-    ## And what the spike does to the distances the session actually uses, which
-    ## take a root in the L2 case
-    for (name, d) in (("L1", distance_L1), ("L2", distance_L2),
-                      ("weighted", distance_weighted))
-        before, after = d(sim, observed_data), d(sim, spiked)
-        println("  ", rpad(name, 9), " distance moves ",
-                round(100 * (after - before) / before, digits=1), "%")
-    end
-end
-```
-
-The ordering depends on how well the rest of the trajectory fits, which is worth
-more than the headline rule.
-Against the closer simulation, the spiked day accounts for about a fifth of the
-summed squares and about a tenth of the summed absolute errors, so squaring does
-concentrate attention on it.
-Look at the second block, though.
-`distance_L2` takes the square root of those summed squares, and once it does the
-two distances move by almost the same amount.
-That is not the root cancelling the squaring in general.
-It happens because neither simulation here is close to the data: the spike is
-small against a sum of squares the model's own errors already dominate, so the
-root linearises the change.
-Give the same spike to a trajectory that does fit and the textbook behaviour comes
-back.
-The best fit available anywhere in the prior box moves L1 by 18% and L2 by 48%, and
-a near-perfect series moves them by 38% and 161%.
-Against the poorly fitting one the ordering reverses, because L2 is already
-saturated by the model's own errors and one more large deviation barely registers
-among them.
-
-An outlier is only conspicuous relative to how well everything else is
-explained.
-
-Choosing a distance in ABC is the same kind of decision as choosing a parametric likelihood.
-
-## ABC-MCMC: the sampler you already know
+::: {.callout-note collapse="true"}
+## ABC-MCMC, and why this session does not use it
 
 You have built Metropolis-Hastings twice in this course: once by hand in the [MCMC session](mcmc.qmd), and once with a particle filter supplying the likelihood in the [particle MCMC session](pmcmc.qmd).
 ABC gives you a third version of the same loop.
 Propose a step, simulate once from the proposed parameters, and accept if that simulation lands within ε of the data.
 That is ABC-MCMC, introduced by [Marjoram et al. (2003)](https://doi.org/10.1073/pnas.0306899100).
-
-::: {.callout-note collapse="true"}
-## Implementation: ABC-MCMC
-
-The accept step is the Metropolis-Hastings one with the likelihood ratio deleted and the distance test put in its place.
-The prior ratio stays, and it is evaluated with the `log_prior` defined alongside the prior above, the same one the rejection sampler draws from and ABC-SMC weights with.
-Because those priors are not uniform nothing cancels, so a proposal walking into a region the prior disfavours has to earn its place exactly as it would in ordinary Metropolis-Hastings.
+The accept step is the Metropolis-Hastings one with the likelihood ratio deleted and the distance test put in its place; the prior ratio stays, and the priors here are not uniform, so nothing cancels.
 
 ```{julia}
 """
@@ -613,92 +495,12 @@ function abc_mcmc(θ_start, simulator, distance_fn, observed_data, threshold,
     return chain, n_accepted / n_iterations
 end
 ```
-:::
 
-Run it down a ladder of thresholds, from the one the rejection sampler used to the one ABC-SMC finishes on later in this session.
-Alongside the acceptance rate, report the effective sample size of the $R_0$ draws, using the diagnostic from the [MCMC diagnostics session](mcmc_diagnostics.qmd).
-
-```{julia}
-## Start from the closest sample the rejection run found. ABC-MCMC has to be
-## initialised somewhere the threshold accepts, and a short rejection run is how
-## you find such a point
-start_distances = [distance_L1(simulate_abc(θ), observed_data) for θ in abc_samples]
-θ_start = abc_samples[argmin(start_distances)]
-
-"Effective sample size of the R_0 draws in an ABC-MCMC chain."
-ess_R_0(chain) = ess([θ[1] for θ in chain])
-
-for ε in (230.0, 200.0, 180.0, 165.0)
-    chain, acceptance = abc_mcmc(θ_start, simulate_abc, distance_L1,
-                                 observed_data, ε, 4000)
-    println("ε = ", ε,
-            ": acceptance ", lpad(round(100 * acceptance, digits = 1), 5),
-            "%, ESS ", lpad(round(Int, ess_R_0(chain)), 3), " from 4000 draws")
-end
-```
-
-The acceptance rate falls as the threshold tightens.
-The effective sample size is poor at every threshold, including the loosest, where more than a quarter of proposals are accepted.
-
-```{julia}
-## The loosest and the tightest, for comparison
-mcmc_traces = [(ε, first(abc_mcmc(θ_start, simulate_abc, distance_L1,
-                                  observed_data, ε, 4000)))
-               for ε in (230.0, 165.0)]
-
-plot(xlabel = "Iteration", ylabel = "R_0", title = "ABC-MCMC traces")
-for (ε, chain) in mcmc_traces
-    plot!([θ[1] for θ in chain], label = "ε = $ε", alpha = 0.7)
-end
-plot!()
-```
-
-::: {.callout-tip title="Exercise: predict what tuning will do"}
-In the [MCMC session](mcmc.qmd) a low acceptance rate meant the proposal was too wide, and you fixed it by tuning `proposal_sd`.
-The cell below tries that here, sweeping the proposal scale over a twenty-fold range at the loosest threshold and at the tightest.
-
-Predict the two columns before you run it.
-At ε = 230, what happens to the effective sample size as the proposal widens?
-And at ε = 165, does it do the same thing?
-:::
-
-```{julia}
-for scale in (0.25, 1.0, 2.5, 5.0)
-    proposal_sd = scale .* [0.4, 0.3, 0.05]
-    for ε in (230.0, 165.0)
-        chain, acceptance = abc_mcmc(θ_start, simulate_abc, distance_L1,
-                                     observed_data, ε, 4000;
-                                     proposal_sd = proposal_sd)
-        println("proposal × ", lpad(scale, 4), ", ε = ", ε,
-                ": acceptance ", lpad(round(100 * acceptance, digits = 1), 5),
-                "%, ESS ", lpad(round(Int, ess_R_0(chain)), 3))
-    end
-end
-```
-
-::: {.callout-tip title="Solution" collapse="true"}
-At the loose threshold, tuning behaves exactly as the MCMC session taught you.
-Widening the proposal lowers the acceptance rate and raises the effective sample size, because the chain takes longer steps and decorrelates faster, until the proposal grows wide enough that too little is accepted and the effective sample size falls again.
-There is an optimum in the middle of the range, and you can find it.
-ABC-MCMC is an ordinary Metropolis-Hastings sampler here, and it responds to tuning like one.
-
-At the tight threshold there is nothing to find.
-The acceptance rate still falls as the proposal widens, and the effective sample size barely moves across the whole twenty-fold range.
-Whatever you set the proposal to, the chain is worth about a dozen independent draws out of four thousand.
-The knob is still turning and it is no longer connected to anything.
-
-The stochastic simulator is the reason.
+It stalls at a tight threshold, and the stochastic simulator is the reason.
 Run the model at one fixed parameter set and the L1 distance still moves from about 130 to about 420 between runs, because each run is a different epidemic.
-At ε = 165 that means a good parameter set fails the test most of the time and passes occasionally.
-The chain therefore accepts a step when it happens to draw a lucky epidemic, and then cannot leave, because leaving requires another lucky epidemic from the proposed parameters.
+At a threshold near the bottom of that range a good parameter set fails the test most of the time and passes occasionally, so the chain accepts a step when it happens to draw a lucky epidemic and then cannot leave, because leaving requires another lucky epidemic from the proposed parameters.
 It is stuck on a realisation, and no proposal distribution addresses that, because the proposal is not what is being rejected.
-
-A few per cent acceptance does not look catastrophic on its own, and the chain underneath it is a handful of lucky draws, heavily repeated.
-The effective sample size beside it exposes that, which is why the two are printed together.
-
-Compare that with what ABC-SMC does below.
-It reaches the same ε = 165 by walking the threshold down in stages and keeping a whole population of particles. Each generation draws a parent from the previous one in proportion to its weight, perturbs it, and simulates afresh.
-A particle that got through on a lucky run has no protection in the next generation: its child is a new parameter value with a new simulation, and it survives only by passing the tighter threshold on its own.
+The exercise in [Going further](#going-further) puts numbers on it.
 :::
 
 ## ABC-SMC: Sequential Monte Carlo ABC
@@ -1059,109 +861,6 @@ Marginal histograms hide that, because they show each parameter with the others
 integrated away. Plot the pairs before concluding that two methods disagree.
 :::
 
-# When does it matter?
-
-## Sensitivity analysis
-
-The choice between Poisson, NegBin, and ABC matters most when:
-
-1. *Outliers*: Extreme observations far from predictions
-2. *Tail behaviour*: Rare events (very low or very high counts)
-3. *Overdispersion*: Systematic variance > mean in data
-4. *Model misspecification*: When the mechanistic model is wrong
-
-We can test sensitivity to outliers:
-
-```{julia}
-# Helper function to simulate and return incidence
-simulate_and_summarize(params) = simulate_seit4l_obs(params...)
-
-# Create one synthetic dataset, then a copy of it with a single day disturbed.
-# Drawing fresh noise for each would make the two datasets differ everywhere, and
-# the comparison below would measure the noise rather than the outlier.
-function synthetic_data()
-    ## The simulator already draws reported counts through a Poisson observation
-    ## process, so there is no noise to add on top of it here
-    true_params = [6.3, 2.1, 0.7]
-    return float.(simulate_and_summarize(true_params))
-end
-
-data_clean = synthetic_data()
-data_outlier = copy(data_clean)
-data_outlier[30] += 30.0  # Artificial spike on a single day
-
-# Plot
-# The two series differ at one day only, so draw the second dashed or it hides
-# the first completely
-plot(flu_tdc.time, data_clean, label="Clean data", linewidth=3, alpha=0.5)
-plot!(flu_tdc.time, data_outlier, label="Data with outlier", linewidth=2, linestyle=:dash,
-      xlabel="Time", ylabel="Cases",
-      title="Effect of Outliers on Observation Data")
-```
-
-::: {.callout-tip title="Exercise: How much does one bad day matter?"}
-Compare how the Poisson likelihood and ABC with L1 distance respond to the
-outlier.
-
-The solution below computes the Poisson log-likelihood and the L1 distance
-against both `data_clean` and `data_outlier`, at one parameter set. Predict which
-of the two moves further, in proportion to its own scale, before you open it.
-:::
-
-::: {.callout-tip collapse="true"}
-## Hint: Outlier robustness
-
-Poisson likelihood is sensitive to outliers because the log-probability drops sharply for counts far from the mean. An outlier of +30 cases when the model predicts 5 contributes a large penalty to the log-likelihood, pulling parameter estimates towards values that accommodate the outlier.
-
-ABC with L1 distance (defined earlier as `sum(abs.(sim .- obs))`) is more robust because its penalty grows in step with the discrepancy: thirty extra cases add thirty. The Poisson penalty grows faster than that, as the comparison earlier in this session showed, so the same day counts for more.
-
-For likelihood-based inference, the Negative Binomial distribution (covered earlier in this session) offers a middle ground: its heavier tails make it less sensitive to occasional large deviations than Poisson, while still providing a proper likelihood for MCMC.
-:::
-
-::: {.callout-tip title="Solution" collapse="true"}
-
-```{julia}
-# Compare how each metric responds to the outlier.
-# The prediction has to be the *expected* incidence, not one stochastic run: it is
-# the rate a Poisson observation model would use, and the rate the distances are
-# comparing against. The deterministic SEIT4L gives it directly.
-function expected_reported(R_0, D_inf, ρ)
-    θ = Dict(:R_0 => R_0, :D_lat => D_LAT, :D_inf => D_inf,
-             :α => ALPHA, :D_imm => D_IMM)
-    init = Dict(:S => 279.0, :E => 0.0, :I => 2.0, :T1 => 3.0,
-                :T2 => 0.0, :T3 => 0.0, :T4 => 0.0, :L => 0.0)
-    traj = simulate_seit4l_deterministic(θ, init, [0.0; flu_tdc.time])
-    return ρ .* traj.Inc[2:end]
-end
-
-predicted = expected_reported(6.3, 2.1, 0.7)
-
-# Poisson log-likelihood
-function poisson_loglik(predicted, observed)
-    ll = 0.0
-    for i in eachindex(observed)
-        λ = max(predicted[i], 1e-10)
-        ll += logpdf(Poisson(λ), round(Int, observed[i]))
-    end
-    return ll
-end
-
-println("Poisson log-likelihood:")
-println("  Clean data:   ", round(poisson_loglik(predicted, data_clean), digits=2))
-println("  Outlier data: ", round(poisson_loglik(predicted, data_outlier), digits=2))
-
-println("\nL1 distance:")
-println("  Clean data:   ", round(distance_L1(predicted, data_clean), digits=2))
-println("  Outlier data: ", round(distance_L1(predicted, data_outlier), digits=2))
-```
-
-The L1 distance rises by thirty, the size of the spike, whatever else the series
-is doing. The Poisson log-likelihood falls by much more than the equivalent
-share, because a count near 35 where the model expects about 5 has almost no
-Poisson probability. Neither number means anything on its own; the comparison is
-between how far each moves for the same one bad day.
-:::
-
 # Learning points
 
 ::: {.callout-tip title="Learning points"}
@@ -1172,17 +871,71 @@ between how far each moves for the same one bad day.
 - The acceptance threshold is the hard part: too tight and nothing is accepted,
   too loose and you are sampling the prior
 - ABC-SMC walks the threshold down in stages, concentrating effort where the data
-  are without being told where that is, with weights that can become
-  very uneven. On a problem as small as this one, where the prior already accepts
-  often, it is not worth the extra machinery
-- Likelihoods are fast and need a tractable model; ABC is slow and needs only a
-  simulator
-- A single outlying observation moves a Poisson likelihood far more than an L1
-  distance, which is the clearest sign the two are different distance functions
+  are without being told where that is, with weights that become
+  uneven. It wins where prior acceptance at the threshold you want is small, and
+  earns nothing at a loose threshold the prior already reaches
+- Comparing a summary instead of the whole series is the concession you cannot
+  undo. A tighter threshold recovers what the tolerance gave up; nothing recovers
+  what the summary discarded
+- The particle filter fits this model better than ABC does. ABC earns its place
+  where the filter cannot run: no observation density to weight with, or a
+  simulator you cannot stop and restart
 
 :::
 
 # Going further
+
+## ABC-MCMC
+
+The callout earlier in this session defines `abc_mcmc`. Run it down a ladder of
+thresholds, and then sweep the proposal width at the loosest and the tightest,
+reporting the effective sample size of the $R_0$ draws alongside the acceptance
+rate.
+
+::: {.callout-tip title="Exercise: why tuning will not save this"}
+In the [MCMC session](mcmc.qmd) a low acceptance rate meant the proposal was too
+wide, and you fixed it by tuning `proposal_sd`. Predict what the sweep will show
+at ε = 230 and at ε = 165 before you run the cells, then explain the difference
+between the two columns.
+:::
+
+```{julia}
+start_distances = [distance_L1(simulate_abc(θ), observed_data) for θ in abc_samples]
+θ_start = abc_samples[argmin(start_distances)]
+
+"Effective sample size of the R_0 draws in an ABC-MCMC chain."
+function ess_R_0(chain)
+    draws = reshape([θ[1] for θ in chain], :, 1, 1)
+    return only(DataFrame(ess(Chains(draws, [:R_0]))).ess)
+end
+
+for ε in (230.0, 200.0, 180.0, 165.0)
+    chain, acceptance = abc_mcmc(θ_start, simulate_abc, distance_L1,
+                                 observed_data, ε, 4000)
+    println("ε = ", ε,
+            ": acceptance ", lpad(round(100 * acceptance, digits = 1), 5),
+            "%, ESS ", lpad(round(Int, ess_R_0(chain)), 3), " from 4000 draws")
+end
+```
+
+```{julia}
+for scale in (0.25, 1.0, 2.5, 5.0)
+    proposal_sd = scale .* [0.4, 0.3, 0.05]
+    for ε in (230.0, 165.0)
+        chain, acceptance = abc_mcmc(θ_start, simulate_abc, distance_L1,
+                                     observed_data, ε, 4000;
+                                     proposal_sd = proposal_sd)
+        println("proposal × ", lpad(scale, 4), ", ε = ", ε,
+                ": acceptance ", lpad(round(100 * acceptance, digits = 1), 5),
+                "%, ESS ", lpad(round(Int, ess_R_0(chain)), 3))
+    end
+end
+```
+
+At ε = 230 the effective sample size rises as the proposal widens and then falls
+again once too little is accepted, so there is an optimum you can find. At ε = 165
+there is nothing to find: the acceptance rate falls and the effective sample size
+sits at about a dozen out of four thousand whatever you set.
 
 ## Summary statistics for ABC
 
@@ -1222,16 +975,6 @@ Fewer, well-chosen summaries make ABC more robust to noise and model misspecific
 Try passing `distance_summaries` to `abc_rejection` in place of `distance_L1` and compare the posteriors you get.
 The four summaries throw away the day-to-day shape of the curve, so expect them to widen.
 How much each parameter widens tells you how much of what identified it lived in the detail of the trajectory, beyond the peak, total and timing.
-
-## Alternative observation models
-
-The choice of observation model affects inference more than many researchers realise. Consider exploring:
-
-- **Gaussian likelihood**: Appropriate when counts are large and approximately symmetric
-- **Zero-inflated models**: When surveillance systems miss entire days
-- **Reporting delay models**: When cases are reported with variable lag
-
-Computing the variance/mean ratio in your data can help diagnose whether Poisson (ratio ≈ 1) or Negative Binomial (ratio > 1) is more appropriate.
 
 ## Robust distance metrics
 
