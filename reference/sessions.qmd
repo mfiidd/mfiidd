@@ -178,7 +178,7 @@ Thursday 10 September: 12.20-12.30
 
 -   The closing part of the [slides](../sessions/slides/choosing_an_approach.qmd): where to go next, further reading, and the feedback survey (10 mins)
 
-# Further material
+# Further topics
 
 Four sessions are provided for self-study rather than taught in the room. They
 build on the taught sessions and can be worked through afterwards at your own

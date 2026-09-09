@@ -1,7 +1,7 @@
 ---
 footer: "Choosing an inference approach"
 title: "Choosing an inference approach"
-subtitle: "What we did, where it sits, and where to go next"
+subtitle: "What we did, the bigger picture, and where to go next"
 ---
 
 # What we did

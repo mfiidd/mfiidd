@@ -7,7 +7,7 @@ order: 14
 ---
 
 ::: {.callout-note appearance="simple"}
-**Estimated time**: 1-1.5 hours | **Optional session** | **Requires**: MCMC
+**Estimated time**: 1-1.5 hours | **Requires**: MCMC
 :::
 
 # Introduction

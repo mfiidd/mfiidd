@@ -46,8 +46,8 @@ website:
         - sessions/abc.qmd
         - sessions/closing.qmd
         # Provided for self-study rather than taught in the room, which is how
-        # reference/sessions.qmd lists them under "Further material".
-        - section: "Optional sessions"
+        # reference/sessions.qmd lists them under "Further topics".
+        - section: "Further topics"
           contents:
             - sessions/variational_inference.qmd
             - sessions/neural_posterior_estimation.qmd

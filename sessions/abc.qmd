@@ -970,4 +970,4 @@ A robust distance stops a handful of large daily discrepancies dominating the fi
 
 You have now met every family of method the course covers.
 [Synthesis and next steps](closing.qmd) puts them side by side, asks which
-one your own problem needs, and points at the optional sessions that go further.
+one your own problem needs, and points at the further topics that go beyond it.
