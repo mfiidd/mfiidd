@@ -220,7 +220,7 @@ Based on the literature above, here are reasonable starting guesses:
 These are just starting points. The inference will refine them.
 :::
 
-# Deterministic vs Stochastic simulations
+# Deterministic vs stochastic simulations
 
 ::: {.callout-note}
 ## Two independent modelling choices
