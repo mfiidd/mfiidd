@@ -12,9 +12,6 @@ order: 9
 
 [Slides](slides/abc.qmd)
 
-The day opens with a [review of day 3](slides/day3_review.qmd), covering where the
-week has got to, from deterministic fitting through to particle MCMC.
-
 # Introduction
 
 For many models you cannot evaluate $p(y \mid \theta)$, but you can still run the
