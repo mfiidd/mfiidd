@@ -658,7 +658,7 @@ In the [MCMC session](mcmc.qmd) a low acceptance rate meant the proposal was too
 The cell below tries that here, sweeping the proposal scale over a twenty-fold range at the loosest threshold and at the tightest.
 
 Predict the two columns before you run it.
-At ε = 230, does widening the proposal raise or lower the effective sample size?
+At ε = 230, what happens to the effective sample size as the proposal widens?
 And at ε = 165, does it do the same thing?
 :::
 
@@ -678,12 +678,12 @@ end
 
 ::: {.callout-tip title="Solution" collapse="true"}
 At the loose threshold, tuning behaves exactly as the MCMC session taught you.
-Widening the proposal lowers the acceptance rate and raises the effective sample size, because the chain takes longer steps and decorrelates faster.
+Widening the proposal lowers the acceptance rate and raises the effective sample size, because the chain takes longer steps and decorrelates faster, until the proposal grows wide enough that too little is accepted and the effective sample size falls again.
+There is an optimum in the middle of the range, and you can find it.
 ABC-MCMC is an ordinary Metropolis-Hastings sampler here, and it responds to tuning like one.
 
-At the tight threshold it stops responding.
-The acceptance rate is a few per cent throughout and bounces around without a clear trend, because at that rate the number of accepted steps is small enough to be noisy.
-The effective sample size barely moves across the whole twenty-fold range.
+At the tight threshold there is nothing to find.
+The acceptance rate still falls as the proposal widens, and the effective sample size barely moves across the whole twenty-fold range.
 Whatever you set the proposal to, the chain is worth about a dozen independent draws out of four thousand.
 The knob is still turning and it is no longer connected to anything.
 
@@ -917,26 +917,47 @@ vline!([230.0], label = "rejection run", linestyle = :dash)
 vline!([165.0], label = "ABC-SMC final generation", linestyle = :dash)
 ```
 
-Acceptance falls away far faster than the threshold does. Around 6% of prior
-draws land under 230, and about 0.2% under 165, so reaching 165 by rejection
-alone would take in the order of 100,000 simulations for 200 draws. ABC-SMC gets
-there in the total printed above.
+Acceptance falls away far faster than the threshold does, so the cell below turns
+the curve into the two numbers that matter: how many simulations each method
+spends per effective sample at the threshold ABC-SMC reaches.
 
-Per effective sample the gap narrows. Rejection draws are unweighted, so its
-effective sample size is the number of draws, and at 165 it needs around 500
-simulations for each one. The ABC-SMC particles are weighted, so divide its whole
-total, earlier generations included, by the effective sample size of its final
-generation. That leaves ABC-SMC ahead at this threshold, and further ahead on raw
-draws. The factor moves between runs, so take the ordering and the reason for it:
+```{julia}
+ε_final = thresholds[end]
+prior_acceptance = mean(prior_draws .< ε_final)
+
+## Rejection draws are unweighted, so its effective sample size is its draw count
+rejection_per_ess = 1 / prior_acceptance
+
+## The ABC-SMC particles are weighted, and the earlier generations cannot be
+## skipped, so the whole total counts against the final generation's ESS
+smc_per_ess = sum(abc_smc_sims) / abc_smc_ess[end]
+
+println("At ε = ", ε_final, ", simulations per effective sample")
+println("  rejection sampling: ", round(Int, rejection_per_ess),
+        "  (prior acceptance ", round(100 * prior_acceptance, digits = 2), "%)")
+println("  ABC-SMC:            ", round(Int, smc_per_ess),
+        "  (", sum(abc_smc_sims), " simulations, final ESS ",
+        round(abc_smc_ess[end], digits = 1), ")")
+```
+
+ABC-SMC comes out ahead at this threshold, and further ahead on raw draws, where
+rejection sampling would need in the order of 100,000 simulations for 200 of them.
+The factor moves between runs, so take the ordering and the reason for it:
 ABC-SMC concentrates its effort where the data are without being told where that
 is, and that wins whenever prior acceptance at the threshold you want is small.
 At 230 it is not small, and rejection sampling is the better tool there.
 
 The effective sample size printed for each generation measures a second problem.
 It starts at all 100 particles, which are drawn from the prior and weighted
-equally, then drops, sometimes to single figures. That is weight degeneracy, and
-it means the final density plot rests on fewer distinct parameter vectors than
-its 1000 draws suggest, so part of its apparent sharpness is duplication. Our
+equally, and then drops. That is weight degeneracy, and it thins out the sample
+the final plots are drawn from:
+
+```{julia}
+println("distinct parameter vectors behind the resampled sample: ",
+        length(unique(eachrow(abc_smc_df))), " of ", nrow(abc_smc_df), " draws")
+```
+
+Part of the apparent sharpness in those plots is duplication. Our
 sampler draws parents in proportion to weight, which spreads the next generation
 over the particles that hold it, but it never resets the weights when the
 effective sample size falls, and it never adapts the kernel width. Production
@@ -955,20 +976,8 @@ Rejection ABC does not produce chains, so chain diagnostics like R-hat have noth
 - **Replicate runs**: Run ABC multiple times with different random seeds. If posteriors differ substantially between runs, you need more particles or a less strict threshold.
 :::
 
-# The big picture: Likelihood vs ABC
+# Do they give similar results?
 
-Parametric likelihoods and ABC differ in what they ask of you, and agree more than you might expect in what they return.
-
-## Summary of approaches
-
-| Approach | What you specify | What's arbitrary | Computational cost |
-|----------|------------------|------------------|-------------------|
-| **Poisson likelihood** | Parametric distribution | Why Poisson? | Fast (MCMC) |
-| **NegBin likelihood** | Parametric + overdispersion | Why NegBin? | Fast (MCMC) |
-| **ABC (L1)** | Distance metric | Why L1? | Slow (many simulations) |
-| **ABC (weighted)** | Distance + weights | Why these weights? | Slow (many simulations) |
-
-## Do they give similar results?
 
 The ABC posterior below is the rejection sample from the start of this session,
 200 draws at a threshold of 230 under the L1 distance. The ABC-SMC particles
@@ -981,14 +990,14 @@ mcmc_df = pmcmc_chain
 
 # Plot comparison
 p1 = histogram(mcmc_df.R_0, bins=30, alpha=0.5,
-               label="Poisson", normalize=:pdf)
+               label="Particle MCMC", normalize=:pdf)
 histogram!(p1, abc_df.R_0, bins=30, alpha=0.5,
            label="ABC (L1)", normalize=:pdf,
            xlabel="R_0", ylabel="Density",
            title="Posterior Comparison: R_0")
 
 p2 = histogram(mcmc_df.D_inf, bins=30, alpha=0.5,
-               label="Poisson", normalize=:pdf)
+               label="Particle MCMC", normalize=:pdf)
 histogram!(p2, abc_df.D_inf, bins=30, alpha=0.5,
            label="ABC (L1)", normalize=:pdf,
            xlabel="D_inf", ylabel="Density",
@@ -1152,45 +1161,6 @@ share, because a count near 35 where the model expects about 5 has almost no
 Poisson probability. Neither number means anything on its own; the comparison is
 between how far each moves for the same one bad day.
 :::
-
-# Choosing an observation model
-
-## Is there a "correct" one?
-
-**No!** There are only:
-
-1. **More or less mechanistically motivated** choices
-   - E.g., modelling test sensitivity explicitly vs using NegBin
-
-2. **More or less flexible** choices
-   - Poisson (rigid) → NegBin (flexible) → ABC (very flexible)
-
-3. **More or less computationally convenient** choices
-   - MCMC with parametric likelihood (fast)
-   - ABC (slow but general)
-
-## Practical advice
-
-**When to use parametric likelihoods (Poisson/NegBin)**:
-
-- You have a tractable likelihood function
-- You want efficient inference (MCMC with gradients)
-- The parametric family is flexible enough
-- You are comfortable with the implicit distance metric
-
-**When to use ABC/likelihood-free**:
-
-- Likelihood is truly intractable (stochastic models, agent-based models)
-- You want to make your distance metric explicit
-- You care more about specific summary statistics than full data
-- You want robustness to model misspecification
-
-**Best practice**:
-
-- Try multiple observation models (Poisson, NegBin, ABC with different distances)
-- Check if scientific conclusions change
-- If they do not → the observation model choice does not matter much here
-- If they do → you have learned something about which features of the data drive the inference
 
 # Learning points
 
