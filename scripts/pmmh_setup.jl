@@ -23,7 +23,7 @@ using ForwardDiff
 using MFIIDD
 
 # Sampler settings shared by every chain we generate
-const N_PARTICLES = 256
+const N_PARTICLES = 128
 const N_WARMUP = 50_000     # RAM adapts here, and these draws are discarded
 const N_SAMPLES = 450_000   # kept, then thinned
 const THINNING = 50         # → 9000 final samples

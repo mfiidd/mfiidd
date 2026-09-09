@@ -46,7 +46,7 @@ PMMH uses particle filters internally, introducing two sources of randomness: th
 PMMH combines particle filters with MCMC, making it computationally demanding. For this session:
 
 - **Memory**: ~4 GB RAM recommended
-- **Runtime**: Each MCMC iteration takes 0.1-0.5 seconds (256 particles)
+- **Runtime**: Each MCMC iteration is one filter run, a few hundredths of a second at 128 particles with threads
 - **Full inference**: 10,000 iterations takes ~30-60 minutes; we use pre-computed chains for the main analysis
 - **Short test runs**: the demonstration below runs 500 warmup iterations and 500 kept ones, so budget roughly twice what 500 iterations alone would cost
 
@@ -221,7 +221,7 @@ end
 - **`StateSpaceModel(...)`** - assembles the state-space model from initial distribution, dynamics, and observation components defined in [`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl).
 - **`GeneralisedFilters.filter(...)`** - runs the bootstrap particle filter (`BF`) and returns the estimated log-likelihood. `Random.default_rng()` provides the global random number generator — this is Julia's way of passing randomness explicitly rather than relying on a hidden global state.
 - [`@addlogprob!`](https://turinglang.org/DynamicPPL.jl/stable/api/#DynamicPPL.@addlogprob!) - manually adds the particle filter's log-likelihood estimate to the model. The priors specified with `~` still contribute automatically. This is the [recommended pattern](https://github.com/TuringLang/Turing.jl/issues/2428) for integrating external likelihood estimators with Turing.
-- **Why 256 particles?** PMMH acceptance depends on the variance of the log-likelihood estimate. Using more particles reduces variance but increases computation. The calibration in the [previous session](particle_filters.qmd) put the minimum at 64, measured at a single parameter set; how noisy the estimate is depends on where in the posterior you are, so it is safer to go somewhat higher, and worth checking the count again once you have a posterior to check it against.
+- **Why 128 particles?** PMMH acceptance depends on the variance of the log-likelihood estimate. Using more particles reduces variance but increases computation, and the cost is linear in the count while the gain is not. The calibration in the [previous session](particle_filters.qmd) put the minimum at 64, measured at a single parameter set, and 128 sits comfortably inside the target band with some room for the fact that the noise depends on where in the posterior you are. Measured against effective sample size per second, 64 is fastest, 128 is close behind, and 256 costs about twice as long for the same answer.
 :::
 
 Now let's run PMMH. Unlike standard MCMC where NUTS auto-tunes proposals, PMMH requires Metropolis-Hastings because the particle filter likelihood is not differentiable.
@@ -229,8 +229,8 @@ Now let's run PMMH. Unlike standard MCMC where NUTS auto-tunes proposals, PMMH r
 Let's start with a short chain to see the challenges:
 
 ```{julia}
-# Define model with 256 particles
-model_pmmh = pmmh_seit4l(flu_tdc.obs, 256)
+# Define model with 128 particles
+model_pmmh = pmmh_seit4l(flu_tdc.obs, 128)
 
 # Run a short chain with RAM
 # externalsampler() wraps an AdvancedMH.jl sampler for use with Turing models
@@ -323,7 +323,7 @@ If you are calling the course helper rather than building the model yourself, pa
 `threaded`:
 
 ```julia
-log_lik = run_particle_filter(θ, flu_tdc.obs, 256; threaded = true)
+log_lik = run_particle_filter(θ, flu_tdc.obs, 128; threaded = true)
 ```
 
 Both take `nchunks` if you want to fix the number of blocks rather than take one per
@@ -337,19 +337,19 @@ println("Julia is running with $(Threads.nthreads()) thread(s)")
                 :α => 0.5, :D_imm => 10.5, :ρ => 0.7)
 
 ## the same filter, with and without the threads
-serial = minimum(@elapsed(run_particle_filter(θ_timing, flu_tdc.obs, 256)) for _ in 1:3)
+serial = minimum(@elapsed(run_particle_filter(θ_timing, flu_tdc.obs, 128)) for _ in 1:3)
 threaded = minimum(
-    @elapsed(run_particle_filter(θ_timing, flu_tdc.obs, 256; threaded=true)) for _ in 1:3
+    @elapsed(run_particle_filter(θ_timing, flu_tdc.obs, 128; threaded=true)) for _ in 1:3
 )
 
-println("one filter run at 256 particles")
+println("one filter run at 128 particles")
 println("  serial:   $(round(serial, digits=4)) s")
 println("  threaded: $(round(threaded, digits=4)) s")
 println("  speed-up: $(round(serial / threaded, digits=2))x")
 ```
 
 What that prints depends on the machine and on how busy it is: on twelve threads a run
-at 256 particles is several times faster, and more particles scale better than fewer,
+at 128 particles is several times faster, and more particles scale better than fewer,
 because there is more work to divide against the same per-day overhead.
 
 The speed-up still stops well short of the thread count, and the reason is not the one
@@ -400,7 +400,10 @@ The particle filter gives a *noisy estimate* of the likelihood. Even at the same
 
 ::: {.callout-note}
 ## Pre-computed chains
-Running PMMH with RAM for good mixing takes several hours. We load pre-computed chains here: 50,000 warmup iterations for RAM to adapt in, then 450,000 kept and thinned by 50. See `scripts/generate_pmcmc_seit4l.jl` if you want to run it yourself.
+The chains loaded here were generated by `scripts/generate_pmcmc_seit4l.jl`: 50,000 warm-up iterations for RAM to adapt in, then 450,000 kept and thinned by 50.
+That is far more than the posterior needs, and it is worth knowing what it is made of.
+The chain produces one effective draw about every 200 iterations, so those 450,000 iterations buy an effective sample of roughly 2,200 for the worst-mixing parameter and eight thousand for the best.
+A few hundred is plenty for anything on this page, which is around 80,000 iterations, and with threads that is well under an hour rather than the overnight job it used to be.
 :::
 
 ```{julia}
@@ -739,7 +742,7 @@ function dic(chain_df)
                  :D_inf => mean(chain_df.D_inf), :α => mean(chain_df.α),
                  :D_imm => mean(chain_df.D_imm), :ρ => mean(chain_df.ρ))
     ## the filter estimate is noisy, so average a few runs at the posterior mean
-    D_bar = -2 * mean(run_particle_filter(θ_bar, flu_tdc.obs, 256;
+    D_bar = -2 * mean(run_particle_filter(θ_bar, flu_tdc.obs, 128;
                                           init_state = init_seit4l) for _ in 1:5)
     return D_bar + 2 * p_D
 end
@@ -755,7 +758,7 @@ which you would hope for from the model with the more realistic waiting time.
 
 Two caveats specific to this setting. $p_D$ is computed from log-likelihoods the
 particle filter only estimates, so it carries a little of the filter's noise as
-well as the posterior's spread. With 256 particles that contribution is small
+well as the posterior's spread. With 128 particles that contribution is small
 here, and it grows as you cut the particle count.
 
 The larger one is that DIC is not uniquely defined for a model with latent
@@ -891,7 +894,7 @@ sims_filtered = map(1:n_filt) do _
     row = seit4l_df[rand(1:nrow(seit4l_df)), :]
     θ = Dict(:R_0 => row.R_0, :D_lat => row.D_lat, :D_inf => row.D_inf,
              :α => row.α, :D_imm => row.D_imm, :ρ => row.ρ)
-    inc = filtered_incidence(θ, flu_tdc.obs, 256)
+    inc = filtered_incidence(θ, flu_tdc.obs, 128)
     [rand(Poisson(max(row.ρ * x, 1e-10))) for x in inc]
 end
 ```

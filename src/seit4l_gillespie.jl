@@ -62,14 +62,33 @@ function gillespie_step(
     θ::Dict,
     dt::Float64 = 1.0,
 )
+    s = copy(state)
+    return s, gillespie_step!(rng, s, θ, dt)
+end
+
+"""
+    gillespie_step!(rng, state, θ, dt=1.0)
+
+Simulate SEIT4L for `dt` time units, writing the new compartments into the first
+eight elements of `state`, and return the incidence.
+
+The filter calls this once per particle per day, so the caller supplying the
+vector rather than the stepper allocating one is the difference between one
+allocation per particle-day and three. `state` may be longer than eight, which
+is how the state-space interface carries incidence in a ninth slot without a
+second array.
+"""
+function gillespie_step!(
+    rng::AbstractRNG,
+    s::AbstractVector{Float64},
+    θ::Dict,
+    dt::Float64 = 1.0,
+)
     β = θ[:R_0] / θ[:D_inf]
     ϵ = 1.0 / θ[:D_lat]
     ν = 1.0 / θ[:D_inf]
     τ = 4.0 / θ[:D_imm]
     α = θ[:α]
-
-    # Copy state for modification
-    s = copy(state)
 
     # Simulate up to `dt` time units
     t, daily_inc = 0.0, 0
@@ -102,7 +121,7 @@ function gillespie_step(
         event == 2 && (daily_inc += 1)
     end
 
-    return s, daily_inc
+    return daily_inc
 end
 
 """
