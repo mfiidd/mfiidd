@@ -171,23 +171,10 @@ But it is a function, not a number. Matching whole curves within $\epsilon$ is n
 easier than matching the data. And if you could evaluate it, you would not be
 here.
 
-## Is there a correct observation model?
-
 . . .
 
-No. There is only a choice, and the choice is part of the model.
-
-. . .
-
-- A **likelihood** is a distance you committed to in advance, and it comes with a
-  probabilistic interpretation.
-- An **ABC distance** is a distance you chose openly, and it works when the
-  likelihood is intractable.
-
-. . .
-
-Either way, be explicit about the choice and check whether your conclusions
-survive a different one.
+Either way you are choosing. Say which choice you made, and check whether your
+conclusions survive a different one.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
