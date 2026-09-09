@@ -128,7 +128,7 @@ one pins down a different parameter.
 the tens are not comparable. Weight each by its spread under the prior
 predictive, or the largest summary quietly becomes the only one.
 
-## Everything hangs on $\epsilon$
+## Choosing $\epsilon$
 
 . . .
 
