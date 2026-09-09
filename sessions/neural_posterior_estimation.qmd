@@ -666,11 +666,16 @@ for nobs in [10, 20, 30, 40, 50, T], rep in 1:5   ## 8 is the sparsest schedule 
 end
 
 summary_widths = combine(groupby(widths, [:nobs, :param]), :width => mean => :w)
-pl = plot(xlabel="number of observed days", ylabel="90% interval width",
-          title="Posterior width vs surveillance intensity", legend=:topright)
+
+## D_imm is an order of magnitude wider than the rest, so on a shared axis it is
+## the only curve you can read. Scale each parameter by its own width under the
+## fully observed schedule instead, and every curve starts at 1 on the right.
+pl = plot(xlabel="number of observed days",
+          ylabel="90% width, relative to fully observed",
+          title="Posterior width vs surveillance intensity", legend=:topleft)
 for p in string.(PNAMES)
     s = sort(summary_widths[summary_widths.param .== p, :], :nobs)
-    plot!(pl, s.nobs, s.w, lw=2, marker=:circle, ms=3, label=p)
+    plot!(pl, s.nobs, s.w ./ s.w[end], lw=2, marker=:circle, ms=3, label=p)
 end
 pl
 ```
