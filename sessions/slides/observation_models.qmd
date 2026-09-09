@@ -37,7 +37,7 @@ It makes a specific claim about how observation works.
 
 ## What we have assumed so far
 
-- The variance **equals** the mean. Expect 100 cases, expect a spread of about
+- Observations follow a Poisson distribution around true incidence. The variance **equals** the mean. With 100 cases, expect a spread of about
   $\pm 10$.
 - Observations at different times are **conditionally independent** given the
   trajectory.
