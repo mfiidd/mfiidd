@@ -28,29 +28,22 @@ came out [exactly equal to the data]{.alert}.
 Nothing has been approximated. The $\theta$ you keep are draws from
 $p(\theta \mid y)$.
 
-## Approximate Bayesian Computation {.smaller}
+## Approximate Bayesian Computation
 
-Exact equality has probability zero for anything but tiny discrete data. Nothing
-would ever be accepted, so we make two concessions. This is where the
-[approximate]{.alert} comes from.
+Exact equality has probability zero, so nothing would ever be accepted. Two
+concessions, and this is where the [approximate]{.alert} comes from.
 
 . . .
 
 [**Close, not equal.**]{.alert} Keep $\theta$ when
-$d(y_\text{sim},\, y) < \epsilon$. That buys acceptances, and costs you a
-tolerance you now have to choose.
+$d(y_\text{sim},\, y) < \epsilon$.
 
 . . .
 
 [**Summaries, not the whole dataset.**]{.alert} Over 59 days even "close" almost
-never happens. Compare $s(y_\text{sim})$ with $s(y)$ instead.
+never happens. Compare $s(y_\text{sim})$ with $s(y)$.
 
-. . .
-
-Shrink $\epsilon$ and the first cost goes away. The second is still there when
-$\epsilon$ reaches zero.
-
-## The approximation {.smaller}
+## The approximation
 
 $$p(\text{data} \mid \theta) \approx p\big(d(S_\text{data},\, S_{\text{sim}(\theta)}) < \epsilon\big)$$
 
@@ -80,33 +73,25 @@ posterior.
 
 No likelihood anywhere. Just a simulator, a distance, and a threshold.
 
-## Choosing summary statistics {.smaller}
+## Choosing summary statistics
 
-Three things decide whether a choice is any good.
-
-. . .
-
-[**How many.**]{.alert} Every summary has to land inside $\epsilon$ *at the same
-time*, so acceptance falls off geometrically as you add them. That is why people
-use three or four.
+[**How many.**]{.alert} All of them must land inside $\epsilon$ at once, so
+acceptance falls off fast as you add more. Three or four is usual.
 
 . . .
 
-[**Whether they move with $\theta$.**]{.alert} A summary that barely responds to
-the parameters shrinks the acceptance region and tells you nothing. Ideally each
-one pins down a different parameter.
+[**Whether they move with $\theta$.**]{.alert} One that barely responds shrinks
+the acceptance region and tells you nothing.
 
 . . .
 
-[**What scale they are on.**]{.alert} A total in the hundreds and a peak day in
-the tens are not comparable. Weight each by its spread under the prior
-predictive, or the largest summary becomes the only one that counts.
+[**What scale they are on.**]{.alert} Weight each by its spread under the prior
+predictive, or the largest one drowns out the rest.
 
-## What you are really choosing {.smaller}
+## What you are really choosing
 
 A summary is [sufficient]{.alert} if it tells you everything the data say about
-$\theta$. With a sufficient summary $p(\theta \mid s(y))$ **is**
-$p(\theta \mid y)$ — nothing has been lost.
+$\theta$. Then $p(\theta \mid s(y))$ **is** $p(\theta \mid y)$.
 
 . . .
 
@@ -114,17 +99,10 @@ For a model like ours there is no such summary short of the whole dataset.
 
 . . .
 
-So ABC makes [two]{.alert} approximations, not one:
-
 | | removed by |
 |---|---|
 | the threshold $\epsilon$ | letting $\epsilon \to 0$ |
 | the summary $s$ | nothing |
-
-. . .
-
-Shrinking $\epsilon$ sharpens the answer onto $p(\theta \mid s(y))$, which is not
-the posterior you wanted unless $s$ was sufficient.
 
 ## Choosing $\epsilon$
 
