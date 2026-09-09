@@ -337,11 +337,11 @@ Lux.parameterlength(ps)          ## how many weights we are about to train
   [`Dense(in => out, activation)`](https://lux.csail.mit.edu/stable/api/Lux/layers#Lux.Dense)**
   are the same Lux pieces the [UDE session](universal_differential_equations.qmd)
   uses: `Dense` applies a linear map and then an element-wise activation, `Chain`
-  runs several in sequence. `Lux.setup` returns the parameters and state
-  separately from the architecture, which is why every call below passes `ps` and
-  `st` explicitly.
+  runs several in sequence. `Lux.initialparameters` and `Lux.initialstates` walk
+  the container and return the parameters and state separately from the
+  architecture, which is why every call below passes `ps` and `st` explicitly.
 - **`embed`** compresses the `2T` conditioning inputs — the masked observations and
-  the mask — into `n_embed` numbers, which every coupling layer sees. The
+  the mask — into `FLOW.embed` numbers, which every coupling layer sees. The
   parameters and the data meet in `vcat(xm, h)`.
 - **`init_weight=zeros32`** on the last layer of each coupling network means every
   scale starts at 1 and every shift at 0, so the untrained flow is exactly the
