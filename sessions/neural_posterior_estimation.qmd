@@ -368,7 +368,7 @@ Here we do not have a fixed training set.
 A simulation costs a fraction of a millisecond, so we draw a **fresh batch for every gradient step**.
 No example is ever seen twice, and overfitting becomes impossible by construction.
 
-Simulating a batch of 128 costs about twice the gradient step it feeds, so the simulator accounts for roughly two thirds of the training time.
+Simulating a batch of 128 costs about twice the gradient step it feeds, and with the periodic validation passes on top the simulator comes to a little over half the training time.
 At this model size that is affordable, and it is the price of the guarantee.
 With a simulator a hundred times slower it would not be: you would go back to a fixed training set, and back to watching for overfitting.
 :::
@@ -537,7 +537,7 @@ A curve bowed to one side, staying above or below the line across the whole rang
 Look at `R_0`.
 Its curve sits above zero across almost the whole range and leaves the band between roughly 0.24 and 0.35, with no sign change, so this is bias rather than width.
 Ranks skewed low mean the true value falls below the NPE draws more often than it should, which is the estimator centring `R_0` too high.
-`D_lat` and `ρ` bow gently the other way but stay inside the band, and `D_inf`, `α` and `D_imm` sit close to the line.
+`D_lat` bows gently the other way but stays inside the band, `ρ` slips just outside it at the extremes, and `D_inf`, `α` and `D_imm` sit close to the line.
 So both checks land on `R_0`, and they disagree about the direction, which is worth sitting with.
 Against PMMH on the Tristan da Cunha data the NPE median came out *low*; averaged over datasets drawn from the prior, calibration says the estimator runs *high*.
 Both can hold at once, because they ask different questions: SBC describes the estimator across every dataset the prior can produce, while the comparison describes one fit to one outbreak.
@@ -635,7 +635,7 @@ scatter!(pl, tt, YOBS, c=:black, ms=3, label="observed")
 ```
 
 Amortisation stops at the parameters.
-The flow returns $\theta$ in milliseconds and will keep doing so for any dataset, and it says nothing about the latent path: each of the twenty trajectories above cost its own particle filter run, at the 256 particles the [particle filter session](particle_filters.qmd) calibrated.
+The flow returns $\theta$ in milliseconds and will keep doing so for any dataset, and it says nothing about the latent path: each of the twenty trajectories above cost its own particle filter run, at the 256 particles the [PMMH session](pmcmc.qmd) settled on.
 That is still a bargain beside PMMH, which runs a filter at *every* iteration — half a million of them for the committed chain — merely to arrive at $\theta$.
 Here the filter runs once per trajectory you actually want, and only if you want one.
 
