@@ -10,7 +10,7 @@ order: 10
 **Estimated time**: 20 minutes
 :::
 
-[Slides](slides/choosing_an_approach.qmd)
+[Slides](slides/closing.qmd)
 
 # Introduction
 

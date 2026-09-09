@@ -1,6 +1,6 @@
 ---
-footer: "Choosing an inference approach"
-title: "Choosing an inference approach"
+footer: "Synthesis and next steps"
+title: "Model fitting and inference for infectious disease dynamics"
 subtitle: "What we did, the bigger picture, and where to go next"
 ---
 
