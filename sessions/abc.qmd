@@ -227,6 +227,10 @@ simulate_abc(params) = simulate_seit4l_obs(params...)
 # Distance functions
 distance_L1(sim, obs) = sum(abs.(sim .- obs))
 
+## A single summary statistic rather than the whole series: the total number of
+## cases over the outbreak. Cheap, and much easier to land inside a window.
+distance_total(sim, obs) = abs(sum(sim) - sum(obs))
+
 function distance_L2(sim, obs)
     return sqrt(sum((sim .- obs).^2))
 end
@@ -346,6 +350,40 @@ else
 end
 ```
 
+## A summary statistic instead of the series
+
+`distance_total` throws away everything except the total number of cases.
+That is one number against fifty-nine, so simulations land inside the window far more often and the sampler runs much faster.
+
+::: {.callout-tip title="Exercise: What does the cheaper distance cost?"}
+Run `abc_rejection` with `distance_total` at a threshold of 25, and again at 12.
+
+1. How does the acceptance rate compare with `distance_L1`?
+2. Does the posterior for $R_0$ agree with the particle MCMC answer?
+3. Tightening the threshold from 25 to 12 costs you simulations. What does it buy?
+:::
+
+::: {.callout-tip title="What to look for" collapse="true"}
+Acceptance goes up by an order of magnitude, and the posterior gets worse.
+
+$R_0$ comes out near 4.5 against the particle MCMC value of about 6.3, and the
+interval sits low. Many different epidemics produce 312 cases in total: a fast one
+that burns out, a slow one that grinds on, a small $R_0$ with a high reporting
+rate. The total cannot tell them apart, so the posterior is a mixture of all of
+them.
+
+The third question is the one worth sitting with. Tightening from 25 to 12 roughly
+halves the acceptance rate and moves the posterior almost not at all. That is
+different from what happens with `distance_L1`, where a tighter threshold pulls
+the answer towards the particle MCMC one.
+
+This is the difference between the two approximations ABC makes. The threshold is
+one, and you can buy your way out of it with simulations. The summary is the
+other, and you cannot: once the total is all you compare, no threshold recovers
+the timing information you discarded. A summary that is not sufficient puts a
+floor under the error, and $\epsilon \to 0$ does not lift it.
+:::
+
 ## Compare distance metrics
 
 Different distance functions give different results.
@@ -368,11 +406,12 @@ L1 adds the absolute deviations, so that same bad day contributes 30 and nothing
 more. It is the forgiving choice, and it is why L1 is a common default in ABC
 when you expect reporting glitches.
 
-The caveat matters here more than usual, as the cell below shows. Our SIR model
-fits these data badly, and against a badly fitting simulation the L2 total is
-already dominated by the model's systematic errors, so the injected outlier
-accounts for a *smaller* share of L2 than of L1. The rule of thumb describes a
-model that is otherwise doing well.
+The caveat matters here more than usual, and for a reason particular to a
+stochastic model. Run SEIT4L twice at the same parameters and the two runs differ
+by more than the outlier does, so the L2 total is already dominated by ordinary
+run-to-run variation. Against that background a single injected day accounts for a
+smaller share of L2 than the rule of thumb suggests. The rule describes a
+deterministic model with small residuals, which this is not.
 
 The weighted distance depends entirely on the weights. If it upweights the peak
 and the outlier falls near the peak, it can react more sharply than either; if the
@@ -753,10 +792,10 @@ simulate_and_summarize(params) = simulate_seit4l_obs(params...)
 # Drawing fresh noise for each would make the two datasets differ everywhere, and
 # the comparison below would measure the noise rather than the outlier.
 function synthetic_data()
-    true_params = [10.0, 2.5, 0.8]
-    true_data = simulate_and_summarize(true_params)
-    noisy_data = true_data .+ randn(length(true_data)) .* 2.0
-    return max.(noisy_data, 0.0)  # No negative cases
+    ## The simulator already draws reported counts through a Poisson observation
+    ## process, so there is no noise to add on top of it here
+    true_params = [6.3, 2.1, 0.7]
+    return float.(simulate_and_summarize(true_params))
 end
 
 data_clean = synthetic_data()
@@ -797,9 +836,20 @@ For likelihood-based inference, the Negative Binomial distribution (covered earl
 
 ```{julia}
 #| eval: false
-# Compare how each metric responds to the outlier
-true_params = [10.0, 2.5, 0.8]
-predicted = simulate_and_summarize(true_params)
+# Compare how each metric responds to the outlier.
+# The prediction has to be the *expected* incidence, not one stochastic run: it is
+# the rate a Poisson observation model would use, and the rate the distances are
+# comparing against. The deterministic SEIT4L gives it directly.
+function expected_reported(R_0, D_inf, ρ)
+    θ = Dict(:R_0 => R_0, :D_lat => D_LAT, :D_inf => D_inf,
+             :α => ALPHA, :D_imm => D_IMM)
+    init = Dict(:S => 279.0, :E => 0.0, :I => 2.0, :T1 => 3.0,
+                :T2 => 0.0, :T3 => 0.0, :T4 => 0.0, :L => 0.0)
+    traj = simulate_seit4l_deterministic(θ, init, [0.0; flu_tdc.time])
+    return ρ .* traj.Inc[2:end]
+end
+
+predicted = expected_reported(6.3, 2.1, 0.7)
 
 # Poisson log-likelihood
 function poisson_loglik(predicted, observed)
