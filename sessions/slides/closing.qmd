@@ -12,96 +12,39 @@ subtitle: "What we did, the bigger picture, and where to go next"
 
 ## Four days
 
-- **Monday**: priors, likelihoods, posteriors, and MCMC to sample the posterior
-- **Tuesday**: did the sampler work, is the model any good, and a stochastic
-  model that broke the likelihood
-- **Wednesday**: a particle filter to estimate it, pMCMC to sample with the
-  estimate, and what an observation model assumes
-- **Thursday**: ABC, for when there is no likelihood to estimate
+- **Monday**: priors, likelihoods, posteriors, and MCMC to sample them
+- **Tuesday**: convergence diagnostics, posterior predictive checks, and the
+  stochastic SEITL model that broke the likelihood
+- **Wednesday**: the particle filter to estimate that likelihood, pMCMC to
+  sample with the estimate, and the observation model
+- **Thursday**: ABC, and likelihood-free inference
 
-Nearly all of it fitted to the same 59 days from Tristan da Cunha.
+## What happened to the likelihood {.smaller}
 
-# Where it sits
+**Monday.** A deterministic model puts all the mass of $p(x \mid \theta)$ on one
+trajectory, so $p(y \mid \theta) = p(y \mid x = f(\theta), \theta)$ and you
+evaluate it directly.
 
-## Two traditions
+**Tuesday.** The stochastic model made it an integral over every trajectory,
+$p(y \mid \theta) = \int p(y \mid x, \theta)\, p(x \mid \theta) \,\mathrm{d}x$,
+with no closed form.
 
-![](images/mechanistic_statistical.svg){.bigpic}
+**Wednesday.** The particle filter estimated that integral without bias, and
+pMCMC sampled with the estimate.
 
-The week has been the join of the two: a model built from first principles,
-confronted with data.
+**Thursday.** ABC dropped it for
+$p\big(d(S_y,\, S_{\text{sim}(\theta)}) < \epsilon\big)$.
+
+# The bigger picture
 
 ## Inference in one loop
 
 ![](images/inference_loop_3.svg){.bigpic}
 
-## The method is one choice
+## Four choices behind one inference {.smaller}
 
-A model turns parameters into data. Inference runs that arrow [backwards]{.alert}.
-
-Which method runs it backwards is one choice. Which software implements the
-method is a separate one, and the week has been quiet about it.
-
-The loop returns parameters. A particle filter also returns the states: what the
-epidemic was doing on each day.
-
-## The methods we did not do {.smaller}
-
-|  | Frequentist | Bayesian |
-|---|---|---|
-| Needs the model's densities | EM, Kalman filter | **MCMC** |
-| Simulator only, whole likelihood | iterated filtering | **particle MCMC** |
-| Simulator only, summaries | synthetic likelihood | **ABC** |
-
-[after Aaron King, [Simulation-based Inference for Epidemiological Dynamics](https://kingaa.github.io/sbied/)]{.cite}
-
-We spent the week in the right-hand column. The left one answers the same
-questions without a prior, and iterated filtering is the one you are most likely
-to meet.
-
-The rows are what the method demands of you. Everything below the first line
-needs only a simulator, which is why it survives a model you can only run
-forwards. When one simulation takes hours, even that is too much, and you fit a
-cheap stand-in to the simulator instead: emulation and history matching.
-
-## Exact and approximate {.smaller}
-
-The particle filter gives a [noisy]{.alert} likelihood estimate, and pMCMC still
-targets the exact posterior. Run it for longer and it converges.
-
-ABC does not. The tolerance and the choice of summaries set a floor that no
-amount of sampling reaches past.
-
-Variational inference and neural posterior estimation sit on the same side of
-that line: the approximating family, or the trained network, sets the floor.
-
-So ask what more computation buys you: accuracy, or a sharper picture of a fixed
-approximation.
-
-## Other people's software {.smaller}
-
-- **pomp** (R): iterated filtering and particle methods, and the course that
-  goes with them
-- **odin**, **dust** and **monty** (R): stochastic models and the samplers to
-  fit them, behind a lot of UK outbreak modelling
-- **LibBi** and **rbi** (R): particle MCMC on GPUs
-- **Stan**, **NumPyro**, **PyMC**: gradient-based sampling for models with a
-  tractable likelihood
-- **Turing.jl**: what we used, and the reason this course is now in Julia
-
-The last two are probabilistic programming languages: you write the model and
-the sampler comes with it.
-
-The method and the implementation are separate choices. Ours were Julia's, and
-yours do not have to be.
-
-# Choosing
-
-## Four choices behind one fit {.smaller}
-
-To fit SEITL we picked a stochastic model, a Gillespie simulator, pMCMC and
-Turing.
-
-Those are the four choices behind any fit [@funk2020]:
+Every fit settles four questions, whether or not you notice deciding them
+[@funk2020]. Three of them are labelled on the loop:
 
 1. **The model**: deterministic or stochastic, and how complex
 2. **The simulation method**: an ODE solver, Gillespie, or tau-leaping
@@ -109,142 +52,151 @@ Those are the four choices behind any fit [@funk2020]:
    frequentist
 4. **The software**: a package, a language, or code of your own
 
-The loop has a box for each. The course made all four for you. Your own problem
-will leave them open.
+To fit SEIT4L we picked a stochastic model, a Gillespie simulator, pMCMC, and
+Julia with Turing.jl.
+
+## How to choose?
+
+The main criteria are:
+
+1. A model suitable for the question at hand (**model adequacy**)
+2. Being able to do the inference in the time available (**computational
+   efficiency**)
+3. Getting a correct answer (**statistical accuracy**)
+4. Being able to write the model down correctly and quickly (**coding
+   efficiency**)
+
+## Model adequacy
+
+The right model comes before any inference procedure. Can it generate data like
+yours, for the purpose you built it for?
+
+A deterministic model puts all the mass of $p(x \mid \theta)$ on one trajectory,
+so it cannot represent process noise. That matters in a small population, where
+stochastic fade-out is a real possibility rather than a rounding error.
+
+## Computational efficiency
+
+Total cost is the cost of one simulation, times the number of simulations the
+method needs.
+
+### Cost of one simulation
+
+The simulation method and the implementation: an ODE solver against Gillespie,
+compiled against interpreted.
+
+### Number of simulations
+
+The inference method. NUTS reaches a given ESS in far fewer iterations than a
+random walk, and rejection ABC needs very large numbers of cheap forward
+simulations.
+
+## Statistical accuracy
+
+pMCMC uses a [noisy]{.alert} likelihood estimate and still targets the exact
+posterior. Run it for long enough and the Monte Carlo error falls as far as you
+like.
+
+ABC does not. $\epsilon$ and the choice of $S(y)$ bound the accuracy however long
+you run it, so more computation sharpens an answer that stays biased.
+
+## Coding efficiency
+
+Your time: writing, testing, debugging.
 
 ## The choices interact
 
 Software constrains method: a package implements what it implements.
 
-The model constrains method: one expensive enough to simulate rules out anything
-that needs a million runs.
+The model constrains method: a model too slow to simulate rules out any procedure
+needing a million runs.
 
-So there is no flowchart over methods alone. A choice made for good reasons in
-one box narrows the other three.
+## Probabilistic programming languages (PPLs)
 
-## Four criteria {.smaller}
+In PPLs you write down the model specification, and the language takes care of
+the simulator and the inference.
 
-1. **Model adequacy**: can the model do the job you built it for? A
-   deterministic model cannot represent uncertainty, so it is a poor choice
-   when the uncertainty is the point.
-2. **Computational efficiency**: cost of one simulation, times how many.
-   Amortised methods break that arithmetic, paying once in training and then
-   fitting in seconds.
-3. **Statistical accuracy**: how close is the approximation to the posterior you
-   meant?
-4. **Coding efficiency**: how much of your own time it takes, which rarely
-   appears in a talk and is where most of a year goes.
+One definition of SEIT4L, and Turing will run `NUTS()` on a tractable
+differentiable likelihood, `MH()` or `Emcee()` where there is no usable gradient,
+and `SMC()`, `PG()` or `CSMC()` where the likelihood has to be estimated from
+simulations. Wednesday was that: the model unchanged, the particle filter's
+estimate added with `@addlogprob!`.
 
-[@funk2020]{.cite}
+- **Turing.jl** in Julia
+- **Stan** in R, Python or Julia
+- **NumPyro** and **PyMC** in Python
 
-Tuesday was the first of those in one dataset.
+## When things do not work {.smaller}
 
-## Generality is not free {.smaller}
+**Slow, sticky, or divergent** is often the sampler, and often fixable: retune
+the proposal, reparameterise the funnel, raise the particle count until the
+variance of the log-likelihood estimate is around one.
 
-![](images/method_efficiency.png)
+**Biased, overconfident, or simply wrong** is rarely the sampler.
 
-[@fasiolo2016]{.cite}
+- **The observation model**: Poisson on overdispersed counts gives an
+  overconfident posterior, and one outlying day dominates the fit
+- **The priors**: `Uniform(1, 20)` on $R_0$ says 19 is as plausible as 2
+- **Identifiability**: two parameters that trade off cannot be separated by any
+  sampler, being a property of model and data
+- **The model**: one that cannot generate your data will not be rescued by
+  better inference
 
-Five methods, one model, one dataset. The two that use the whole likelihood come
-first; the three that work from summaries pay for the generality.
+## Checking the model
 
-You care about the time to an answer you trust, and that depends on the breadth
-of the prior, the information in the data and the shape of the posterior.
+**Two separate modes of checking**
 
-## Two questions route the method {.smaller}
+Sampler problems: R̂, divergences, low ESS, sticky traces.
 
-**Can you evaluate** $p(\text{data} \mid \theta)$**?**
+Model problems: posterior predictive checks, predictive p-values.
 
-If not, you are in simulation-based territory: a particle filter to estimate it,
-or ABC to do without it.
+Both are necessary. A converged chain from a misspecified model looks exactly
+like a converged chain from an adequate one.
 
-**Can you differentiate it?**
-
-If you can, use NUTS. If you cannot, an adaptive random walk such as RAM.
-
-That settles one box of the four. The other three are still yours to argue.
-
-## Where to start {.smaller}
-
-One order is to get something working with an approximate method, then move to
-full information for the results you publish [@fasiolo2016].
-
-The other is to start from the model your question needs and find out whether
-full-information inference is feasible at all [@funk2020]. The approximate first
-step costs time and can mislead.
-
-Both are defensible. What is not is drifting into an approximate method by
-accident, because it then decides for you which features of the data carry
-information.
-
-## It is almost never the sampler {.smaller}
-
-**The observation model**: Poisson on overdispersed data gives an overconfident
-posterior, and one bad day dominates the fit.
-
-**The priors**: `Uniform(1, 20)` on $R_0$ says 19 is as plausible as 2.
-
-**Identifiability**: if two parameters trade off, the data cannot separate them
-and no sampler will. That is a property of model and data.
-
-**The model**: one that cannot produce your data will not be rescued by better
-inference.
-
-## The asymmetry worth remembering
-
-Sampler problems are [loud]{.alert}: R̂, divergences, ugly trace plots.
-
-Model problems are [silent]{.alert}. A converged chain from a bad model looks
-exactly like a converged chain from a good one.
-
-That is why model checking is a separate job from diagnostics.
-
-## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
-
-Take the model *you* want to fit.
+## Questions to ask of your own model
 
 - Is the process stochastic in a way that matters at your population size?
-- Can you write the likelihood? Can you differentiate it?
+- Can you evaluate the likelihood? Can you differentiate it?
 - How expensive is one simulation, and how many can you afford?
-- What would tell you that the fit had failed?
-
-Then compare with the person next to you. The disagreements are the useful part.
+- Which features of the data would an approximate method discard?
+- What would tell you the fit had failed, and would it be loud or silent?
 
 # Where to go next
 
 ## Further topics {.smaller}
 
-- **Variational inference**: an optimisation in place of a sample, for when the
-  answer has to arrive today
-- **Neural posterior estimation**: train once, then fit the same model to new
-  data in seconds
-- **Universal differential equations**: a neural network inside the model, for
-  the part of the mechanism you do not know
+- **Variational inference**: optimisation over a variational family in place of
+  sampling, for when the answer is needed in real time
+- **Neural posterior estimation**: amortised inference with normalising flows,
+  for a model you fit many times
+- **Universal differential equations**: a neural closure term inside the model,
+  for the part of the mechanism you cannot write down
 - **Beyond Turing**: other samplers, automatic differentiation backends, and
   what sits underneath the Julia we have been using
 
-Two of them are on the approximate side of that line, trading exactness for
-speed. All four are on the site, written to be worked through on your own.
+All four are on the course site, written to be worked through on
+your own.
 
 ## Further reading {.smaller}
 
 - @funk2020 sets out the four choices and four criteria, with worked
-  examples in pomp and rbi that you can run.
-- @li2018 compare these approaches on epidemic models. This course is the
-  practical version of that paper.
+  examples in pomp and rbi (becoming outdated).
+- @fasiolo2016 compare the method families on nonlinear state space models in
+  ecology and epidemiology.
+- @li2018 compare MCMC approaches for mechanistic epidemic models, staying inside
+  the case where the likelihood is tractable.
 - Aaron King's [Simulation-based Inference for Epidemiological
   Dynamics](https://kingaa.github.io/sbied/) is the same territory from the
   iterated-filtering side.
-- @andrianakis2015 is the tutorial for emulation and history matching, for
-  models far too expensive to fit by any of the above.
 - [Nowcasting and forecasting infectious disease
-  dynamics](https://nfidd.github.io/nfidd/) picks up where we stopped: data that
-  arrive late, incomplete, and from several streams at once.
+  dynamics](https://nfidd.github.io/nfidd/) picks up where we stopped: reporting
+  delays, right truncation and evidence synthesis.
 
 ## Before you go {.smaller}
 
-- A short **feedback survey** is coming by email. It is how the course changes,
-  so please fill it in.
+- A short **feedback survey** is coming by email and linked on the course
+  website. This is the first time we have taught the material in this form, so
+  please fill it in.
 - Everything here stays online and is MIT licensed. Reuse it, with attribution.
 - The [Discussion board](https://github.com/mfiidd/mfiidd/discussions) is for
   questions, and for showing what you have fitted.
@@ -254,5 +206,3 @@ speed. All four are on the site, written to be worked through on your own.
 ## Thank you {background-color="#447099" transition="fade-in" .center}
 
 ### [mfiidd.github.io/mfiidd](https://mfiidd.github.io/mfiidd/)
-
-Come and find us on the Discussion board, and tell us what you end up fitting.
