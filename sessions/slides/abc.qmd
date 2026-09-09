@@ -4,8 +4,6 @@ title: "Approximate Bayesian Computation"
 subtitle: "Inference by simulation"
 ---
 
-# Inference by simulation
-
 ## No likelihood you believe in
 
 You have a simulator. What you do not have is a $p(y \mid \theta)$ you would
