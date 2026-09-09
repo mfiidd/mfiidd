@@ -37,23 +37,20 @@ concessions, and this is where the [approximate]{.alert} comes from.
 
 . . .
 
-[**Close, not equal.**]{.alert} Keep $\theta$ when
-$d(y_\text{sim},\, y) < \epsilon$.
+[**Close, not equal.**]{.alert} Keep $\theta$ when the distance $d$ between
+simulation and data comes in under a tolerance $\epsilon$.
 
 . . .
 
 [**Summaries, not the whole dataset.**]{.alert} Over 59 days even "close" almost
-never happens. Compare $s(y_\text{sim})$ with $s(y)$.
+never happens, so compare summary statistics $S$ instead.
 
-## The approximation
+. . .
 
-$$p(\text{data} \mid \theta) \approx p\big(d(S_\text{data},\, S_{\text{sim}(\theta)}) < \epsilon\big)$$
+$$p(\text{data} \mid \theta) \approx
+p\big(d(S_\text{data},\, S_{\text{sim}(\theta)}) < \epsilon\big)$$
 
-- $S$: summary statistics
-- $d$: distance, e.g. absolute distance
-- $\epsilon$: acceptance window
-
-## The approximation, in a picture
+##  {.center}
 
 ![](images/abc_method.png){.step .tall}
 
@@ -93,7 +90,7 @@ predictive, or the largest one drowns out the rest.
 ## What you are really choosing
 
 A summary is [sufficient]{.alert} if it tells you everything the data say about
-$\theta$. Then $p(\theta \mid s(y))$ **is** $p(\theta \mid y)$.
+$\theta$. Then $p(\theta \mid S(y))$ **is** $p(\theta \mid y)$.
 
 . . .
 
@@ -104,7 +101,7 @@ For a model like ours there is no such summary short of the whole dataset.
 | | removed by |
 |---|---|
 | the threshold $\epsilon$ | letting $\epsilon \to 0$ |
-| the summary $s$ | nothing |
+| the summary $S$ | nothing |
 
 ## Choosing $\epsilon$
 
