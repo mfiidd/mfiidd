@@ -117,18 +117,21 @@ A fresh batch every gradient step, so there is nothing to overfit to.
 
 ## Wider, mostly
 
-Locations agree.
 Five of the six NPE intervals are [wider]{.alert} than the PMMH one, by 8 to 38
 per cent.
 
 . . .
 
-That is the direction the theory predicts, and the safer way to be wrong.
+`R_0` is the exception, and it is the interesting one: its width matches PMMH
+almost exactly, while its centre sits about a posterior standard deviation low.
 
 . . .
 
-The exception is `R_0`, where the two widths match almost exactly — and a
-matching width says nothing about where the interval is centred.
+Wider is the direction the theory predicts, and the safer way to be wrong.
+
+. . .
+
+A matching width says nothing about where an interval sits.
 
 ## Calibration
 
