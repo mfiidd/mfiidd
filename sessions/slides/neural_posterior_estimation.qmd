@@ -141,7 +141,7 @@ Calibrated means uniform.
 
 . . .
 
-`D_lat` sits below the band: the estimator centres it too low.
+`R_0` rises above the band: ranks skewed low, so the estimator centres it too high.
 
 . . .
 
