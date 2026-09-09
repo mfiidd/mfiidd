@@ -139,9 +139,8 @@ function GeneralisedFilters.predict(
         end
     end
 
-    # the same baseline GeneralisedFilters' own `predict` accumulates
-    lw = log_weights(state)
-    m = maximum(lw)
-    baseline = (m + log(sum(w -> exp(w - m), lw))) + state.ll_baseline
+    # the same baseline GeneralisedFilters' own `predict` accumulates, through
+    # its own `logsumexp`, which handles the weightless first step
+    baseline = GeneralisedFilters.logsumexp(log_weights(state)) + state.ll_baseline
     return ParticleDistribution(particles, baseline)
 end

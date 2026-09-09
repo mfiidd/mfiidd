@@ -316,6 +316,7 @@ log_lik = run_particle_filter(θ, flu_tdc.obs, 128; threaded = true)
 
 ```{julia}
 println("Julia is running with $(Threads.nthreads()) thread(s)")
+Threads.nthreads() == 1 && println("  start it with --threads=auto to see this do anything")
 
 ## the parameters the previous session calibrated at
 θ_timing = Dict(:R_0 => 6.0, :D_lat => 1.3, :D_inf => 2.0,
@@ -333,7 +334,9 @@ println("  threaded: $(round(threaded, digits=4)) s")
 println("  speed-up: $(round(serial / threaded, digits=2))x")
 ```
 
-The speed-up stops well short of the thread count.
+This page is built without extra threads, so the figures above are the serial ones twice
+over.
+On a machine with threads to spare the speed-up stops well short of the thread count.
 Weighting and resampling happen once a day on one thread, and at 128 particles there is not enough work in a block to hide that behind, so the same run at 1024 particles gets about twice the speed-up.
 A second chain scales better than a second thread does, so spare cores are better spent on chains unless the warm-up dominates the run, since every chain pays its own.
 

@@ -380,7 +380,7 @@ A few Julia features worth unpacking:
 
 - `kwargs...` at the end of a function signature means "accept any additional keyword arguments". We don't use them here, but `SSMProblems.jl` may pass extra keyword arguments depending on the filter being used, so our methods need to accept them without complaining.
 
-- `vcat(prior.init_state, 0.0)` appends `0.0` to the 8-element state vector to make a 9-element vector. We use the 9th slot to track daily incidence, because the observation process needs to see it. The transition builds that 9-element vector itself and copies the compartments into it one at a time, because `prev_state` arrives as a view or another array-like type rather than a plain `Vector`.
+- `vcat(prior.init_state, 0.0)` appends `0.0` to the 8-element state vector to make a 9-element vector. We use the 9th slot to track daily incidence, because the observation process needs to see it. The transition fills a 9-element vector of its own: the first eight are the compartments the stepper advances, and the ninth is the incidence it returns.
 :::
 
 How the pieces fit together:

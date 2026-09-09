@@ -1,6 +1,38 @@
 using Random
 
 """
+Which compartment each transition takes an individual from, and which it takes
+them to, as indices into [S, E, I, T1, T2, T3, T4, L].
+
+In order: infection, becoming infectious, recovery, the three steps through
+temporary immunity, immunity waning, and immunity becoming long term.
+"""
+const SEIT4L_MOVES = ((1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 1), (7, 8))
+
+"""
+    seit4l_rates(s, N, β, ϵ, ν, τ, α)
+
+The eight transition rates at state `s` in a population of `N`, in the order of
+`SEIT4L_MOVES`, as a tuple.
+
+A tuple stays on the stack. `N` is an argument because every transition
+conserves it, so it is summed once a day rather than once an event.
+"""
+function seit4l_rates(s, N, β, ϵ, ν, τ, α)
+    @inbounds S, E, I, T1, T2, T3, T4 = s[1], s[2], s[3], s[4], s[5], s[6], s[7]
+    return (
+        β * S * I / N,
+        ϵ * E,
+        ν * I,
+        τ * T1,
+        τ * T2,
+        τ * T3,
+        (1 - α) * τ * T4,
+        α * τ * T4,
+    )
+end
+
+"""
     gillespie_step(rng, state, θ, dt=1.0)
 
 Simulate SEIT4L for `dt` time units using the Gillespie algorithm.
@@ -46,95 +78,48 @@ function gillespie_step!(
     τ = 4.0 / θ[:D_imm]
     α = θ[:α]
 
-    @inbounds begin
-        S, E, I, T1, T2, T3, T4, L =
-            state[1], state[2], state[3], state[4], state[5], state[6], state[7], state[8]
+    # Every transition conserves the population, so this is a constant of the
+    # whole day rather than of each event
+    N = @inbounds state[1] +
+              state[2] +
+              state[3] +
+              state[4] +
+              state[5] +
+              state[6] +
+              state[7] +
+              state[8]
 
-        # Every transition conserves the population, so β/N and the two rates out
-        # of T4 are constants of the whole day rather than of each event
-        N = S + E + I + T1 + T2 + T3 + T4 + L
-        βN = β / N
-        τ_wane = (1 - α) * τ
-        τ_long = α * τ
+    t, daily_inc = 0.0, 0
+    @inbounds while t < dt
+        r = seit4l_rates(state, N, β, ϵ, ν, τ, α)
+        total = sum(r)
+        total ≤ 0 && break
 
-        # The eight rates: infection, becoming infectious, recovery, three steps
-        # through temporary immunity, immunity waning, immunity becoming long term
-        r1 = βN * S * I
-        r2 = ϵ * E
-        r3 = ν * I
-        r4 = τ * T1
-        r5 = τ * T2
-        r6 = τ * T3
-        r7 = τ_wane * T4
-        r8 = τ_long * T4
-        total = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8
+        # Time to the next event, and stop if it falls beyond the interval
+        wait = randexp(rng) / total
+        t + wait > dt && break
+        t += wait
 
-        t, daily_inc = 0.0, 0
-        while t < dt
-            total ≤ 0 && break
-
-            # Time to the next event, and stop if it falls beyond the interval
-            wait = randexp(rng) / total
-            t + wait > dt && break
-            t += wait
-
-            # Choose the event, apply it, and recompute only the rates it changed.
-            # A transition moves one individual between two compartments, so at
-            # most three of the eight rates depend on what it touched.
-            u = rand(rng) * total
-            if u ≤ r1                                   # S → E, infection
-                S -= 1
-                E += 1
-                r1 = βN * S * I
-                r2 = ϵ * E
-            elseif u ≤ r1 + r2                          # E → I, counted as a case
-                E -= 1
-                I += 1
-                daily_inc += 1
-                r1 = βN * S * I
-                r2 = ϵ * E
-                r3 = ν * I
-            elseif u ≤ r1 + r2 + r3                     # I → T1, recovery
-                I -= 1
-                T1 += 1
-                r1 = βN * S * I
-                r3 = ν * I
-                r4 = τ * T1
-            elseif u ≤ r1 + r2 + r3 + r4                # T1 → T2
-                T1 -= 1
-                T2 += 1
-                r4 = τ * T1
-                r5 = τ * T2
-            elseif u ≤ r1 + r2 + r3 + r4 + r5           # T2 → T3
-                T2 -= 1
-                T3 += 1
-                r5 = τ * T2
-                r6 = τ * T3
-            elseif u ≤ r1 + r2 + r3 + r4 + r5 + r6      # T3 → T4
-                T3 -= 1
-                T4 += 1
-                r6 = τ * T3
-                r7 = τ_wane * T4
-                r8 = τ_long * T4
-            elseif u ≤ r1 + r2 + r3 + r4 + r5 + r6 + r7 # T4 → S, immunity wanes
-                T4 -= 1
-                S += 1
-                r1 = βN * S * I
-                r7 = τ_wane * T4
-                r8 = τ_long * T4
-            else                                        # T4 → L, immunity is lasting
-                T4 -= 1
-                L += 1
-                r7 = τ_wane * T4
-                r8 = τ_long * T4
+        # Choose the event in proportion to its rate
+        u, cumulative, event = rand(rng) * total, 0.0, 8
+        for i in 1:8
+            cumulative += r[i]
+            if u ≤ cumulative
+                event = i
+                break
             end
-            total = r1 + r2 + r3 + r4 + r5 + r6 + r7 + r8
         end
 
-        state[1], state[2], state[3], state[4] = S, E, I, T1
-        state[5], state[6], state[7], state[8] = T2, T3, T4, L
-        return daily_inc
+        # Apply it: one individual leaves a compartment and joins another
+        from, to = SEIT4L_MOVES[event]
+        state[from] -= 1
+        state[to] += 1
+
+        # E → I is what counts as a new case
+        event == 2 && (daily_inc += 1)
     end
+
+    return daily_inc
 end
 
 """
