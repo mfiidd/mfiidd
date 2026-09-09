@@ -618,6 +618,18 @@ and are not. Asking "is this about how *much* noise, or about *what* the data
 mean?" separates the two.
 :::
 
+# Going further
+
+## Other observation models
+
+The choice of observation model affects inference more than many researchers realise. Consider exploring:
+
+- **Gaussian likelihood**: Appropriate when counts are large and approximately symmetric
+- **Zero-inflated models**: When surveillance systems miss entire days
+- **Reporting delay models**: When cases are reported with variable lag
+
+Computing the variance/mean ratio in your data can help diagnose whether Poisson (ratio ≈ 1) or Negative Binomial (ratio > 1) is more appropriate.
+
 # Next session
 
 If a likelihood is really a distance function that you committed to in advance by
