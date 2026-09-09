@@ -30,6 +30,7 @@ const N_SAMPLES = 450_000   # kept, then thinned
 const THINNING = 50         # → 9000 final samples
 
 const PARAMETERS = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
+const PROGRESS_EVERY = 10_000  # iterations between progress lines
 
 """
     pmmh(obs, n_particles, particle_filter)
@@ -154,6 +155,35 @@ function acceptance_rate(chain)
 end
 
 """
+    progress_every(n, name, t_start, total)
+
+A callback that prints one line every `n` kept iterations.
+
+`sample` can show a progress meter, but it writes to stderr and repaints in
+place, so a batch job redirecting its output to a file records nothing useful.
+`flush` matters as much as the `println`: Julia block-buffers a redirected
+stdout, so without it the lines sit unwritten for the length of the run.
+
+The callback is not called during warmup, so nothing appears until the kept
+iterations begin. `run_pmmh` says so before it starts.
+"""
+function progress_every(n, name, t_start, total)
+    return function (rng, model, sampler, sample, state, i; kwargs...)
+        if i % n == 0
+            elapsed = (time() - t_start) / 60
+            rate = i / elapsed
+            left = (total - i) / rate
+            println(
+                "[$name] $i/$total kept, $(round(elapsed, digits = 1)) min elapsed, ",
+                "$(round(rate, digits = 0))/min, about $(round(left, digits = 0)) min left",
+            )
+            flush(stdout)
+        end
+        return nothing
+    end
+end
+
+"""
     run_pmmh(model, name; n_warmup, n_samples, thinning)
 
 Sample `model` with Robust Adaptive Metropolis, reporting the acceptance rate of
@@ -180,6 +210,11 @@ function run_pmmh(
     println("  Thinning: $thinning")
     println("  Final samples: $(n_samples ÷ thinning)")
     println("="^60)
+    println(
+        "Warming up. No progress lines until the $n_warmup warmup",
+        " iterations finish.",
+    )
+    flush(stdout)
 
     t_start = time()
     chain_full = sample(
@@ -189,6 +224,7 @@ function run_pmmh(
         num_warmup = n_warmup,
         check_model = false,
         progress = true,
+        callback = progress_every(PROGRESS_EVERY, name, t_start, n_samples),
     )
     t_elapsed = time() - t_start
     println("\n$name sampling took $(round(t_elapsed/60, digits=1)) minutes")
