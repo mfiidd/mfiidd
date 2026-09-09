@@ -1,5 +1,5 @@
 ---
-title: "MCMC Diagnostics"
+title: "MCMC diagnostics"
 format: html
 engine: julia
 order: 3
@@ -1019,4 +1019,4 @@ MCMC only works if you use it correctly. Diagnostics are not optional.
 - [MCMCChains.jl documentation](https://turinglang.org/MCMCChains.jl/stable/) - Chain diagnostics in Julia
 - [ArviZ](https://arviz-devs.github.io/arviz/) - Exploratory analysis of Bayesian models (Python, with Julia bindings via ArviZ.jl)
 
-**Next session**: Converged chains don't guarantee a good model. In [Model Checking and Validation](model_checking.qmd), we'll learn how to check whether your model actually describes the data well.
+**Next session**: Converged chains don't guarantee a good model. In [Model checking and validation](model_checking.qmd), we'll learn how to check whether your model actually describes the data well.

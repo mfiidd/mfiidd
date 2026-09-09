@@ -11,7 +11,7 @@ The course bridges the gap between statistical inference methods and infectious 
 - MCMC sampling (NUTS, HMC) and convergence diagnostics
 - Model checking with prior and posterior predictive checks
 - Particle filters and particle MCMC for stochastic models
-- Observation models and Approximate Bayesian Computation
+- Observation models and approximate Bayesian computation
 - Variational inference and universal differential equations (additional sessions)
 
 No prior Julia experience is required. The materials include guidance for those coming from R throughout.

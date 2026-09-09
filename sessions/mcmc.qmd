@@ -1,5 +1,5 @@
 ---
-title: "Markov Chain Monte Carlo (MCMC) sampling"
+title: "Markov chain Monte Carlo (MCMC) sampling"
 format: html
 engine: julia
 order: 2
@@ -811,7 +811,7 @@ corner_plot = marginalkde(vec(chain_nuts[:R_0]), vec(chain_nuts[:D_inf]),
 quantile(vec(chain_nuts[:R_0]), [0.025, 0.25, 0.5, 0.75, 0.975])
 ```
 
-These summaries give us point estimates and uncertainty, but should we trust these results? The next session (MCMC Diagnostics) teaches you how to check whether your chains converged and whether your model makes sense.
+These summaries give us point estimates and uncertainty, but should we trust these results? The next session (MCMC diagnostics) teaches you how to check whether your chains converged and whether your model makes sense.
 
 # Learning points
 

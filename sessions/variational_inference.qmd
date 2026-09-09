@@ -1,5 +1,5 @@
 ---
-title: "Variational Inference: Speed vs Accuracy"
+title: "Variational inference"
 subtitle: "Fast approximate Bayesian inference for real-time applications"
 format: html
 engine: julia
