@@ -96,7 +96,7 @@ $D_\mathrm{inf}$ moves too, from about 3.3 days to 6.8.
 
 ## Likelihood as a distance
 
-The negative log-likelihood of one observation, as a function of how far it sits from the prediction, is a **distance function**.
+The negative log-likelihood of one observation, as a function of how far it is from the prediction, is a **distance function**.
 
 . . .
 
