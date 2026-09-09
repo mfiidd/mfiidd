@@ -52,6 +52,35 @@ distribution attached.
   - something that is **easy** to calculate and approximates the likelihood
   - e.g. final size, number of peaks, height or timing of peaks
 
+## The approximation {.smaller}
+
+$$p(\text{data} \mid \theta) \approx p\big(d(S_\text{data},\, S_{\text{sim}(\theta)}) < \epsilon\big)$$
+
+- $S$: summary statistics
+- $d$: distance, e.g. absolute distance
+- $\epsilon$: acceptance window
+
+. . .
+
+![](images/abc_method.png){.step .tall}
+
+## Rejection ABC {.smaller}
+
+The simplest version, and the one you will write:
+
+1. Sample $\theta^*$ from the prior
+2. Simulate a dataset from the model at $\theta^*$
+3. Compute the distance $d$ between simulation and data
+4. Keep $\theta^*$ if $d < \epsilon$, otherwise discard it
+
+. . .
+
+Repeat until you have enough. The kept parameters approximate the posterior.
+
+. . .
+
+No likelihood anywhere. Just a simulator, a distance, and a threshold.
+
 ## What you are really choosing {.smaller}
 
 A summary is [sufficient]{.alert} if it carries everything the data say about
@@ -101,35 +130,6 @@ summary [@fearnhead2012].
 This is what [neural posterior estimation](../neural_posterior_estimation.qmd)
 does, with a network in place of the regression — the same idea, and a session
 you can take next.
-
-## The approximation {.smaller}
-
-$$p(\text{data} \mid \theta) \approx p\big(d(S_\text{data},\, S_{\text{sim}(\theta)}) < \epsilon\big)$$
-
-- $S$: summary statistics
-- $d$: distance, e.g. absolute distance
-- $\epsilon$: acceptance window
-
-. . .
-
-![](images/abc_method.png){.step .tall}
-
-## Rejection ABC {.smaller}
-
-The simplest version, and the one you will write:
-
-1. Sample $\theta^*$ from the prior
-2. Simulate a dataset from the model at $\theta^*$
-3. Compute the distance $d$ between simulation and data
-4. Keep $\theta^*$ if $d < \epsilon$, otherwise discard it
-
-. . .
-
-Repeat until you have enough. The kept parameters approximate the posterior.
-
-. . .
-
-No likelihood anywhere. Just a simulator, a distance, and a threshold.
 
 ## Everything hangs on $\epsilon$
 
