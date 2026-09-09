@@ -47,7 +47,8 @@ never happens. Compare $s(y_\text{sim})$ with $s(y)$ instead.
 
 . . .
 
-Shrinking $\epsilon$ can undo the first. Nothing undoes the second.
+Shrink $\epsilon$ and the first cost goes away. The second is still there when
+$\epsilon$ reaches zero.
 
 ## The approximation {.smaller}
 
