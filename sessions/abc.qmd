@@ -20,36 +20,20 @@ parameters from the prior, simulate a dataset, and keep the parameters whose
 simulation came out equal to the data. Nothing is approximated at that point, and
 the parameters you keep are draws from the posterior.
 
-The particle filter took a different route to the same difficulty. It estimated
-the likelihood, and the [particle MCMC](pmcmc.qmd) session
-fitted a stochastic model that way. Two requirements came with it. The filter
-weights each particle by an observation density $p(y_t \mid x_t)$, which you have
-to write down, and it stops the simulator at every observation to weight and
-resample the state, which means starting the simulator from a state you hand it.
-
-ABC asks for neither. It runs the simulator from beginning to end and compares
-the output with the data through a distance you choose. That is the whole of what
-it needs from the model, and it is why ABC reaches simulators the filter cannot:
-a black box you can only run start to finish, or an observation process you
-cannot write down. [Do they give similar
-results?](#do-they-give-similar-results) puts the two posteriors side by side on
-this outbreak.
-
-The trouble is that exact equality never happens. Two concessions rescue it, and
-this session is largely about what each one gives up. Accepting simulations that
-come *close* means choosing a distance and a tolerance. Comparing *summaries*
-means choosing what to condition on, and that concession stands however long you
-are willing to wait.
+ABC runs the simulator from beginning to end and compares the output with the
+data through a distance you choose. That is the whole of what it needs from a
+model. It never opens the simulator up, and it never asks for the probability of
+an observation.
 
 # Objectives
 
 In this session you will:
 
-1. Implement ABC rejection sampling from scratch
-2. Find a workable acceptance threshold, and see why that is the hard part
-3. Implement ABC-SMC and compare it against rejection sampling
+1. Say what ABC needs from a model, and what it does not
+2. Read an ABC rejection sampler and choose a workable acceptance threshold, which is the hard part of the method
+3. Explain why ABC-MCMC stalls at a tight threshold, and how ABC-SMC reaches one
 4. Compare likelihood-based and distance-based posteriors on the same data
-5. Test how each approach responds to a single outlying observation
+5. Say how each approach responds to a single outlying observation
 
 # Setup
 
@@ -113,13 +97,20 @@ We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 
 We keep the SEIT4L model from the [particle filter](particle_filters.qmd) and
 [particle MCMC](pmcmc.qmd) sessions, simulated stochastically.
-Run it twice at the same parameters and you get two different epidemics, so there is no single curve to hold against the data and no likelihood to write down directly.
-The particle filter dealt with that by estimating the likelihood, and we use ABC here because it needs less of the model, as the introduction sets out.
+Run it twice at the same parameters and you get two different epidemics, so there is no single curve to hold against the data.
+
+The particle MCMC session already fitted this model, and fitted it better than this session will.
+It estimated all six parameters where we estimate three, and it reached a tighter posterior from fewer simulations.
+On this outbreak the particle filter is the better tool, and we use the same model anyway so that you can hold ABC against an answer you already trust.
+
+ABC earns its place where the particle filter cannot run at all.
+The filter weights each particle by an observation density $p(y_t \mid x_t)$, so you have to be able to write one down.
+It also stops the simulator at every observation, copies the state and restarts from it, so you have to be able to checkpoint the simulator.
+A compiled model you cannot open, someone else's executable, or a reporting process nobody can put a density on: any of these rules the filter out and leaves ABC standing.
+Neither is true here, which is exactly why this is a good place to learn ABC and a poor argument for using it.
 
 Three parameters are estimated, $R_0$, $D_\mathrm{inf}$ and $\rho$, and the rest are fixed at the values the earlier sessions used.
-The particle MCMC session estimated all six.
-That difference is ABC's main weakness on display. Every free parameter has to land inside the acceptance window at the same time, so the acceptance rate falls away sharply as the number of free parameters grows, and a run that was quick with three becomes impossible with six.
-Fixing parameters is ordinary practice in any inference, for identifiability as much as for speed. ABC forces the decision sooner than a likelihood-based method does.
+Every free parameter has to land inside the acceptance window at the same time, so the acceptance rate falls away sharply as the number of free parameters grows.
 
 ```{julia}
 ## Fixed at the values used in the SEITL session
@@ -921,7 +912,7 @@ acceptance = [mean(prior_draws .< ε) for ε in grid]
 plot(grid, 100 .* max.(acceptance, 1e-4), yscale = :log10,
      xlabel = "Threshold ε", ylabel = "Prior acceptance (%)",
      label = "", linewidth = 2,
-     title = "What each threshold asks of rejection sampling")
+     title = "Prior acceptance falls faster than the threshold")
 vline!([230.0], label = "rejection run", linestyle = :dash)
 vline!([165.0], label = "ABC-SMC final generation", linestyle = :dash)
 ```
