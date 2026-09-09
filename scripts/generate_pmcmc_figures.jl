@@ -114,65 +114,65 @@ end
 
 if "noise" in STAGES
 
-## 64 against 256: both land on a readable common axis, and the pair brackets
-## the point where the estimator enters the band the next figure shades. Below
-## about 32 particles the estimator is heavy-tailed enough that a single unlucky
-## run sets the axis and the picture stops being about the bulk of the runs.
-const NOISE_PARTICLES = [64, 256]
-const N_REPS = 400
+    ## 64 against 256: both land on a readable common axis, and the pair brackets
+    ## the point where the estimator enters the band the next figure shades. Below
+    ## about 32 particles the estimator is heavy-tailed enough that a single unlucky
+    ## run sets the axis and the picture stops being about the bulk of the runs.
+    const NOISE_PARTICLES = [64, 256]
+    const N_REPS = 400
 
-reference = reference_log_lik(4096, 200)
+    reference = reference_log_lik(4096, 200)
 
-noise_replicates = Dict(J => log_lik_replicates(J, N_REPS) for J in NOISE_PARTICLES)
+    noise_replicates = Dict(J => log_lik_replicates(J, N_REPS) for J in NOISE_PARTICLES)
 
-## The estimator has a long left tail: a run in which no particle stays near the
-## data returns a log-likelihood far below the rest. Letting those few runs set
-## the axis compresses the other 99% into a couple of pixels, so the window is
-## set from the 1st percentile of the noisier sample and the runs that fall
-## outside it are reported on the plot rather than quietly dropped.
-window_lo = minimum(quantile(noise_replicates[J], 0.01) for J in NOISE_PARTICLES)
-window_hi = maximum(maximum(noise_replicates[J]) for J in NOISE_PARTICLES) + 0.3
-edges = range(window_lo, window_hi, length = 45)
-n_outside = sum(count(<(window_lo), noise_replicates[J]) for J in NOISE_PARTICLES)
+    ## The estimator has a long left tail: a run in which no particle stays near the
+    ## data returns a log-likelihood far below the rest. Letting those few runs set
+    ## the axis compresses the other 99% into a couple of pixels, so the window is
+    ## set from the 1st percentile of the noisier sample and the runs that fall
+    ## outside it are reported on the plot rather than quietly dropped.
+    window_lo = minimum(quantile(noise_replicates[J], 0.01) for J in NOISE_PARTICLES)
+    window_hi = maximum(maximum(noise_replicates[J]) for J in NOISE_PARTICLES) + 0.3
+    edges = range(window_lo, window_hi, length = 45)
+    n_outside = sum(count(<(window_lo), noise_replicates[J]) for J in NOISE_PARTICLES)
 
-p_noise = plot(
-    xlabel = "Estimated log-likelihood at one θ",
-    ylabel = "Runs",
-    size = (900, 460),
-    legend = :topleft,
-    xlims = (window_lo, window_hi),
-)
-
-for (J, colour) in zip(NOISE_PARTICLES, (:firebrick, :steelblue))
-    ll = noise_replicates[J]
-    histogram!(
-        p_noise,
-        ll,
-        bins = edges,
-        alpha = 0.55,
-        color = colour,
-        linecolor = colour,
-        label = @sprintf("%d particles (SD %.1f)", J, std(ll)),
+    p_noise = plot(
+        xlabel = "Estimated log-likelihood at one θ",
+        ylabel = "Runs",
+        size = (900, 460),
+        legend = :topleft,
+        xlims = (window_lo, window_hi),
     )
-end
 
-annotate!(
-    p_noise,
-    window_lo + 0.03 * (window_hi - window_lo),
-    0.0,
-    text("$n_outside runs fell below this axis", 10, :left, :bottom, :grey30),
-)
+    for (J, colour) in zip(NOISE_PARTICLES, (:firebrick, :steelblue))
+        ll = noise_replicates[J]
+        histogram!(
+            p_noise,
+            ll,
+            bins = edges,
+            alpha = 0.55,
+            color = colour,
+            linecolor = colour,
+            label = @sprintf("%d particles (SD %.1f)", J, std(ll)),
+        )
+    end
 
-vline!(
-    p_noise,
-    [reference],
-    color = :black,
-    linewidth = 3,
-    linestyle = :dash,
-    label = "log p(y | θ)",
-)
+    annotate!(
+        p_noise,
+        window_lo + 0.03 * (window_hi - window_lo),
+        0.0,
+        text("$n_outside runs fell below this axis", 10, :left, :bottom, :grey30),
+    )
 
-save_figure(p_noise, "pmmh_likelihood_noise.svg")
+    vline!(
+        p_noise,
+        [reference],
+        color = :black,
+        linewidth = 3,
+        linestyle = :dash,
+        label = "log p(y | θ)",
+    )
+
+    save_figure(p_noise, "pmmh_likelihood_noise.svg")
 end
 
 # ---------------------------------------------------------------------------
@@ -180,60 +180,59 @@ end
 # ---------------------------------------------------------------------------
 
 if "tradeoff" in STAGES
+    const TRADEOFF_PARTICLES = [8, 16, 32, 64, 128, 256, 512, 1024]
+    const N_REPS_TRADEOFF = 150
 
-const TRADEOFF_PARTICLES = [8, 16, 32, 64, 128, 256, 512, 1024]
-const N_REPS_TRADEOFF = 150
+    tradeoff_sd = Float64[]
+    tradeoff_ms = Float64[]
 
-tradeoff_sd = Float64[]
-tradeoff_ms = Float64[]
+    for J in TRADEOFF_PARTICLES
+        t = @elapsed ll = log_lik_replicates(J, N_REPS_TRADEOFF)
+        push!(tradeoff_sd, std(ll))
+        push!(tradeoff_ms, 1000 * t / N_REPS_TRADEOFF)
+    end
 
-for J in TRADEOFF_PARTICLES
-    t = @elapsed ll = log_lik_replicates(J, N_REPS_TRADEOFF)
-    push!(tradeoff_sd, std(ll))
-    push!(tradeoff_ms, 1000 * t / N_REPS_TRADEOFF)
-end
+    ## Powers of two are the grid, but a projected slide wants the counts spelled
+    ## out rather than 2^4 and 2^8.
+    const TRADEOFF_TICKS = ([8, 32, 128, 512], ["8", "32", "128", "512"])
 
-## Powers of two are the grid, but a projected slide wants the counts spelled
-## out rather than 2^4 and 2^8.
-const TRADEOFF_TICKS = ([8, 32, 128, 512], ["8", "32", "128", "512"])
+    p_sd = plot(
+        TRADEOFF_PARTICLES,
+        tradeoff_sd,
+        xscale = :log2,
+        xticks = TRADEOFF_TICKS,
+        xlabel = "Particles",
+        ylabel = "SD of log-likelihood estimate",
+        marker = :circle,
+        markersize = 6,
+        linewidth = 3,
+        color = :steelblue,
+        label = "",
+    )
 
-p_sd = plot(
-    TRADEOFF_PARTICLES,
-    tradeoff_sd,
-    xscale = :log2,
-    xticks = TRADEOFF_TICKS,
-    xlabel = "Particles",
-    ylabel = "SD of log-likelihood estimate",
-    marker = :circle,
-    markersize = 6,
-    linewidth = 3,
-    color = :steelblue,
-    label = "",
-)
+    ## The band Pitt et al. and Doucet et al. recommend aiming for.
+    hspan!(p_sd, [1.0, 3.0], color = :seagreen, alpha = 0.18, label = "Target: 1 to 3")
 
-## The band Pitt et al. and Doucet et al. recommend aiming for.
-hspan!(p_sd, [1.0, 3.0], color = :seagreen, alpha = 0.18, label = "Target: 1 to 3")
+    ## Log on both axes, where cost linear in the particle count is a straight line.
+    ## On a linear y axis the whole curve hugs zero until the last two points and
+    ## the slide looks as though particles were free up to 256.
+    p_cost = plot(
+        TRADEOFF_PARTICLES,
+        tradeoff_ms,
+        xscale = :log2,
+        yscale = :log10,
+        xticks = TRADEOFF_TICKS,
+        xlabel = "Particles",
+        ylabel = "Time per filter run (ms)",
+        marker = :circle,
+        markersize = 6,
+        linewidth = 3,
+        color = :firebrick,
+        label = "",
+    )
 
-## Log on both axes, where cost linear in the particle count is a straight line.
-## On a linear y axis the whole curve hugs zero until the last two points and
-## the slide looks as though particles were free up to 256.
-p_cost = plot(
-    TRADEOFF_PARTICLES,
-    tradeoff_ms,
-    xscale = :log2,
-    yscale = :log10,
-    xticks = TRADEOFF_TICKS,
-    xlabel = "Particles",
-    ylabel = "Time per filter run (ms)",
-    marker = :circle,
-    markersize = 6,
-    linewidth = 3,
-    color = :firebrick,
-    label = "",
-)
-
-p_tradeoff = plot(p_sd, p_cost, layout = (1, 2), size = (1100, 460))
-save_figure(p_tradeoff, "pmmh_particle_tradeoff.svg")
+    p_tradeoff = plot(p_sd, p_cost, layout = (1, 2), size = (1100, 460))
+    save_figure(p_tradeoff, "pmmh_particle_tradeoff.svg")
 end
 
 # ---------------------------------------------------------------------------
@@ -298,44 +297,43 @@ function short_chain(n_particles)
 end
 
 if "trace" in STAGES
+    trace_few, accept_few = short_chain(16)
+    trace_enough, accept_enough = short_chain(256)
 
-trace_few, accept_few = short_chain(16)
-trace_enough, accept_enough = short_chain(256)
+    ## The acceptance rate is the claim the picture is making. Printing it on each
+    ## panel means a chance-flat stretch in the lower trace cannot make the figure
+    ## say the opposite of the slide.
+    p_few = plot(
+        trace_few,
+        ylabel = "R₀",
+        title = @sprintf("16 particles — %.0f%% accepted", 100 * accept_few),
+        color = :firebrick,
+        linewidth = 1.5,
+        label = "",
+    )
 
-## The acceptance rate is the claim the picture is making. Printing it on each
-## panel means a chance-flat stretch in the lower trace cannot make the figure
-## say the opposite of the slide.
-p_few = plot(
-    trace_few,
-    ylabel = "R₀",
-    title = @sprintf("16 particles — %.0f%% accepted", 100 * accept_few),
-    color = :firebrick,
-    linewidth = 1.5,
-    label = "",
-)
+    p_enough = plot(
+        trace_enough,
+        xlabel = "Iteration",
+        ylabel = "R₀",
+        title = @sprintf("256 particles — %.0f%% accepted", 100 * accept_enough),
+        color = :steelblue,
+        linewidth = 1.5,
+        label = "",
+    )
 
-p_enough = plot(
-    trace_enough,
-    xlabel = "Iteration",
-    ylabel = "R₀",
-    title = @sprintf("256 particles — %.0f%% accepted", 100 * accept_enough),
-    color = :steelblue,
-    linewidth = 1.5,
-    label = "",
-)
+    ## A shared y axis, so the flat stretches in the top panel read as flat rather
+    ## than as a chain exploring a narrower range.
+    ylims = extrema(vcat(trace_few, trace_enough))
+    p_sticky = plot(
+        p_few,
+        p_enough,
+        layout = (2, 1),
+        size = (1000, 620),
+        ylims = ylims .+ (-0.1, 0.1) .* (ylims[2] - ylims[1]),
+    )
 
-## A shared y axis, so the flat stretches in the top panel read as flat rather
-## than as a chain exploring a narrower range.
-ylims = extrema(vcat(trace_few, trace_enough))
-p_sticky = plot(
-    p_few,
-    p_enough,
-    layout = (2, 1),
-    size = (1000, 620),
-    ylims = ylims .+ (-0.1, 0.1) .* (ylims[2] - ylims[1]),
-)
-
-save_figure(p_sticky, "pmmh_sticky_trace.svg")
+    save_figure(p_sticky, "pmmh_sticky_trace.svg")
 end
 
 if "noise" in STAGES
@@ -347,7 +345,10 @@ if "tradeoff" in STAGES
     end
 end
 if "trace" in STAGES
-    @printf("Acceptance: 16 particles %.1f%%, 256 particles %.1f%%\n",
-        100 * accept_few, 100 * accept_enough)
+    @printf(
+        "Acceptance: 16 particles %.1f%%, 256 particles %.1f%%\n",
+        100 * accept_few,
+        100 * accept_enough
+    )
 end
 println("Written to ", IMAGE_DIR)
