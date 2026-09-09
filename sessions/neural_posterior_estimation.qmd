@@ -10,6 +10,8 @@ order: 12
 **Estimated time**: 1.5-2 hours | **Advanced session** | **Requires**: [particle MCMC](pmcmc.qmd), [variational inference](variational_inference.qmd), and basic familiarity with neural networks (what layers and activation functions are)
 :::
 
+[Slides](slides/neural_posterior_estimation.qmd)
+
 # Introduction
 
 In the [particle MCMC session](pmcmc.qmd) we fitted the stochastic SEIT4L model to the Tristan da Cunha outbreak.
