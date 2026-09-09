@@ -205,8 +205,11 @@ Uses GeneralisedFilters for likelihood estimation.
                           SEIT4LDynamics(θ),
                           PoissonObservation(θ[:ρ]))
 
-    # Run particle filter to estimate log-likelihood
-    _, log_lik = GeneralisedFilters.filter(Random.default_rng(), ssm, BF(n_particles), obs)
+    # Run particle filter to estimate log-likelihood. `ThreadedBF` propagates
+    # the particles across threads; with one thread it is the bootstrap filter
+    # with one block, so this line does the same thing either way.
+    algo = ThreadedBF(BF(n_particles))
+    _, log_lik = GeneralisedFilters.filter(Random.default_rng(), ssm, algo, obs)
 
     # Add log-likelihood to model (priors are already included via ~)
     Turing.@addlogprob! log_lik
@@ -286,6 +289,107 @@ practical form.
 saved chain runs orders of magnitude longer, and comparing your trace with it
 makes the point better than any convergence statistic: a short PMMH chain does
 not look obviously broken, it just has not gone anywhere yet.
+:::
+
+## Using more than one core
+
+Every iteration above runs one particle filter, and the particles within a day never
+interact until they are weighted.
+Propagating them is therefore the one part of the algorithm that parallelises without
+changing what is being computed, and `ThreadedBF` does exactly that: it splits the
+particles into blocks, propagates the blocks on separate threads, and leaves the
+weighting, the resampling and the likelihood accumulation to `GeneralisedFilters`.
+
+Julia does not use extra threads unless you ask for them.
+Start it with `julia --project=. --threads=auto`, or set `JULIA_NUM_THREADS`, and the
+model above will use them.
+
+```{julia}
+println("Julia is running with $(Threads.nthreads()) thread(s)")
+
+## the parameters the previous session calibrated at
+θ_timing = Dict(:R_0 => 6.0, :D_lat => 1.3, :D_inf => 2.0,
+                :α => 0.5, :D_imm => 10.5, :ρ => 0.7)
+
+## the same filter, with and without the threads
+serial = minimum(@elapsed(run_particle_filter(θ_timing, flu_tdc.obs, 256)) for _ in 1:3)
+threaded = minimum(
+    @elapsed(run_particle_filter(θ_timing, flu_tdc.obs, 256; threaded=true)) for _ in 1:3
+)
+
+println("one filter run at 256 particles")
+println("  serial:   $(round(serial, digits=4)) s")
+println("  threaded: $(round(threaded, digits=4)) s")
+println("  speed-up: $(round(serial / threaded, digits=2))x")
+```
+
+What that prints depends on how busy the machine is: on twelve threads we have seen
+anywhere between three and six times on a single filter run, and the figure moves
+between runs.
+The end-to-end gain for a chain is steadier, because the sampler does work either way.
+Timed as separate processes, 150 iterations at 256 particles took 9.5 seconds on one
+thread and 2.9 seconds on twelve.
+
+The speed-up saturates well below the thread count.
+Resampling is serial, and there is a synchronisation point on each of the 59 days, so
+adding threads past a handful buys progressively less.
+
+::: {.callout-warning}
+## Threads change what a seed reproduces
+
+Each block of particles draws from its own generator, seeded from the filter's own
+generator before the parallel region starts, so a threaded run is reproducible from a
+single `Random.seed!` for a **fixed number of blocks**.
+Change the number of blocks, by moving to a machine with a different thread count, and
+the stream changes, in the same way that changing the number of particles does.
+Fix `nchunks` explicitly if you need a result to reproduce across machines.
+:::
+
+::: {.callout-note collapse="true"}
+## Threads here, or more chains?
+
+Both, and the split depends on what you are short of.
+Twelve cores, 150 iterations per chain at 256 particles, each chain in its own process:
+
+| chains × threads | slowest chain | chain-iterations per second |
+|---:|---:|---:|
+| 1 × 1 | 9.5 s | 15.8 |
+| 1 × 12 | 2.9 s | 51.0 |
+| 2 × 4 | 4.2 s | 70.6 |
+| 2 × 6 | 4.0 s | 75.3 |
+| 4 × 3 | 6.2 s | 97.5 |
+| 12 × 1 | 18.2 s | 99.1 |
+
+Read the last column on its own and twelve single-threaded chains look best.
+That reading is wrong, because it counts warm-up iterations as though they were draws.
+Every chain has to warm up separately, so warm-up is the one cost that grows with the
+number of chains, and the chains saved in `data/` discard 50,000 iterations before
+keeping anything.
+
+The time to finish a run is
+
+$$\text{time} = \frac{\text{warm-up} + \text{kept} / \text{chains}}{\text{iterations per second in one chain}}$$
+
+and for the job the scripts actually run, 50,000 warm-up and 450,000 kept, that gives:
+
+| chains × threads | warm-up alone | whole job |
+|---:|---:|---:|
+| 1 × 1 | 0.9 h | 8.8 h |
+| 1 × 12 | 0.3 h | 2.7 h |
+| 2 × 4 | 0.4 h | 2.2 h |
+| 2 × 6 | 0.4 h | 2.0 h |
+| **4 × 3** | **0.6 h** | **1.9 h** |
+| 6 × 2 | 0.9 h | 2.3 h |
+| 12 × 1 | 1.7 h | 2.9 h |
+
+Twelve single-threaded chains produce the most iterations per second and finish the
+job slowest of any parallel option, because 1.7 of those hours are twelve chains
+warming up in parallel and none of it is kept.
+One chain on twelve threads warms up fastest and then has all 450,000 kept iterations
+to get through alone.
+Four chains of three threads is the sensible split here, and it is also the number of
+chains you want for R-hat, which is a coincidence worth not over-reading: shift the
+warm-up or the kept length and the optimum moves.
 :::
 
 ## Why is PMMH mixing difficult?

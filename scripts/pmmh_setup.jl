@@ -64,8 +64,14 @@ end
 # Both models are estimated with the same bootstrap filter the sessions use, from
 # GeneralisedFilters, so the saved chains are the posterior of the model the page
 # defines rather than of a second implementation that happens to live in scripts.
+# The chain scripts are the long jobs in this repository, so they propagate the
+# particles across whatever threads Julia was started with. Run them with
+# `julia --project=. --threads=auto`. With one thread this is the bootstrap
+# filter with one block, so the scripts behave as they did before.
+threaded_seit4l(θ, obs, n) = run_particle_filter(θ, obs, n; threaded = true)
+
 pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter_seitl)
-pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter)
+pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, threaded_seit4l)
 
 """
     flu_observations()
