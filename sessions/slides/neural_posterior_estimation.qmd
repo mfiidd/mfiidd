@@ -115,11 +115,11 @@ A fresh batch every gradient step, so there is nothing to overfit to.
 
 ![](images/npe_vs_pmmh.svg)
 
-## Wider, everywhere
+## Wider, mostly
 
 Locations agree.
-Every NPE interval is [wider]{.alert} than the PMMH one, by one to fifty per
-cent.
+Five of the six NPE intervals are [wider]{.alert} than the PMMH one, by 8 to 38
+per cent.
 
 . . .
 
@@ -127,8 +127,8 @@ That is the direction the theory predicts, and the safer way to be wrong.
 
 . . .
 
-But agreement in location says nothing about whether the intervals sit in the
-right place.
+The exception is `R_0`, where the two widths match almost exactly — and a
+matching width says nothing about where the interval is centred.
 
 ## Calibration
 
