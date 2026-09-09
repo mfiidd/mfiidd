@@ -300,9 +300,34 @@ changing what is being computed, and `ThreadedBF` does exactly that: it splits t
 particles into blocks, propagates the blocks on separate threads, and leaves the
 weighting, the resampling and the likelihood accumulation to `GeneralisedFilters`.
 
-Julia does not use extra threads unless you ask for them.
-Start it with `julia --project=. --threads=auto`, or set `JULIA_NUM_THREADS`, and the
-model above will use them.
+Two things are needed, and only one of them is code.
+
+Julia does not use extra threads unless you ask for them, so start it with
+`julia --project=. --threads=auto`, or set `JULIA_NUM_THREADS`.
+The cell below prints how many you have.
+
+Then wrap the filter you are already using.
+If you have written your own model, this is the only line that changes:
+
+```julia
+## in your @model, where you had this
+_, log_lik = GeneralisedFilters.filter(rng, ssm, BF(n_particles), obs)
+
+## use this
+_, log_lik = GeneralisedFilters.filter(rng, ssm, ThreadedBF(BF(n_particles)), obs)
+```
+
+The model defined earlier in this session already does it, so the chain you ran above
+used whatever threads Julia was started with.
+If you are calling the course helper rather than building the model yourself, pass
+`threaded`:
+
+```julia
+log_lik = run_particle_filter(θ, flu_tdc.obs, 256; threaded = true)
+```
+
+Both take `nchunks` if you want to fix the number of blocks rather than take one per
+thread, which matters for reproducibility below.
 
 ```{julia}
 println("Julia is running with $(Threads.nthreads()) thread(s)")
