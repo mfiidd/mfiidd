@@ -31,8 +31,9 @@ The approach is **neural posterior estimation** (NPE), part of the wider family 
 ## Coming from R?
 
 There is no mature R equivalent.
-The established tools are Python's [`sbi`](https://sbi-dev.github.io/sbi/) and [BayesFlow](https://bayesflow.org/) [@radev2020].
-Julia has no equivalent package, so we build the flow ourselves with [Lux.jl](https://lux.csail.mit.edu/) in about forty lines.
+The established tools are Python's [`sbi`](https://sbi-dev.github.io/sbi/) and [BayesFlow](https://bayesflow.org/) [@radev2020], which package the whole simulation-based workflow rather than the flow alone.
+Julia has no equivalent to those, though it does have flows: [NormalizingFlows.jl](https://github.com/TuringLang/NormalizingFlows.jl) fits one to a fixed target density, which is variational inference rather than the conditional estimator we need, and [InvertibleNetworks.jl](https://github.com/slimgroup/InvertibleNetworks.jl) does offer conditional coupling layers.
+We build the flow ourselves with [Lux.jl](https://lux.csail.mit.edu/) in about forty lines instead.
 For a course that is a feature: every part of the method stays visible in the session's own code.
 The ideas transfer directly — everything below is ordinary Bayesian inference for the same mechanistic model you have been fitting all week.
 :::
@@ -71,7 +72,7 @@ using MFIIDD
 flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
 const YOBS = Vector{Float64}(flu_tdc.obs)
 const T = length(YOBS)
-const INIT = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]   # S, E, I, T1-T4, L
+const INIT = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]   ## S, E, I, T1-T4, L
 ```
 
 # Estimating the posterior directly
@@ -146,13 +147,13 @@ const PRIORS = [
 const D = length(PNAMES)
 
 "Simulate one SEIT4L outbreak and its Poisson-observed daily incidence."
-function simulate_obs(θ)
+function simulate_obs(rng, θ)
     d = Dict{Symbol,Float64}(PNAMES[i] => Float64(θ[i]) for i in 1:D)
     state = copy(INIT)
     y = Vector{Float64}(undef, T)
     for t in 1:T
-        inc = gillespie_step_seit4l!(state, d, 1.0)
-        y[t] = rand(Poisson(max(θ[6] * inc, 1e-10)))
+        state, inc = gillespie_step(rng, state, d, 1.0)
+        y[t] = rand(rng, Poisson(max(θ[6] * inc, 1e-10)))
     end
     return y
 end
@@ -161,10 +162,10 @@ end
 How expensive is one simulation?
 
 ```{julia}
-Random.seed!(20)                           ## θ and the Gillespie step both use the global RNG
-θ_test = [rand(p) for p in PRIORS]
-simulate_obs(θ_test)                       # warm up
-@elapsed for _ in 1:1000; simulate_obs(θ_test); end
+rng = Xoshiro(20)
+θ_test = [rand(rng, p) for p in PRIORS]
+simulate_obs(rng, θ_test)                  ## warm up
+@elapsed for _ in 1:1000; simulate_obs(rng, θ_test); end
 ```
 
 ::: {.callout-tip}
@@ -240,18 +241,17 @@ Exercise 2 makes the point with a mask distribution that concentrates observatio
 ```{julia}
 function build_training_set(n; seed=1)
     rng = Xoshiro(seed)
-    Random.seed!(seed)                     # the Gillespie step uses the global RNG
     Θ = Matrix{Float32}(undef, D, n)
     Y = Matrix{Float32}(undef, 2T, n)
     for j in 1:n
         θ = [rand(rng, PRIORS[i]) for i in 1:D]
         Θ[:, j] = Float32.(unconstrain(θ))
-        Y[:, j] = pack(simulate_obs(θ), draw_mask(rng))
+        Y[:, j] = pack(simulate_obs(rng, θ), draw_mask(rng))
     end
     return Θ, Y
 end
 
-@time Xva, Yva = build_training_set(5_000; seed=77)   # held out, for monitoring
+@time Xva, Yva = build_training_set(5_000; seed=77)   ## held out, for monitoring
 size(Xva), size(Yva)
 ```
 
@@ -260,7 +260,7 @@ size(Xva), size(Yva)
 
 - **Columns are examples** — `Θ` is `D × n` and `Y` is `2T × n`, the layout Lux's `Dense` layers expect: one column per training pair.
 - **`log1p`** — compresses the count scale and handles zeros, so a day with 40 cases does not dominate the network's input.
-- **`Random.seed!`** alongside an explicit `rng` — `gillespie_step_seit4l!` draws from the global RNG, so we seed both to make the training set reproducible.
+- **One `rng`, threaded through** — `gillespie_step` takes the generator as its first argument, so the parameter draws, the simulation and the mask all come off the same seeded stream and the function is reproducible on its own.
 - **`pack`** returns `2T` numbers: `T` (masked) observations followed by the `T` mask entries.
 :::
 
@@ -275,23 +275,19 @@ The Jacobian is triangular, so its log-determinant is simply the sum of the log-
 Stack several such layers, alternating which half moves, and the composition is flexible enough to represent the posterior.
 
 ```{julia}
-n_couple = 8       # coupling layers
-n_hidden = 64      # width of each coupling network
-n_embed = 64       # width of the data embedding
+const FLOW = (couple=8, hidden=64, embed=64)   ## layers, coupling width, embedding width
 
-# Layer k transforms the entries where the mask is 0 and leaves the rest alone.
-const MASKS = [Float32[(i + k) % 2 for i in 1:D] for k in 1:n_couple]
+## Layer k transforms the entries where the mask is 0 and leaves the rest alone.
+const MASKS = [Float32[(i + k) % 2 for i in 1:D] for k in 1:FLOW.couple]
 
 function build_flow(rng)
-    embed = Chain(Dense(2T => n_embed, gelu), Dense(n_embed => n_embed, gelu))
-    nets = Tuple(Chain(Dense(D + n_embed => n_hidden, gelu),
-                       Dense(n_hidden => n_hidden, gelu),
-                       Dense(n_hidden => 2D; init_weight=zeros32, init_bias=zeros32))
-                 for _ in 1:n_couple)
-    setups = map(m -> Lux.setup(rng, m), (embed, nets...))
-    ps = (embed=setups[1][1], nets=Tuple(x[1] for x in setups[2:end]))
-    st = (embed=setups[1][2], nets=Tuple(x[2] for x in setups[2:end]))
-    return (embed=embed, nets=nets), ps, st
+    embed = Chain(Dense(2T => FLOW.embed, gelu), Dense(FLOW.embed => FLOW.embed, gelu))
+    nets = Tuple(Chain(Dense(D + FLOW.embed => FLOW.hidden, gelu),
+                       Dense(FLOW.hidden => FLOW.hidden, gelu),
+                       Dense(FLOW.hidden => 2D; init_weight=zeros32, init_bias=zeros32))
+                 for _ in 1:FLOW.couple)
+    model = (embed=embed, nets=nets)
+    return model, Lux.initialparameters(rng, model), Lux.initialstates(rng, model)
 end
 
 "Log-scale and shift for coupling layer `k`, both zero on the frozen half."
@@ -307,7 +303,7 @@ function flow_forward(model, ps, st, x, y)
     h, _ = model.embed(y, ps.embed, st.embed)
     z = x
     logdet = zeros(Float32, size(x, 2))
-    for k in 1:n_couple
+    for k in 1:FLOW.couple
         mask = MASKS[k]
         xm = z .* mask
         s, t = coupling(model, ps, st, k, xm, h, mask)
@@ -321,7 +317,7 @@ end
 function flow_inverse(model, ps, st, z, y)
     h, _ = model.embed(y, ps.embed, st.embed)
     x = z
-    for k in n_couple:-1:1
+    for k in FLOW.couple:-1:1
         mask = MASKS[k]
         xm = x .* mask
         s, t = coupling(model, ps, st, k, xm, h, mask)
@@ -331,7 +327,7 @@ function flow_inverse(model, ps, st, z, y)
 end
 
 model, ps, st = build_flow(Xoshiro(2024))
-Lux.parameterlength(ps)          # how many weights we are about to train
+Lux.parameterlength(ps)          ## how many weights we are about to train
 ```
 
 ::: {.callout-tip collapse="true"}
@@ -394,11 +390,11 @@ function train_streaming(model, ps, st, Xva, Yva; steps, batch, lr=1.0f-3,
     history = NamedTuple[]
     best = (loss=Inf, step=0, ps=deepcopy(ps))
     for s in 1:steps
-        Xb, Yb = sampler(batch; seed=10_000 + s)              # fresh every step
+        Xb, Yb = sampler(batch; seed=10_000 + s)              ## fresh every step
         loss, back = Zygote.pullback(p -> objective(model, p, st, Xb, Yb), ps)
         grads = back(one(loss))[1]
         opt, ps = Optimisers.update(opt, ps, grads)
-        if s == steps ÷ 2                                     # step decay
+        if s == steps ÷ 2                                     ## step decay
             Optimisers.adjust!(opt, lr / 2)
         elseif s == (3 * steps) ÷ 4
             Optimisers.adjust!(opt, lr / 4)
@@ -410,7 +406,7 @@ function train_streaming(model, ps, st, Xva, Yva; steps, batch, lr=1.0f-3,
                 (best = (loss=vl, step=s, ps=deepcopy(ps)))
         end
     end
-    return DataFrame(history), best      # keep the best network, not the last one
+    return DataFrame(history), best      ## keep the best network, not the last one
 end
 
 @time history, best = train_streaming(model, ps, st, Xva, Yva; steps=4_000, batch=128)
@@ -452,10 +448,10 @@ Every posterior from here on is essentially free.
 
 ```{julia}
 function npe_sample(model, ps, st, y, m, nsamp; seed=7)
-    Yc = repeat(pack(y, m), 1, nsamp)                 # same data for every draw
-    Zn = Float32.(randn(Xoshiro(seed), D, nsamp))     # draws from the base normal
+    Yc = repeat(pack(y, m), 1, nsamp)                 ## same data for every draw
+    Zn = Float32.(randn(Xoshiro(seed), D, nsamp))     ## draws from the base normal
     U = flow_inverse(model, ps, st, Zn, Yc)
-    return reduce(hcat, [constrain(Float64.(U[:, j])) for j in 1:nsamp])'
+    return stack(constrain(Float64.(u)) for u in eachcol(U); dims=1)
 end
 
 mask_full = ones(Float32, T)
@@ -485,14 +481,13 @@ plot(plts..., layout=(2, 3), size=(950, 520))
 ## What to look for
 
 Expect broad agreement in location, and expect the widths to disagree.
-On this run the NPE posterior is wider than PMMH for every parameter, from a single percent for `D_imm` to about a half for `ρ`.
+On this run the NPE posterior is wider than PMMH for five of the six parameters, by 8% to 38%, and for `R_0` the two widths match to within a few percent.
 
 Wider is the direction the theory predicts.
 The forward KL that NPE minimises is mass-covering, so an estimator that has not closed the amortisation gap errs towards intervals that are too generous, and a conservative error is the safer one to make.
 
 What the figure cannot tell you is whether those intervals sit in the right place.
-Agreement in location by eye is a weaker thing than calibration, and the check in the next section finds one parameter whose posterior is wide enough and still centred wrongly.
-It is worth forming an expectation now about which one it will be.
+Note which parameter looks healthiest here, because the calibration check in the next section flags exactly that one: a width that matches PMMH says nothing about where the interval is centred.
 
 Read the weakly identified parameters differently from the well identified ones.
 A single 59-day outbreak says little about `D_lat` and `D_inf` separately, because a shorter latent period and a longer infectious period reproduce much the same epidemic curve, so the two posteriors have most licence to disagree there.
@@ -538,13 +533,13 @@ A curve wandering outside the grey band means the posterior is miscalibrated for
 A curve that crosses zero in the middle, running above the line on one side and below it on the other, is a width problem: intervals systematically too narrow or too wide.
 A curve bowed to one side, staying above or below the line across the whole range, is bias.
 
-Look at `D_lat`.
-Its curve sits below zero across almost the whole range and leaves the band between roughly 0.15 and 0.55, with no sign change, so this is bias rather than width.
-Ranks skewed high mean the true value falls above the NPE draws more often than it should, which is the estimator centring `D_lat` too low.
-`R_0` bows the same way and `D_inf` the other, though both stay inside the band; `α` sits almost exactly on the line; `D_imm` and `ρ` stray outside in places with no consistent direction.
+Look at `R_0`.
+Its curve sits above zero across almost the whole range and leaves the band between roughly 0.24 and 0.35, with no sign change, so this is bias rather than width.
+Ranks skewed low mean the true value falls below the NPE draws more often than it should, which is the estimator centring `R_0` too high.
+`D_lat` and `ρ` bow gently the other way but stay inside the band, and `D_inf`, `α` and `D_imm` sit close to the line.
 So the calibration check adds something the width comparison could not.
-That comparison put every NPE interval at or above the width of the PMMH one, which is the reassuring direction, and it was silent about where those intervals sit.
-This check says the `D_lat` interval is wide enough and still centred too low, which is why neither substitutes for the other.
+`R_0` was the parameter whose width matched PMMH almost exactly, which is the one the previous figure gave least reason to worry about.
+Width and centring are separate questions, and only this check asks the second.
 
 Two things to keep in mind when reading it.
 The band is pointwise, computed separately at each of the 100 grid points, so under perfect calibration a curve still strays outside it somewhere reasonably often; judge the shape of the excursion rather than the fact of one.
@@ -562,8 +557,8 @@ A well-calibrated posterior for the wrong model is still the wrong answer [@herm
 # Posterior predictive check
 
 ```{julia}
-Random.seed!(4242)
-ppc = reduce(vcat, [simulate_obs(post[j, :])' for j in 1:500])
+ppc_rng = Xoshiro(4242)
+ppc = reduce(vcat, [simulate_obs(ppc_rng, post[j, :])' for j in 1:500])
 tt = 1:T
 lo95 = [quantile(ppc[:, t], 0.025) for t in tt]
 hi95 = [quantile(ppc[:, t], 0.975) for t in tt]
@@ -609,7 +604,7 @@ The parameter draws came from a neural network rather than from MCMC, which the 
 
 ```{julia}
 #| output: false
-Random.seed!(2)
+Random.seed!(2)   ## the bootstrap filter inside `filtered_incidence` uses the global RNG
 n_filt = 20
 filtered = map(1:n_filt) do _
     r = posterior[rand(1:nrow(posterior)), :]
@@ -658,7 +653,7 @@ We never retrain — we just condition on a different mask.
 
 ```{julia}
 widths = DataFrame(nobs=Int[], param=String[], width=Float64[])
-for nobs in [10, 20, 30, 40, 50, T], rep in 1:5   # 8 is the sparsest schedule trained on
+for nobs in [10, 20, 30, 40, 50, T], rep in 1:5   ## 8 is the sparsest schedule trained on
     m = zeros(Float32, T)
     m[randperm(Xoshiro(rep), T)[1:nobs]] .= 1.0f0
     p = npe_sample(model, best.ps, st, YOBS, m, 2_000; seed=100 + rep)
@@ -737,14 +732,13 @@ comparison.ratio = round.(comparison.width_400 ./ comparison.width_4000, digits=
 comparison
 ```
 
-Every interval is wider, here by 8% to 73%.
+Every interval is wider, here by 13% to 101%.
 That direction is the robust result: with less training the estimator has learned less of the prior-to-posterior update, so it falls back towards the prior, and the amortisation gap closes from above rather than from below.
 An undertrained NPE posterior is a cautious one.
 
 The ordering is steadier than the ratios alone suggest.
-Repeat the exercise with other seeds in `build_flow` and `D_lat`, `D_imm` and `ρ` stay the worst affected at around 1.6 apiece, while `D_inf` and `R_0` stay the least affected at 1.1 or below.
-That split broadly tracks how far each posterior has to travel from its prior: `D_imm` narrows to a fifth of its prior width and `D_inf` only to three fifths, so a short run has less to learn about `D_inf` and gives up less by stopping early.
-`α` is the exception worth noticing, narrowing as sharply as `ρ` and yet suffering about half as much, because whether a second wave happens at all is written directly into the shape of the data and even a short run captures most of that update.
+Repeat the exercise with other seeds in `build_flow` and `D_inf` and `α` stay the least affected, at around 1.1, while `ρ` stays the worst, at roughly twice the width its fully trained counterpart has.
+`α` is the one worth noticing: it narrows sharply under full training and yet loses least when training is cut short, because whether a second wave happens at all is written directly into the shape of the data, and even a short run captures most of that update.
 :::
 
 ## Exercise 2: Informative missingness
@@ -764,17 +758,16 @@ Write a `build_training_set` variant that uses the new mask, then pass it to `tr
 ```{julia}
 function build_structured(n; seed=1)
     rng = Xoshiro(seed)
-    Random.seed!(seed)
     Θ = Matrix{Float32}(undef, D, n)
     Y = Matrix{Float32}(undef, 2T, n)
     for j in 1:n
         θ = [rand(rng, PRIORS[i]) for i in 1:D]
         m = zeros(Float32, T)
-        for t in 1:T                                      # early days far more likely
+        for t in 1:T                                      ## early days far more likely
             rand(rng) < (t <= 20 ? 0.95 : 0.4) && (m[t] = 1.0f0)
         end
         Θ[:, j] = Float32.(unconstrain(θ))
-        Y[:, j] = pack(simulate_obs(θ), m)
+        Y[:, j] = pack(simulate_obs(rng, θ), m)
     end
     return Θ, Y
 end
@@ -806,8 +799,8 @@ What would it mean for the NPE posterior if it did not?
 ## Solution
 
 ```{julia}
-Random.seed!(11)
-prior_pred = reduce(vcat, [simulate_obs([rand(p) for p in PRIORS])' for _ in 1:500])
+pp_rng = Xoshiro(11)
+prior_pred = reduce(vcat, [simulate_obs(pp_rng, [rand(pp_rng, p) for p in PRIORS])' for _ in 1:500])
 plo = [quantile(prior_pred[:, t], 0.025) for t in tt]
 phi = [quantile(prior_pred[:, t], 0.975) for t in tt]
 

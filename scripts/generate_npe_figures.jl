@@ -96,13 +96,13 @@ const PRIORS = [
 ]
 const D = length(PNAMES)
 
-function simulate_obs(θ)
+function simulate_obs(rng, θ)
     d = Dict{Symbol, Float64}(PNAMES[i] => Float64(θ[i]) for i in 1:D)
     state = copy(INIT)
     y = Vector{Float64}(undef, T)
     for t in 1:T
-        inc = gillespie_step_seit4l!(state, d, 1.0)
-        y[t] = rand(Poisson(max(θ[6] * inc, 1e-10)))
+        state, inc = gillespie_step(rng, state, d, 1.0)
+        y[t] = rand(rng, Poisson(max(θ[6] * inc, 1e-10)))
     end
     return y
 end
@@ -126,35 +126,30 @@ end
 
 function build_training_set(n; seed = 1)
     rng = Xoshiro(seed)
-    Random.seed!(seed)
     Θ = Matrix{Float32}(undef, D, n)
     Y = Matrix{Float32}(undef, 2T, n)
     for j in 1:n
         θ = [rand(rng, PRIORS[i]) for i in 1:D]
         Θ[:, j] = Float32.(unconstrain(θ))
-        Y[:, j] = pack(simulate_obs(θ), draw_mask(rng))
+        Y[:, j] = pack(simulate_obs(rng, θ), draw_mask(rng))
     end
     return Θ, Y
 end
 
-const n_couple = 8
-const n_hidden = 64
-const n_embed = 64
-const MASKS = [Float32[(i + k) % 2 for i in 1:D] for k in 1:n_couple]
+const FLOW = (couple = 8, hidden = 64, embed = 64)
+const MASKS = [Float32[(i + k) % 2 for i in 1:D] for k in 1:FLOW.couple]
 
 function build_flow(rng)
-    embed = Chain(Dense(2T => n_embed, gelu), Dense(n_embed => n_embed, gelu))
+    embed = Chain(Dense(2T => FLOW.embed, gelu), Dense(FLOW.embed => FLOW.embed, gelu))
     nets = Tuple(
         Chain(
-            Dense(D + n_embed => n_hidden, gelu),
-            Dense(n_hidden => n_hidden, gelu),
-            Dense(n_hidden => 2D; init_weight = zeros32, init_bias = zeros32),
-        ) for _ in 1:n_couple
+            Dense(D + FLOW.embed => FLOW.hidden, gelu),
+            Dense(FLOW.hidden => FLOW.hidden, gelu),
+            Dense(FLOW.hidden => 2D; init_weight = zeros32, init_bias = zeros32),
+        ) for _ in 1:FLOW.couple
     )
-    setups = map(m -> Lux.setup(rng, m), (embed, nets...))
-    ps = (embed = setups[1][1], nets = Tuple(x[1] for x in setups[2:end]))
-    st = (embed = setups[1][2], nets = Tuple(x[2] for x in setups[2:end]))
-    return (embed = embed, nets = nets), ps, st
+    model = (embed = embed, nets = nets)
+    return model, Lux.initialparameters(rng, model), Lux.initialstates(rng, model)
 end
 
 function coupling(model, ps, st, k, xm, h, mask)
@@ -168,7 +163,7 @@ function flow_forward(model, ps, st, x, y)
     h, _ = model.embed(y, ps.embed, st.embed)
     z = x
     logdet = zeros(Float32, size(x, 2))
-    for k in 1:n_couple
+    for k in 1:FLOW.couple
         mask = MASKS[k]
         xm = z .* mask
         s, t = coupling(model, ps, st, k, xm, h, mask)
@@ -181,7 +176,7 @@ end
 function flow_inverse(model, ps, st, z, y)
     h, _ = model.embed(y, ps.embed, st.embed)
     x = z
-    for k in n_couple:-1:1
+    for k in FLOW.couple:-1:1
         mask = MASKS[k]
         xm = x .* mask
         s, t = coupling(model, ps, st, k, xm, h, mask)
@@ -224,7 +219,7 @@ function npe_sample(model, ps, st, y, m, nsamp; seed = 7)
     Yc = repeat(pack(y, m), 1, nsamp)
     Zn = Float32.(randn(Xoshiro(seed), D, nsamp))
     U = flow_inverse(model, ps, st, Zn, Yc)
-    return reduce(hcat, [constrain(Float64.(U[:, j])) for j in 1:nsamp])'
+    return stack(constrain(Float64.(u)) for u in eachcol(U); dims = 1)
 end
 
 # ---------------------------------------------------------------------------
@@ -233,11 +228,11 @@ end
 
 println("1/7 training pairs")
 
-Random.seed!(20260909)
+fig_rng = Xoshiro(20260909)
 p_pairs = plot(layout = (2, 4), size = (1100, 480), legend = false, link = :all)
 for k in 1:8
-    θ = [rand(PRIORS[i]) for i in 1:D]
-    plot!(p_pairs, 1:T, simulate_obs(θ), subplot = k, lw = 2, colour = NPE_COLOUR)
+    θ = [rand(fig_rng, PRIORS[i]) for i in 1:D]
+    plot!(p_pairs, 1:T, simulate_obs(fig_rng, θ), subplot = k, lw = 2, colour = NPE_COLOUR)
     plot!(
         p_pairs,
         subplot = k,
@@ -273,12 +268,12 @@ posterior = DataFrame(post, PNAMES)
 
 println("2/7 one network, three datasets")
 
-Random.seed!(11)
+demo_rng = Xoshiro(11)
 demo = []
 while length(demo) < 3
-    θ = [rand(PRIORS[i]) for i in 1:D]
+    θ = [rand(demo_rng, PRIORS[i]) for i in 1:D]
     θ[1] < 2.5 && continue          ## skip the draws that never take off
-    y = simulate_obs(θ)
+    y = simulate_obs(demo_rng, θ)
     sum(y) < 40 && continue
     push!(demo, (θ = θ, y = y))
 end
@@ -417,8 +412,8 @@ save_figure(plot(sbc_plots..., layout = (2, 3), size = (1100, 560)), "npe_sbc.sv
 
 println("6/7 conditioned trajectories")
 
-Random.seed!(4242)
-ppc = reduce(vcat, [simulate_obs(post[j, :])' for j in 1:500])
+ppc_rng = Xoshiro(4242)
+ppc = reduce(vcat, [simulate_obs(ppc_rng, post[j, :])' for j in 1:500])
 
 Random.seed!(2)
 filtered = map(1:20) do _
