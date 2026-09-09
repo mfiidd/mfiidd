@@ -60,7 +60,7 @@ $$p(\text{data} \mid \theta) \approx p\big(d(S_\text{data},\, S_{\text{sim}(\the
 - $d$: distance, e.g. absolute distance
 - $\epsilon$: acceptance window
 
-. . .
+## The approximation, in a picture
 
 ![](images/abc_method.png){.step .tall}
 
@@ -75,7 +75,8 @@ The simplest version, and the one you will write:
 
 . . .
 
-Repeat until you have enough. The kept parameters approximate the posterior.
+Repeat until you have enough samples. The kept parameters approximate the
+posterior.
 
 . . .
 
@@ -118,18 +119,6 @@ one pins down a different parameter.
 [**What scale they are on.**]{.alert} A total in the hundreds and a peak day in
 the tens are not comparable. Weight each by its spread under the prior
 predictive, or the largest summary quietly becomes the only one.
-
-## You do not have to guess {.smaller}
-
-Summaries can be **learned** rather than chosen: simulate, regress the parameters
-on the simulated data, and use the fitted $\mathbb{E}[\theta \mid y]$ as the
-summary [@fearnhead2012].
-
-. . .
-
-This is what [neural posterior estimation](../neural_posterior_estimation.qmd)
-does, with a network in place of the regression — the same idea, and a session
-you can take next.
 
 ## Everything hangs on $\epsilon$
 
