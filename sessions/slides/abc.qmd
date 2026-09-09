@@ -4,19 +4,21 @@ title: "Approximate Bayesian Computation"
 subtitle: "Inference by simulation"
 ---
 
-## No likelihood you believe in
+## What if you cannot write down a likelihood?
 
-You have a simulator. What you do not have is a $p(y \mid \theta)$ you would
-defend: the counts are not really Poisson, the reporting process is too tangled
-to write down, the model is somebody else's black box.
-
-. . .
-
-You can run it, though. As many times as you like.
+Imagine a model you can simulate but cannot score. Run it and out comes a
+dataset. Ask how probable *your* dataset was under it, and there is no formula to
+evaluate.
 
 . . .
 
-What now?
+Reporting delays, weekend effects, behaviour that responds to the epidemic: each
+is simple to simulate, and together they have no density you can write.
+
+. . .
+
+The likelihood is still there. The simulator [is]{.alert} $p(y \mid \theta)$ —
+you simply cannot evaluate it.
 
 ## Draw, simulate, compare
 
