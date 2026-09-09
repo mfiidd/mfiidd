@@ -1,23 +1,34 @@
 ---
 footer: "Approximate Bayesian Computation"
 title: "Approximate Bayesian Computation"
-subtitle: "Choosing the distance yourself"
+subtitle: "Inference by simulation"
 ---
 
 # Approximate Bayesian Computation
 
-## You can still run the model
+## No likelihood you believe in
 
-You cannot evaluate $p(y \mid \theta)$. You can [simulate]{.alert} from it.
-
-. . .
-
-So: draw $\theta$ from the prior, simulate a dataset, and keep $\theta$ if the
-simulation came out **equal to the data**.
+You have a simulator. What you do not have is a $p(y \mid \theta)$ you would
+defend: the counts are not really Poisson, the reporting process is too tangled
+to write down, the model is somebody else's black box.
 
 . . .
 
-That is not an approximation. The $\theta$ you keep are draws from the posterior.
+You can run it, though. As many times as you like.
+
+. . .
+
+What now?
+
+## Draw, simulate, compare
+
+Draw $\theta$ from the prior. Simulate a dataset. Keep $\theta$ if the simulation
+came out [exactly equal to the data]{.alert}.
+
+. . .
+
+Nothing has been approximated. The $\theta$ you keep are draws from
+$p(\theta \mid y)$.
 
 ## Two concessions {.smaller}
 
