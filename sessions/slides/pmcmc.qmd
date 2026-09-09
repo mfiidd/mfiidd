@@ -13,7 +13,7 @@ $$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 An estimate of the marginal likelihood at **one** $\theta$. We want the
 **posterior** over $\theta$.
 
-## The obvious idea
+## Substituting the estimate
 
 We already have an algorithm that explores a posterior using nothing but
 likelihood evaluations: Metropolis-Hastings.
