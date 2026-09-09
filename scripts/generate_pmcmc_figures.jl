@@ -19,6 +19,7 @@ include(joinpath(@__DIR__, "pmmh_setup.jl"))
 
 using Plots
 using Printf
+using LinearAlgebra: Symmetric
 
 ENV["GKSwstype"] = "100"  ## no display during rendering
 Random.seed!(20260908)
@@ -239,34 +240,57 @@ end
 # 3. What that noise does to the chain
 # ---------------------------------------------------------------------------
 
-## Long enough that the comparison is about the sampler rather than about which
-## chain happened to get a good stretch. PMMH is sticky at every particle count,
-## so a couple of thousand iterations can easily show the 256-particle chain
-## sitting still for longer than the 16-particle one purely by chance.
+## The saved chain already paid for the tuning. Its 50,000 warmup iterations
+## bought an adapted proposal, and the posterior draws carry that information:
+## the scaled posterior covariance is the proposal RAM was converging on. Seeding
+## a fixed random walk with it means no warmup here at all, which is what makes
+## this figure cheap enough to regenerate.
 ##
-## The warmup is the committed chains' own adaptation budget. RAM only updates
-## its proposal covariance during warmup, and on a short one the picture shows a
-## sampler that has not finished adapting rather than the cost of the noise: at
-## 2000 warmup iterations even the 256-particle chain accepts 3% of proposals,
-## against the 23% the saved chain reaches. The saved chain cannot supply this
-## figure itself, being thinned by 50, which erases the plateaus.
+## Fixing the proposal also makes the comparison a clean experiment. Under RAM
+## the two panels would adapt differently and the difference between them would
+## confound the particle count with the adaptation. Here the proposal is
+## identical in both, so the only thing that varies is the number of particles.
 const TRACE_ITERATIONS = 8_000
-const TRACE_WARMUP = N_WARMUP
+
+"""
+    seeded_proposal()
+
+A random walk tuned from the committed SEIT4L chain: the posterior covariance on
+the unconstrained scale Turing samples on, scaled by the usual `2.38^2 / d`.
+
+The six transforms are the priors' own bijections — `log(x - a)` for the
+truncated normals, `logit` for the two Beta parameters. The saved draws are on
+the constrained scale, and a covariance taken there would describe the wrong
+space.
+"""
+function seeded_proposal()
+    df = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
+    u = hcat(
+        log.(df.R_0 .- 1.0),
+        log.(df.D_lat .- 0.5),
+        log.(df.D_inf .- 0.5),
+        log.(df.α ./ (1 .- df.α)),
+        log.(df.D_imm .- 1.0),
+        log.(df.ρ ./ (1 .- df.ρ)),
+    )
+    Σ = (2.38^2 / size(u, 2)) .* cov(u)
+    return AdvancedMH.RandomWalkProposal(MvNormal(zeros(size(u, 2)), Symmetric(Σ)))
+end
 
 """
     short_chain(n_particles)
 
-Run PMMH at `n_particles` and return the retained draws of R_0 together with the
-proportion of iterations at which the chain moved. Short enough to be a picture
-of the mixing rather than a fit: the committed chains in data/ are what the
-session reads for inference.
+Run PMMH at `n_particles` with the seeded proposal and return the draws of R_0
+together with the proportion of iterations at which the chain moved. Short
+enough to be a picture of the mixing rather than a fit: the committed chains in
+data/ are what the session reads for inference, and this cannot replace them,
+being far too short and never having adapted anything of its own.
 """
 function short_chain(n_particles)
     chain = sample(
         pmmh_seit4l(OBS, n_particles),
-        externalsampler(AdvancedMH.RobustAdaptiveMetropolis()),
+        externalsampler(AdvancedMH.MetropolisHastings(seeded_proposal())),
         TRACE_ITERATIONS;
-        num_warmup = TRACE_WARMUP,
         check_model = false,
         progress = false,
     )
