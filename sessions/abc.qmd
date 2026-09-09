@@ -65,7 +65,7 @@ using Random
 using LinearAlgebra
 using DrWatson
 using StatsBase  # For Weights in ABC-SMC
-using MFIIDD ## the course package, which holds the SIR implementation
+using MFIIDD ## the course package, which holds the SEIT4L implementation
 ```
 
 ## Initialisation
@@ -312,13 +312,15 @@ changing it.
 
 ::: {.callout-tip title="Solution" collapse="true"}
 Tightening the threshold narrows the posterior but the acceptance rate collapses,
-so you wait much longer for the same number of samples: at 200 about 2% of prior
-draws are accepted against about a quarter at 300, so the same 200 samples cost
-roughly ten times as many simulations.
+so you wait much longer for the same number of samples: about 6% of prior draws
+are accepted at 230, roughly 1% at 190 and 0.2% at 165, so each step costs you
+about five times as many simulations as the last.
 There is a floor as well.
-The closest this SIR gets to these data anywhere in the prior box is a distance of
-about 165, so a threshold below that accepts nothing however long you leave it
-running.
+Over twenty thousand prior draws the closest any simulation came to these data was
+a distance of about 130, so a threshold below that accepts nothing however long
+you leave it running. Some of that floor is the model and some of it is the noise:
+even at the particle MCMC parameters, two runs differ from the data by anywhere
+between 155 and 420.
 
 Loosening it accepts almost everything, so the sampler is fast but the posterior
 drifts back towards the prior: you are no longer conditioning on the data very
