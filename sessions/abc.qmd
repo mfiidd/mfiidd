@@ -769,9 +769,40 @@ histogram!(p2, abc_df.D_inf, bins=30, alpha=0.5,
 plot(p1, p2, layout=(1, 2), size=(900, 400))
 ```
 
-**How to interpret these plots**: Look for whether the posterior distributions overlap substantially. If the MCMC (Poisson) and ABC (L1) posteriors cover a similar range and peak in similar places, the two approaches agree — meaning the choice of observation model has little effect on inference for this dataset. If one posterior is much wider, shifted, or multimodal compared to the other, the observation model is influencing conclusions. A useful rule of thumb: if the posterior means are within one standard deviation of each other and the bulk of the distributions overlap, the methods are giving consistent answers.
+**How to interpret these plots**: look for whether the posteriors overlap, and where they do not.
+Both were fitted to the same data, with the same model and the same priors, so any difference between them is the inference method rather than the setup.
+The one on the left had a likelihood, estimated by a particle filter; the one on the right had only a distance and a threshold.
 
-**Discussion**: Are the posteriors similar or different? What does this tell us about the observation model choice?
+::: {.callout-tip title="Exercise: Where do the two disagree, and why?"}
+1. Which parameter do the two posteriors agree on most closely? Which least?
+2. Compute $R_0 / D_\mathrm{inf}$ for both sets of samples and compare those distributions. What do you notice?
+3. Why might these data pin down that combination better than either parameter on its own?
+:::
+
+::: {.callout-tip title="Solution" collapse="true"}
+$\rho$ and $R_0$ come out close. $D_\mathrm{inf}$ is the one that disagrees: ABC
+puts it near 1.7 against the particle filter's 2.1, and the ABC posterior is the
+lower of the two.
+
+The ratio tells a different story from the marginals. $R_0/D_\mathrm{inf}$ comes
+out around 3.4 from ABC and 3.0 from particle MCMC, with intervals that overlap
+across most of their range. The two methods agree about the ratio and disagree
+about how to split it.
+
+That is not an accident of this run. $R_0/D_\mathrm{inf}$ is the transmission
+rate $\beta$, and daily case counts constrain the speed and size of the epidemic,
+which depend on $\beta$. Separating $R_0$ from $D_\mathrm{inf}$ needs information
+about how long people stay infectious, and a count of cases per day carries very
+little of that. So the posterior is stretched along a ridge where the ratio is
+fixed and the two parameters trade off against each other. You can see it in the
+correlation between them: about $+0.7$ in the ABC sample against $+0.3$ in the
+particle MCMC one, so ABC is lying along that ridge more tightly.
+
+The general point is worth more than the specific numbers. A posterior can be
+right about what the data determine and still look wrong parameter by parameter.
+Marginal histograms hide that, because they show each parameter with the others
+integrated away. Plot the pairs before concluding that two methods disagree.
+:::
 
 # When does it matter?
 
