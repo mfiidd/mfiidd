@@ -1,5 +1,6 @@
 ---
-title: "Beyond Turing: the wider Julia ecosystem"
+title: "Beyond Turing"
+subtitle: "The wider Julia ecosystem"
 format: html
 engine: julia
 order: 14

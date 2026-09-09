@@ -1,5 +1,5 @@
 ---
-title: "Approximate Bayesian Computation"
+title: "Approximate Bayesian computation"
 subtitle: "Inference when you cannot write down a likelihood"
 format: html
 engine: julia
@@ -18,7 +18,7 @@ week has got to, from deterministic fitting through to particle MCMC.
 # Introduction
 
 For many models you cannot evaluate $p(y \mid \theta)$, but you can still run the
-model forward. Approximate Bayesian Computation is built on that alone: draw
+model forward. Approximate Bayesian computation is built on that alone: draw
 parameters from the prior, simulate a dataset, and keep the parameters whose
 simulation came out equal to the data. Nothing is approximated at that point, and
 the parameters you keep are draws from the posterior.
@@ -162,7 +162,7 @@ chain_poisson = sample(model_poisson, NUTS(0.65), 500, progress=false)
 ```
 :::
 
-# Approximate Bayesian Computation
+# Approximate Bayesian computation
 
 ## ABC: Making the distance explicit
 
@@ -483,7 +483,7 @@ This is a simplified ABC-SMC for pedagogical purposes. It does compute the impor
 
 The redraw is worth a closer look. A perturbation landing outside the prior sends the loop back to its start, which draws a *new parent* as well as a new perturbation, so the proposal is the whole mixture restricted to the prior box. The constant that restriction introduces is the same for every particle, so it cancels when the weights are normalised, and the weights computed here are exact. Had the redraw kept the same parent and only re-perturbed, it would not cancel, and children of near-boundary particles would come out over-weighted.
 
-**Note on `Threads.@threads`**: The code below uses `Threads.@threads` to parallelise the particle loop — this macro distributes iterations across available CPU threads, so each particle can be simulated concurrently. For this to have any effect, Julia must be started with multiple threads (e.g., `julia -t auto`). See the [threading note in MCMC Diagnostics](mcmc_diagnostics.qmd#running-julia-with-multiple-threads) for setup instructions. Without multiple threads, the loop runs sequentially (slower but still correct).
+**Note on `Threads.@threads`**: The code below uses `Threads.@threads` to parallelise the particle loop — this macro distributes iterations across available CPU threads, so each particle can be simulated concurrently. For this to have any effect, Julia must be started with multiple threads (e.g., `julia -t auto`). See the [threading note in MCMC diagnostics](mcmc_diagnostics.qmd#running-julia-with-multiple-threads) for setup instructions. Without multiple threads, the loop runs sequentially (slower but still correct).
 
 ```{julia}
 # The prior appears twice: as bounds to sample from, and as a support check used

@@ -624,5 +624,5 @@ If a likelihood is really a distance function that you committed to in advance b
 naming a distribution, an obvious question follows: what if we chose the distance
 [directly]{.underline}, and never wrote a likelihood at all?
 
-That is [Approximate Bayesian Computation](abc.qmd), tomorrow morning. Worth
+That is [Approximate Bayesian computation](abc.qmd), tomorrow morning. Worth
 turning over tonight: which features of these data would *you* choose to match?
