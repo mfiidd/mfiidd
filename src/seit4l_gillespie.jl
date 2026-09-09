@@ -1,6 +1,48 @@
 using Random
 
 """
+Stoichiometry: how each transition changes [S, E, I, T1, T2, T3, T4, L].
+
+A constant tuple rather than a matrix built inside the stepper. The stepper runs
+once per particle per day, so a table allocated there is allocated a few million
+times in one filter run, and the garbage collector becomes the thing that limits
+how well the filter uses more than one core.
+"""
+const SEIT4L_STOICH = (
+    (-1, 1, 0, 0, 0, 0, 0, 0),   # S → E (infection)
+    (0, -1, 1, 0, 0, 0, 0, 0),   # E → I (becoming infectious)
+    (0, 0, -1, 1, 0, 0, 0, 0),   # I → T1 (recovery)
+    (0, 0, 0, -1, 1, 0, 0, 0),   # T1 → T2
+    (0, 0, 0, 0, -1, 1, 0, 0),   # T2 → T3
+    (0, 0, 0, 0, 0, -1, 1, 0),   # T3 → T4
+    (1, 0, 0, 0, 0, 0, -1, 0),   # T4 → S (immunity wanes)
+    (0, 0, 0, 0, 0, 0, -1, 1),   # T4 → L (long-term immunity)
+)
+
+"""
+    seit4l_rates(s, β, ϵ, ν, τ, α)
+
+The eight transition rates at state `s`, as a tuple.
+
+Returning a tuple rather than a vector keeps this on the stack. It is called once
+per event, which is tens of times per particle per day.
+"""
+function seit4l_rates(s, β, ϵ, ν, τ, α)
+    S, E, I, T1, T2, T3, T4, L = s
+    N = S + E + I + T1 + T2 + T3 + T4 + L
+    return (
+        β * S * I / N,
+        ϵ * E,
+        ν * I,
+        τ * T1,
+        τ * T2,
+        τ * T3,
+        (1 - α) * τ * T4,
+        α * τ * T4,
+    )
+end
+
+"""
     gillespie_step(rng, state, θ, dt=1.0)
 
 Simulate SEIT4L for `dt` time units using the Gillespie algorithm.
@@ -29,28 +71,10 @@ function gillespie_step(
     # Copy state for modification
     s = copy(state)
 
-    # Stoichiometry: how each transition changes [S, E, I, T1, T2, T3, T4, L]
-    stoich = [
-        [-1, 1, 0, 0, 0, 0, 0, 0],   # S → E (infection)
-        [0, -1, 1, 0, 0, 0, 0, 0],   # E → I (becoming infectious)
-        [0, 0, -1, 1, 0, 0, 0, 0],   # I → T1 (recovery)
-        [0, 0, 0, -1, 1, 0, 0, 0],   # T1 → T2
-        [0, 0, 0, 0, -1, 1, 0, 0],   # T2 → T3
-        [0, 0, 0, 0, 0, -1, 1, 0],   # T3 → T4
-        [1, 0, 0, 0, 0, 0, -1, 0],   # T4 → S (immunity wanes)
-        [0, 0, 0, 0, 0, 0, -1, 1],    # T4 → L (long-term immunity)
-    ]
-
-    function rates(s)
-        S, E, I, T1, T2, T3, T4, L = s
-        N = S + E + I + T1 + T2 + T3 + T4 + L
-        [β*S*I/N, ϵ*E, ν*I, τ*T1, τ*T2, τ*T3, (1-α)*τ*T4, α*τ*T4]
-    end
-
     # Simulate up to `dt` time units
     t, daily_inc = 0.0, 0
     while t < dt
-        r = rates(s)
+        r = seit4l_rates(s, β, ϵ, ν, τ, α)
         total_rate = sum(r)
         total_rate ≤ 0 && break
 
@@ -71,7 +95,7 @@ function gillespie_step(
 
         # Apply the transition
         for j in 1:8
-            s[j] += stoich[event][j]
+            s[j] += SEIT4L_STOICH[event][j]
         end
 
         # E → I transitions count as new cases

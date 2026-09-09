@@ -149,8 +149,9 @@ From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather t
 The particle filter needs to simulate many stochastic trajectories.
 We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), adapted here for the SEIT4L model with its four T compartments.
 The implementation below is shown from the package source rather than repeated by
-hand, so that the page and the code cannot drift apart. This is the function
-`SEIT4LDynamics` calls once per particle per day:
+hand, so that the page and the code cannot drift apart. `gillespie_step` is what
+`SEIT4LDynamics` calls once per particle per day, and the stoichiometry table and
+the rate function it uses sit beside it:
 
 ::: {.callout-note collapse="true"}
 ## Gillespie step implementation
@@ -158,13 +159,15 @@ hand, so that the page and the code cannot drift apart. This is the function
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(gillespie_step), "\n```")
+println("```julia\n", source_for("seit4l_gillespie.jl"), "\n```")
 ```
 :::
 
 Key aspects:
 
-- **Stoichiometry matrix**: Defines how each transition changes the state vector
+- **Stoichiometry table**: Defines how each transition changes the state vector. It is a
+  constant rather than something the stepper builds, because the stepper runs once per
+  particle per day and an allocation there is millions of allocations in a filter run
 - **Rates**: Computed from current state and parameters
 - **Event selection**: Exponential waiting time, event chosen proportional to rates
 - **Incidence tracking**: Counts E→I transitions as new cases

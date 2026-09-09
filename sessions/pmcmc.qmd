@@ -348,22 +348,23 @@ println("  threaded: $(round(threaded, digits=4)) s")
 println("  speed-up: $(round(serial / threaded, digits=2))x")
 ```
 
-What that prints depends on how busy the machine is: on twelve threads we have seen
-anywhere between three and six times on a single filter run, and the figure moves
-between runs.
-The end-to-end gain for a chain is steadier, because the sampler does work either way.
-Timed as separate processes, 150 iterations at 256 particles took 9.5 seconds on one
-thread and 2.9 seconds on twelve.
+What that prints depends on the machine and on how busy it is: on twelve threads a run
+at 256 particles is several times faster, and more particles scale better than fewer,
+because there is more work to divide against the same per-day overhead.
 
-The speed-up saturates around four or five, well below the thread count, and not for
-the reason you would guess.
-Resampling is serial, but it is also cheap: swapping the resampler for another makes no
-measurable difference here.
-The limit is memory. One run at 1024 particles allocates about 500 MB, because every
-particle gets a fresh state vector on every day, and garbage collection takes roughly 30
-per cent of a serial run and closer to half of a threaded one.
-Threads share one allocator, so the more of them there are the larger that share
-becomes, and it is what stops the curve rather than anything about the filter.
+The speed-up still stops well short of the thread count, and the reason is not the one
+that first suggests itself.
+Resampling is serial, but it is cheap: swapping the resampler for another makes no
+measurable difference.
+Nor is it that the threads wait on the slowest particle, which varies by less than a
+factor of two.
+What limited it was memory, until it was fixed: the stepper used to build its
+stoichiometry table on every call and a rates vector on every event, which came to
+about 500 MB of allocation for one run at 1024 particles, and threads share one garbage
+collector.
+Holding the table as a constant and returning the rates as a tuple took that to under
+40 MB and moved the collector from a third of the run to a twentieth, which made the
+serial filter faster and the threaded one faster still.
 
 ::: {.callout-warning}
 ## Threads change what a seed reproduces
@@ -380,8 +381,8 @@ Fix `nchunks` explicitly if you need a result to reproduce across machines.
 ## Threads here, or more chains?
 
 Chains scale almost linearly and threads do not: the speed-up inside one chain
-saturates around four or five however many threads it is given, because the threads
-share an allocator and this simulator allocates heavily.
+saturates some way below the thread count, because each day ends in a step that cannot
+be divided.
 Chains have their own ceiling: each one pays the warm-up separately, so warm-up is the
 cost that grows with the number of chains instead of being shared between them.
 Which way to split the cores therefore depends on how much of the run is warm-up, and

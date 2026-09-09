@@ -23,7 +23,10 @@ resampling and the likelihood accumulation are left to `GeneralisedFilters`,
 which owns them: this type overrides one method, `predict`, and forwards
 everything else to the filter it wraps.
 
-`nchunks` blocks of particles are propagated in parallel. Each block draws from
+`nchunks` blocks of particles are propagated in parallel. One block per thread is
+the default and is usually enough: more blocks give the scheduler something to
+balance with, which mattered when this simulator allocated heavily and matters
+little now. Each block draws from
 its own `Xoshiro`, seeded from the filter's own generator before the parallel
 region starts, so a run is reproducible from a single `Random.seed!` **for a
 fixed `nchunks`**. Change the number of chunks and the stream changes, in the
@@ -108,6 +111,12 @@ function GeneralisedFilters.predict(
     kwargs...,
 )
     N = num_particles(algo)
+
+    ## `@threads` would happily partition `1:N` by itself. The partition is
+    ## explicit because each block needs its own generator, and the only stable
+    ## label to seed one from is the block index: `threadid()` is not stable
+    ## across a task's lifetime, and seeding inside the loop body would tie the
+    ## stream to the order the scheduler happened to choose.
     blocks = collect(Iterators.partition(1:N, cld(N, algo.nchunks)))
 
     ## seeds are drawn here, in order, so the run does not depend on the
