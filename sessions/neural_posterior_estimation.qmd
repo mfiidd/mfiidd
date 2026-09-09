@@ -581,6 +581,74 @@ A trained flow will happily map data that sits *outside* everything it was train
 The posterior predictive check is your main guard.
 :::
 
+## Conditioning the trajectory on the data
+
+The replicates above re-roll the epidemic from day 0, because the flow returns parameters and nothing else.
+No latent path appears anywhere in $q_\phi(\theta \mid y)$, so the estimator holds nothing that could be conditioned on the observations.
+
+Be careful how you read the median in that figure.
+It sits far below the observed second wave, which looks like a model unable to produce one.
+Count the replicates instead and most of them manage it, and what they disagree about is *when*: the peaks land anywhere across the second half of the outbreak.
+A median taken separately at each day averages over that disagreement and flattens a wave the individual replicates have.
+
+```{julia}
+wave = 25:45
+totals = [sum(ppc[j, wave]) for j in 1:size(ppc, 1)]
+peak_day = [wave[argmax(ppc[j, wave])] for j in 1:size(ppc, 1)]
+println("replicates with at least 20 cases over days 25-45: ",
+        round(100 * mean(totals .>= 20)), "%")
+println("their peak day, 90% range: ", quantile(peak_day, 0.05), " to ", quantile(peak_day, 0.95))
+println("pointwise median on the observed peak day (32): ", median(ppc[:, 32]))
+```
+
+A particle filter can hand back a path that *was* conditioned on the data, which is what the [PMMH session](pmcmc.qmd) does for its own chain.
+The same helper works here.
+The parameter draws came from a neural network rather than from MCMC, which the filter neither knows nor needs to.
+
+```{julia}
+#| output: false
+Random.seed!(2)
+n_filt = 20
+filtered = map(1:n_filt) do _
+    r = posterior[rand(1:nrow(posterior)), :]
+    θ = Dict(:R_0 => r.R_0, :D_lat => r.D_lat, :D_inf => r.D_inf,
+             :α => r.α, :D_imm => r.D_imm, :ρ => r.ρ)
+    inc = filtered_incidence(θ, flu_tdc.obs, 256)
+    [rand(Poisson(max(r.ρ * x, 1e-10))) for x in inc]
+end
+filt = reduce(hcat, filtered)'
+```
+
+```{julia}
+function band!(p, M, label, colour)
+    lo = [quantile(M[:, t], 0.025) for t in tt]
+    hi = [quantile(M[:, t], 0.975) for t in tt]
+    md = [median(M[:, t]) for t in tt]
+    plot!(p, tt, md, ribbon=(md .- lo, hi .- md), label=label,
+          colour=colour, fillalpha=0.2, lw=2)
+end
+
+pl = plot(xlabel="day", ylabel="reported cases",
+          title="Latent path re-simulated and conditioned on the data")
+band!(pl, ppc, "re-simulated", :darkorange)
+band!(pl, filt, "filtered", :seagreen)
+scatter!(pl, tt, YOBS, c=:black, ms=3, label="observed")
+```
+
+Amortisation stops at the parameters.
+The flow returns $\theta$ in milliseconds and will keep doing so for any dataset, and it says nothing about the latent path: each of the twenty trajectories above cost its own particle filter run, at the 256 particles the [particle filter session](particle_filters.qmd) calibrated.
+That is still a bargain beside PMMH, which runs a filter at *every* iteration — half a million of them for the committed chain — merely to arrive at $\theta$.
+Here the filter runs once per trajectory you actually want, and only if you want one.
+
+::: {.callout-warning}
+## A narrow envelope is not a better fit
+
+The filtered envelope tracks the observations because it was told what they were, and it would do the same for a model that generates nothing like this outbreak when left to run.
+Judge the fit on the re-simulated envelope, and read the filtered one as a picture of what the epidemic plausibly did.
+A bootstrap filter also loses ancestral diversity as it runs back through the series, so the filtered spread is tighter than the smoothing distribution really is, most of all in the early days.
+:::
+
+
 # Amortisation in action: thinning the surveillance
 
 Here is the payoff.
@@ -628,6 +696,7 @@ Doing the same with PMMH would mean 30 separate chains, and hours of compute.
 - Calibration can be imperfect, and calibration diagnostics and parameter-recovery plots can disagree in both directions.
 - A particle filter handles missing and irregular observations natively — its likelihood simply factorises over the observed time points. The mask exists only because a neural network needs fixed-length input.
 - Training masks here are drawn completely at random, but real missingness is informative: a site starts reporting *because* the epidemic arrived. The estimator has no way to use that.
+- The flow returns parameters alone. Any question about the latent path still needs a filter run, so amortisation does not reach it.
 - Model misspecification can fail silently.
 
 For a one-off fit to a single dataset, use PMMH.
@@ -818,6 +887,7 @@ d. **NPE**. The question is not really about one posterior — it is about compa
 - **Transform the parameters before the flow sees them.** The probit of the prior CDF starts the estimator at the prior and keeps every draw inside the prior support
 - **A mask makes the schedule part of what is conditioned on**, so one trained network serves observation schedules invented after training
 - **Check calibration, and check the data is in distribution.** A flow returns a confident posterior for data unlike anything it was trained on, and no convergence diagnostic will warn you
+- **Amortisation covers the parameters and stops there.** A latent trajectory conditioned on the data still costs a particle filter run, one per trajectory
 :::
 
 # Going further
