@@ -164,9 +164,9 @@ Thursday 10 September: 09.45-11.00
 
 ## Session 10: Synthesis and next steps
 
-Thursday 10 September: 11.30-12.15
+Thursday 10 September: 11.30-12.20
 
--   [Slides](../sessions/slides/choosing_an_approach.qmd): the methods side by side, the two questions that decide between them, and what actually goes wrong (25 mins)
+-   [Slides](../sessions/slides/choosing_an_approach.qmd): what the week covered, where those methods sit in the wider landscape, and the choices and criteria that decide between them (30 mins)
 -   [Discussion](../sessions/closing.qmd): work through the two questions, then place your own problem, in pairs and then as a group (20 mins)
 
 Bring a model you actually want to fit. The discussion works best when people
@@ -174,9 +174,9 @@ argue about real problems rather than the worked examples.
 
 ## Close
 
-Thursday 10 September: 12.15-12.30
+Thursday 10 September: 12.20-12.30
 
--   Summary, further reading and closing discussion (15 mins)
+-   The closing part of the [slides](../sessions/slides/choosing_an_approach.qmd): where to go next, further reading, and the feedback survey (10 mins)
 
 # Further material
 
