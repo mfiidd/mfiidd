@@ -10,26 +10,18 @@ temporary immunity, immunity waning, and immunity becoming long term.
 const SEIT4L_MOVES = ((1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 1), (7, 8))
 
 """
-    seit4l_rates(s, N, β, ϵ, ν, τ, α)
+    seit4l_rates(s, βN, ϵ, ν, τ, α)
 
-The eight transition rates at state `s` in a population of `N`, in the order of
-`SEIT4L_MOVES`, as a tuple.
+The eight transition rates at state `s`, in the order of `SEIT4L_MOVES`, as a
+tuple.
 
-A tuple stays on the stack. `N` is an argument because every transition
-conserves it, so it is summed once a day rather than once an event.
+A tuple stays on the stack. `βN` is β divided by the population, which every
+transition conserves, so both the sum and the division happen once a day rather
+than once an event.
 """
-function seit4l_rates(s, N, β, ϵ, ν, τ, α)
+@inline function seit4l_rates(s, βN, ϵ, ν, τ, α)
     @inbounds S, E, I, T1, T2, T3, T4 = s[1], s[2], s[3], s[4], s[5], s[6], s[7]
-    return (
-        β * S * I / N,
-        ϵ * E,
-        ν * I,
-        τ * T1,
-        τ * T2,
-        τ * T3,
-        (1 - α) * τ * T4,
-        α * τ * T4,
-    )
+    return (βN * S * I, ϵ * E, ν * I, τ * T1, τ * T2, τ * T3, (1 - α) * τ * T4, α * τ * T4)
 end
 
 """
@@ -78,8 +70,12 @@ function gillespie_step!(
     τ = 4.0 / θ[:D_imm]
     α = θ[:α]
 
-    # Every transition conserves the population, so this is a constant of the
-    # whole day rather than of each event
+    # The loop below indexes without checking, so check once here: this is
+    # exported, and a SEITL state is five elements long rather than eight
+    checkbounds(state, 8)
+
+    # Every transition conserves the population, so both the sum and the
+    # division are constants of the whole day rather than of each event
     N = @inbounds state[1] +
               state[2] +
               state[3] +
@@ -88,10 +84,11 @@ function gillespie_step!(
               state[6] +
               state[7] +
               state[8]
+    βN = β / N
 
     t, daily_inc = 0.0, 0
     @inbounds while t < dt
-        r = seit4l_rates(state, N, β, ϵ, ν, τ, α)
+        r = seit4l_rates(state, βN, ϵ, ν, τ, α)
         total = sum(r)
         total ≤ 0 && break
 
