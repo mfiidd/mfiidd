@@ -16,7 +16,8 @@ The counts do not sit on it.
 ## Two jobs
 
 The distribution around the prediction is what makes a likelihood exist.
-A curve on its own gives every observation that misses it a probability of zero.
+The likelihood gives us a distribution around the prediction.
+That way the model doesn't have to fit the data perfectly.
 
 . . .
 
