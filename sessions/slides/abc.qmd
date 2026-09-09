@@ -13,31 +13,34 @@ the prediction. Choosing a likelihood is choosing a [distance]{.alert}.
 
 . . .
 
-So why not choose the distance **directly**?
+But a restricted one. Whatever you write has to be a probability density, and
+that is a small corner of the ways two epidemics can differ.
 
-## When you have to {.smaller}
+## Any distance you like {.smaller}
 
-You can always estimate $p(y \mid \theta)$: simulate, and average
-$p(y \mid x_j, \theta)$ over the simulations. Two things go wrong.
-
-. . .
-
-[**The average degenerates.**]{.alert} $y$ is long, so nearly every simulation
-misses it. That is the collapse you saw yesterday, and the particle filter fixed
-it — by scoring one observation at a time.
+Drop the restriction and pick the discrepancy itself. Absolute error. Error in
+the peak, the final size, the shape of a tree.
 
 . . .
 
-[**There is nothing to average.**]{.alert} You have no
-$p(y \mid x, \theta)$ to evaluate, only a sense of *close*: a tree shape, an
-outbreak that "looked like this", a summary with no sampling distribution
-attached.
+Nothing has to normalise, integrate to one, or even be a metric.
 
 . . .
 
-ABC is for the second. Note what this is *not*: a stochastic model on its own is
-no reason to reach for it — you spent two sessions estimating exactly that
-likelihood.
+But the distance **is** the model now. ABC returns the posterior given "my
+simulation came within $\epsilon$ of the data, [as measured this way]{.alert}".
+Leave a feature out of the distance and nothing you get back knows about it.
+
+## When you have no choice
+
+ABC is not about cost. A stochastic model's likelihood can be *estimated* — you
+did that yesterday.
+
+. . .
+
+Reach for ABC when there is no $p(y \mid x, \theta)$ to estimate at all: a tree
+shape, an outbreak that "looked like this", a summary with no sampling
+distribution attached.
 
 # Approximate Bayesian Computation
 
