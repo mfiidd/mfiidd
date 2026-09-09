@@ -164,30 +164,6 @@ threshold becomes reachable.
 The catch: particles need weighting to stay unbiased, which is the same
 propagate-weight-resample structure as the particle filter.
 
-## A likelihood was a distance all along {.smaller}
-
-Poisson, negative binomial, Gaussian: each one already scored how far the data
-sat from the prediction. Choosing a likelihood was choosing a distance too. The
-difference is that in ABC you write the distance down, rather than deriving it
-from a density.
-
-. . .
-
-Could you go the other way, and use a likelihood as the summary? The likelihood
-*function* $\theta \mapsto p(y \mid \theta)$ is sufficient, so matching on it
-would be exact.
-
-. . .
-
-But it is a function, not a number. Matching whole curves within $\epsilon$ is no
-easier than matching the data. And if you could evaluate it, you would not be
-here.
-
-. . .
-
-Either way you are choosing. Say which choice you made, and check whether your
-conclusions survive a different one.
-
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
 In the practical you will
