@@ -156,8 +156,9 @@ propagate-weight-resample structure as the particle filter.
 ## A likelihood was a distance all along {.smaller}
 
 Poisson, negative binomial, Gaussian: each one already scored how far the data
-sat from the prediction. Choosing a likelihood was choosing a distance; ABC only
-made the choice visible.
+sat from the prediction. Choosing a likelihood was choosing a distance too. The
+difference is that in ABC you write the distance down, rather than deriving it
+from a density.
 
 . . .
 
