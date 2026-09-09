@@ -4,7 +4,7 @@ title: "Approximate Bayesian Computation"
 subtitle: "Inference by simulation"
 ---
 
-# Approximate Bayesian Computation
+# Inference by simulation
 
 ## No likelihood you believe in
 
@@ -30,10 +30,11 @@ came out [exactly equal to the data]{.alert}.
 Nothing has been approximated. The $\theta$ you keep are draws from
 $p(\theta \mid y)$.
 
-## Two concessions {.smaller}
+## Approximate Bayesian Computation {.smaller}
 
 Exact equality has probability zero for anything but tiny discrete data. Nothing
-would ever be accepted.
+would ever be accepted, so we make two concessions. This is where the
+[approximate]{.alert} comes from.
 
 . . .
 
