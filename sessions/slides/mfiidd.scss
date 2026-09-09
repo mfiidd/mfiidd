@@ -104,6 +104,31 @@ $presentation-font-smaller: 0.85;
   display: contents;
 }
 
+// A stack of overlaid *text*, one line revealed per fragment. `.r-stack` cannot
+// be reused for this: it carries a `min-height` sized for a figure, so a second
+// one on the same slide claims another half-screen and pushes everything below
+// it off the bottom. Same overlay mechanics, no height claim.
+//
+// The `display: contents` on the paragraph is needed for the same reason as it
+// is on the figure stacks: Pandoc collects a run of spans into one `<p>`, which
+// would otherwise be the only grid item.
+.reveal .slides section .stepstack {
+  display: grid;
+  place-items: center;
+  width: 100%;
+}
+
+.reveal .slides section .stepstack > p {
+  display: contents;
+}
+
+.reveal .slides section .stepstack > p > span,
+.reveal .slides section .stepstack > span {
+  grid-area: 1 / 1;
+  align-self: center;
+  justify-self: center;
+}
+
 .reveal .slides section .r-stack > p > img,
 .reveal .slides section .r-stack > img {
   grid-area: 1 / 1;
@@ -149,6 +174,16 @@ $presentation-font-smaller: 0.85;
 // A `.center` slide carries no heading, so the diagram can have the rest of it.
 .reveal .slides section.center img.bigpic {
   max-height: 620px;
+}
+
+// Full-slide particle filter figures: the stepped walk, and the two diagnostic
+// panels. Sized against the slide rather than the window for the same reason as
+// `.bigpic` — reveal scales a fixed 1050x700 slide to fit, so a `vh` cap shrinks
+// the figure relative to its own slide as the window gets smaller.
+.reveal .slides section img.pfwide {
+  width: 100%;
+  height: auto;
+  max-height: 470px;
 }
 
 .reveal .slides section img.tall {

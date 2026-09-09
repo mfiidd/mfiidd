@@ -1,10 +1,8 @@
 ---
-footer: "Fitting stochastic models"
-title: "Fitting stochastic models"
+footer: "Estimating the likelihood"
+title: "Estimating the likelihood"
 subtitle: "Sequential Monte Carlo and particle filters"
 ---
-
-# The likelihood for stochastic models
 
 ## Where we are
 
@@ -14,8 +12,7 @@ $$p(\theta \mid y) \propto p(y \mid \theta)\, p(\theta)$$
 
 . . .
 
-One $\theta$ gives one trajectory, so the likelihood is a single calculation:
-solve the ODE, evaluate the observation model, done.
+One $\theta$ gives one trajectory, so the likelihood is one calculation.
 
 . . .
 
@@ -23,109 +20,222 @@ Stochastic models break this.
 
 ## The marginal likelihood
 
-The model has a latent state $x$ — the trajectory it actually took — which we do
-not observe. To get the likelihood of $\theta$ we must **marginalise** over
-every trajectory it could have taken:
+The model has a latent state $x$, the trajectory it actually took, which we do not observe.
 
-$$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta)\, p(x \mid \theta)$$
+$$p(y \mid \theta) = \int p(y \mid x, \theta)\, p(x \mid \theta) \, \mathrm{d}x$$
 
-## The deterministic case is easy
+Getting the likelihood of $\theta$ means averaging over every trajectory the model could have taken.
 
-For a deterministic model, $\theta$ determines the trajectory exactly:
+## The deterministic case
 
-$$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta) \times \mathbb{1}_{x = f(\theta)}
+$\theta$ determines the trajectory exactly:
+
+$$p(y \mid \theta) = \int p(y \mid x, \theta)\, \delta\big(x - f(\theta)\big) \, \mathrm{d}x
 = p\big(y \mid x = f(\theta), \theta\big)$$
 
 . . .
 
-The sum collapses to a single term. That is why everything has worked so far.
+The integral collapses to a single point.
+That is why everything has worked so far.
 
-## The stochastic case is not
+## The stochastic case
 
-$$p(y \mid \theta) = \sum_{x} p(y \mid x, \theta)\, p(x \mid \theta)$$
-
-. . .
-
-Now $x$ is no longer known, and the number of possible trajectories is
-astronomical — every combination of every event at every time.
-
-We cannot enumerate them.
-
-## Monte Carlo to the rescue
-
-Approximate the sum by a sample of $J$ **particles**, each one a simulated
-trajectory:
-
-$$p(y \mid \theta) \approx \frac{1}{J}\sum_{j=1}^{J} p(y \mid x_j, \theta)$$
+$$p(y \mid \theta) = \int p(y \mid x, \theta)\, p(x \mid \theta) \, \mathrm{d}x$$
 
 . . .
 
-This is **sequential Monte Carlo**, better known as **particle filtering**.
+The integral runs over every sequence of events the model could produce, and the times at which they happen.
+
+# Estimating the integral
+
+## One draw
+
+![](images/pf_one_draw.svg){.pfwide}
+
+Simulating the model draws $x_1 \sim p(x \mid \theta)$.
+Scoring it against the data gives $p(y \mid x_1, \theta)$, an unbiased but very noisy estimate of the likelihood.
+
+## Many draws
+
+![](images/pf_many_draws.svg){.pfwide}
+
+$$\hat{p}(y \mid \theta) = \frac{1}{J}\sum_{j=1}^{J} p(y \mid x_j, \theta)$$
+
+Each trajectory is one way the epidemic could have gone.
+Its [weight]{.alert} is the probability of the data if it had gone that way.
+A trajectory with a higher weight counts for more in the average.
+
+## One weight per trajectory {.smaller}
+
+![](images/pf_naive_monte_carlo.svg){.pfwide}
+
+One weight has to cover all 59 observations.
+Two of the 200 hold 88% of the total.
+
+## The estimate gets noisier every day {.smaller}
+
+![](images/pf_naive_ess_by_day.svg){.pfwide}
+
+Scored on day 1 alone, the effective sample size is close to all 200.
+By day 10 it is 6, and by day 30 about 1.
+
+. . .
+
+The estimate then rests on one or two draws, so it changes wildly from run to run.
+
+. . .
+
+The fall is close to a straight line on a log scale, so a bigger $J$ cannot keep up.
 
 # The particle filter
 
-## The algorithm {.smaller}
+## The likelihood factorises
 
-::::: {.columns}
-:::: {.column width="60%"}
+$$p(y \mid \theta) = p(y_1 \mid \theta)\; p(y_2 \mid y_1, \theta) \cdots
+p(y_T \mid y_{1:T-1}, \theta)$$
+
+Each factor asks how well the model predicted one day, given everything before it.
+
+. . .
+
+We track the possible trajectories with a set of $J$ [particles]{.alert}.
+
+## Initialise
+
+![](images/particle_filter_03.svg){.pfwide}
+
+$J$ particles start from the same state, each with weight $1/J$.
+
+## Propagate
+
+![](images/particle_filter_04.svg){.pfwide}
+
+Every particle takes one step of the model.
+
+## Weigh
+
+![](images/particle_filter_05.svg){.pfwide}
+
+The weight is the probability of today's count under that particle, $w_{t,j} = p(y_t \mid x_{t,j}, \theta)$.
+
+## Weighting alone changes nothing
+
+Let the weights accumulate across days, so each particle carries the product of its own weights:
+
+$$\frac{1}{J}\sum_{j} \prod_{t} w_{t,j}
+= \frac{1}{J}\sum_{j} p(y \mid x_j, \theta)$$
+
+. . .
+
+That is the estimator we started with.
+The factorisation gives us a point between days at which to discard particles.
+
+. . .
+
+Otherwise all 200 are simulated to day 59, including the 198 that contribute almost nothing.
+
+## Resample
+
+![](images/particle_filter_06.svg){.pfwide}
+
+Draw $J$ particles from the current ones in proportion to their weights.
+Every weight resets to $1/J$.
+
+## Five days of propagate, weigh, resample
+
 ::: {.r-stack}
-![](images/pf_1_initialise.png){.step .fragment .fade-out fragment-index=1}
-![](images/pf_2_propagate.png){.step .fragment .current-visible fragment-index=1}
-![](images/pf_3_weight.png){.step .fragment .current-visible fragment-index=2}
-![](images/pf_4_resample.png){.step .fragment fragment-index=3}
+![](images/particle_filter_01.svg){.pfwide .fragment .fade-out fragment-index=1}
+![](images/particle_filter_02.svg){.pfwide .fragment .current-visible fragment-index=1}
+![](images/particle_filter_03.svg){.pfwide .fragment .current-visible fragment-index=2}
+![](images/particle_filter_04.svg){.pfwide .fragment .current-visible fragment-index=3}
+![](images/particle_filter_05.svg){.pfwide .fragment .current-visible fragment-index=4}
+![](images/particle_filter_06.svg){.pfwide .fragment .current-visible fragment-index=5}
+![](images/particle_filter_07.svg){.pfwide .fragment .current-visible fragment-index=6}
+![](images/particle_filter_08.svg){.pfwide .fragment .current-visible fragment-index=7}
+![](images/particle_filter_09.svg){.pfwide .fragment .current-visible fragment-index=8}
+![](images/particle_filter_10.svg){.pfwide .fragment .current-visible fragment-index=9}
+![](images/particle_filter_11.svg){.pfwide .fragment .current-visible fragment-index=10}
+![](images/particle_filter_12.svg){.pfwide .fragment .current-visible fragment-index=11}
+![](images/particle_filter_13.svg){.pfwide .fragment .current-visible fragment-index=12}
+![](images/particle_filter_14.svg){.pfwide .fragment .current-visible fragment-index=13}
+![](images/particle_filter_15.svg){.pfwide .fragment .current-visible fragment-index=14}
+![](images/particle_filter_16.svg){.pfwide .fragment .current-visible fragment-index=15}
+![](images/particle_filter_17.svg){.pfwide .fragment .current-visible fragment-index=16}
+![](images/particle_filter_18.svg){.pfwide .fragment .current-visible fragment-index=17}
+![](images/particle_filter_19.svg){.pfwide .fragment fragment-index=18}
 :::
-::::
-:::: {.column width="40%"}
-**Initialise** — $J$ particles, each of weight $1/J$
 
-::: {.fragment fragment-index=1}
-**Propagate** — simulate each to the next observation
-:::
-
-::: {.fragment fragment-index=2}
-**Weight** — by $w_j = p(y_t \mid x_j, \theta)$, drawn as size
-:::
-
-::: {.fragment fragment-index=3}
-**Resample** — in proportion to weight: good ones copied, bad ones die
-:::
-::::
-:::::
-
-::: {.fragment fragment-index=4}
-Repeat to the end of the data; the average weight estimates $p(y \mid \theta)$.
+::: {.stepstack}
+[[**Initialise**]{.alert} $x_0 \sim p(x_0 \mid \theta), \quad w_0 = 1/J$]{.fragment .current-visible fragment-index=2}
+[[**Propagate**]{.alert} $x_1 \sim p(x_1 \mid x_0, \theta)$]{.fragment .current-visible fragment-index=3}
+[[**Weight**]{.alert} $w_1 = p(y_1 \mid x_1, \theta)$]{.fragment .current-visible fragment-index=4}
+[[**Resample**]{.alert} in proportion to $w_1$]{.fragment .current-visible fragment-index=5}
+[[**Propagate**]{.alert} $x_2 \sim p(x_2 \mid x_1, \theta)$]{.fragment .current-visible fragment-index=6}
+[[**Weight**]{.alert} $w_2 = p(y_2 \mid x_2, \theta)$]{.fragment .current-visible fragment-index=7}
+[[**Resample**]{.alert} in proportion to $w_2$]{.fragment .current-visible fragment-index=8}
+[[**Propagate**]{.alert} $x_3 \sim p(x_3 \mid x_2, \theta)$]{.fragment .current-visible fragment-index=9}
+[[**Weight**]{.alert} $w_3 = p(y_3 \mid x_3, \theta)$]{.fragment .current-visible fragment-index=10}
+[[**Resample**]{.alert} in proportion to $w_3$]{.fragment .current-visible fragment-index=11}
+[[**Propagate**]{.alert} $x_4 \sim p(x_4 \mid x_3, \theta)$]{.fragment .current-visible fragment-index=12}
+[[**Weight**]{.alert} $w_4 = p(y_4 \mid x_4, \theta)$]{.fragment .current-visible fragment-index=13}
+[[**Resample**]{.alert} in proportion to $w_4$]{.fragment .current-visible fragment-index=14}
+[[**Propagate**]{.alert} $x_5 \sim p(x_5 \mid x_4, \theta)$]{.fragment .current-visible fragment-index=15}
+[[**Weight**]{.alert} $w_5 = p(y_5 \mid x_5, \theta)$]{.fragment .current-visible fragment-index=16}
+[[**Resample**]{.alert} in proportion to $w_5$]{.fragment .current-visible fragment-index=17}
+[$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j} w_{t,j}$]{.fragment fragment-index=18}
 :::
 
 ::: {.cite}
-Red diamonds are the data, yellow circles the particles.
+Four particles here.
+Red diamonds are the data, yellow circles the particles, sized by weight, struck through when nobody resampled them.
 :::
 
-## Why resample?
+## The estimator
 
-Without resampling, after a few time steps almost all the weight sits on one or
-two particles and the rest contribute nothing.
+Average the weights each day, before resampling:
 
-. . .
-
-This is **particle degeneracy**, and it is the central practical problem.
-Resampling concentrates effort where the data say the trajectory actually went.
+$$\hat{p}(y \mid \theta) = \prod_{t=1}^{T} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
 . . .
 
-The cost is **depletion**: repeatedly copying survivors means the particles
-share ancestry, so diversity falls over time.
+The average runs over all $J$ particles, including the ones resampling is about to discard.
+That is why resampling cannot inflate the estimate.
+
+. . .
+
+This is **sequential Monte Carlo**.
+
+## Particle degeneracy
+
+![](images/pf_degeneracy.svg){.pfwide}
+
+Without resampling the effective sample size is 6 by day 10, and about 1 from day 30 on.
+
+## Depletion
+
+![](images/particle_filter_19.svg){.pfwide}
+
+Follow the arrows back from day 5.
+The survivors all descend from a few of the day 1 particles.
+
+. . .
+
+Early states end up represented by fewer and fewer distinct particles, which limits what the filter can say about the start of the epidemic.
 
 ## How many particles?
 
-- Too few and the likelihood estimate is noisy, which will wreck the sampler
-  that uses it.
+- Too few and the likelihood estimate is noisy, which will wreck the sampler that uses it.
 - Too many and every likelihood evaluation becomes expensive.
 
 . . .
 
-The likelihood estimate is **unbiased** but **stochastic**: run it twice with
-the same $\theta$ and you get two different numbers. That has consequences we
-deal with in the next session.
+The estimate is **unbiased** but **stochastic**.
+Run it twice at the same $\theta$ and you get two different numbers.
+
+. . .
+
+Measure the spread of $\log \hat{p}$ at one $\theta$ and pick $J$ from that.
+You do this in the practical.
 
 ## The whole thing, in code {.smaller .scrollable}
 
@@ -156,7 +266,7 @@ function bootstrap_filter(rng, θ, obs, n_particles; init_state)
 end
 ```
 
-Four steps, one loop. The practical builds it a step at a time.
+In the practical you read this one line by line, then swap it for the bootstrap filter in `GeneralisedFilters.jl` behind the same interface.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
