@@ -95,10 +95,8 @@ function run_particle_filter_threaded(
     return log_lik
 end
 
-θ_cal = Dict(
-    :R_0 => 6.0, :D_lat => 1.3, :D_inf => 2.0,
-    :α => 0.5, :D_imm => 10.5, :ρ => 0.7,
-)
+θ_cal =
+    Dict(:R_0 => 6.0, :D_lat => 1.3, :D_inf => 2.0, :α => 0.5, :D_imm => 10.5, :ρ => 0.7)
 obs = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame).obs
 
 println("Julia threads available: ", Threads.nthreads())
@@ -108,13 +106,16 @@ println()
 Random.seed!(1234)
 n_check = 60
 serial = [run_particle_filter(θ_cal, obs, 128) for _ in 1:n_check]
-threaded = [run_particle_filter_threaded(θ_cal, obs, 128; seed = UInt64(i)) for i in 1:n_check]
+threaded =
+    [run_particle_filter_threaded(θ_cal, obs, 128; seed = UInt64(i)) for i in 1:n_check]
 @printf("agreement at 128 particles over %d runs\n", n_check)
 @printf("  GeneralisedFilters BF : mean %8.2f  sd %5.2f\n", mean(serial), std(serial))
 @printf("  threaded transcription: mean %8.2f  sd %5.2f\n", mean(threaded), std(threaded))
-@printf("  difference in means   : %6.2f  (standard error %.2f)\n",
-        mean(threaded) - mean(serial),
-        sqrt(var(serial) / n_check + var(threaded) / n_check))
+@printf(
+    "  difference in means   : %6.2f  (standard error %.2f)\n",
+    mean(threaded) - mean(serial),
+    sqrt(var(serial) / n_check + var(threaded) / n_check)
+)
 println()
 
 ## --- one filter run, serial against threaded ---------------------------------
@@ -122,7 +123,10 @@ println("one filter run over 59 days, best of 5")
 @printf("%10s %12s %12s %9s\n", "particles", "BF (s)", "threaded (s)", "speed-up")
 for n in (64, 256, 1024, 4096)
     ts = minimum(@elapsed(run_particle_filter(θ_cal, obs, n)) for _ in 1:5)
-    tt = minimum(@elapsed(run_particle_filter_threaded(θ_cal, obs, n; seed = UInt64(7))) for _ in 1:5)
+    tt = minimum(
+        @elapsed(run_particle_filter_threaded(θ_cal, obs, n; seed = UInt64(7))) for
+        _ in 1:5
+    )
     @printf("%10d %12.4f %12.4f %8.2fx\n", n, ts, tt, ts / tt)
 end
 println()
@@ -147,6 +151,11 @@ for (label, filt) in (("BF, serial", run_particle_filter), ("threaded", threaded
         check_model = false,
     )
     accepted = length(unique(chain[:R_0])) / n_iter
-    @printf("  %-12s %7.1f s  (%.3f s/iteration, %.0f%% of proposals accepted)\n",
-            label, t, t / n_iter, 100 * accepted)
+    @printf(
+        "  %-12s %7.1f s  (%.3f s/iteration, %.0f%% of proposals accepted)\n",
+        label,
+        t,
+        t / n_iter,
+        100 * accepted
+    )
 end
