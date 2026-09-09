@@ -17,15 +17,17 @@ week has got to, from deterministic fitting through to particle MCMC.
 
 # Introduction
 
-Yesterday ended on a question. If a negative log-likelihood is a distance
-function between prediction and data, and choosing Poisson over negative binomial
-is choosing between distances, then why not choose the distance directly?
+For many models you cannot evaluate $p(y \mid \theta)$, but you can still run the
+model forward. Approximate Bayesian Computation is built on that alone: draw
+parameters from the prior, simulate a dataset, and keep the parameters whose
+simulation came out equal to the data. Nothing is approximated at that point, and
+the parameters you keep are draws from the posterior.
 
-That is what Approximate Bayesian Computation does. It drops the likelihood
-entirely, simulates from the model, and keeps the parameters whose simulations
-land close enough to the data under a distance you pick yourself. This matters
-well beyond convenience: for many models the likelihood cannot be written down at
-all, and a simulator is all you have.
+The trouble is that exact equality never happens. Two concessions rescue it, and
+this session is largely about what each one costs. Keeping simulations that come
+*close* rather than equal means choosing a distance and a tolerance. Comparing
+*summaries* rather than whole datasets means choosing what to condition on, and
+that is the one you cannot undo by being patient.
 
 # Objectives
 
