@@ -607,7 +607,7 @@ The parameter draws came from a neural network rather than from MCMC, which the 
 ```{julia}
 #| output: false
 Random.seed!(2)   ## the bootstrap filter inside `filtered_incidence` uses the global RNG
-n_filt = 20
+n_filt = 200
 filtered = map(1:n_filt) do _
     r = posterior[rand(1:nrow(posterior)), :]
     θ = Dict(:R_0 => r.R_0, :D_lat => r.D_lat, :D_inf => r.D_inf,
@@ -635,7 +635,7 @@ scatter!(pl, tt, YOBS, c=:black, ms=3, label="observed")
 ```
 
 Amortisation stops at the parameters.
-The flow returns $\theta$ in milliseconds and will keep doing so for any dataset, and it says nothing about the latent path: each of the twenty trajectories above cost its own particle filter run, at the 256 particles the [PMMH session](pmcmc.qmd) settled on.
+The flow returns $\theta$ in milliseconds and will keep doing so for any dataset, and it says nothing about the latent path: each of the two hundred trajectories above cost its own particle filter run, at the 256 particles the [PMMH session](pmcmc.qmd) settled on.
 That is still a bargain beside PMMH, which runs a filter at *every* iteration — half a million of them for the committed chain — merely to arrive at $\theta$.
 Here the filter runs once per trajectory you actually want, and only if you want one.
 
@@ -644,7 +644,7 @@ Here the filter runs once per trajectory you actually want, and only if you want
 
 The filtered envelope tracks the observations because it was told what they were, and it would do the same for a model that generates nothing like this outbreak when left to run.
 Judge the fit on the re-simulated envelope, and read the filtered one as a picture of what the epidemic plausibly did.
-Each of the twenty paths comes from its own filter run at its own posterior draw, which is what keeps them independent: within one run the surviving particles share ever fewer ancestors as you trace them back, so twenty paths from a single run would understate the spread badly.
+Each of the two hundred paths comes from its own filter run at its own posterior draw, which is what keeps them independent: within one run the surviving particles share ever fewer ancestors as you trace them back, so two hundred paths from a single run would understate the spread badly.
 :::
 
 
