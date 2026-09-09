@@ -82,6 +82,28 @@ posterior.
 
 No likelihood anywhere. Just a simulator, a distance, and a threshold.
 
+## Choosing summary statistics {.smaller}
+
+Three things decide whether a choice is any good.
+
+. . .
+
+[**How many.**]{.alert} Every summary has to land inside $\epsilon$ *at the same
+time*, so acceptance falls off geometrically as you add them. This, not taste, is
+why people use three or four.
+
+. . .
+
+[**Whether they move with $\theta$.**]{.alert} A summary that barely responds to
+the parameters shrinks the acceptance region and tells you nothing. Ideally each
+one pins down a different parameter.
+
+. . .
+
+[**What scale they are on.**]{.alert} A total in the hundreds and a peak day in
+the tens are not comparable. Weight each by its spread under the prior
+predictive, or the largest summary quietly becomes the only one.
+
 ## What you are really choosing {.smaller}
 
 A summary is [sufficient]{.alert} if it carries everything the data say about
@@ -105,28 +127,6 @@ So ABC makes [two]{.alert} approximations, not one:
 
 Shrinking $\epsilon$ sharpens the answer onto $p(\theta \mid s(y))$, which is not
 the posterior you wanted unless $s$ was sufficient.
-
-## Choosing summary statistics {.smaller}
-
-Three things decide whether a choice is any good.
-
-. . .
-
-[**How many.**]{.alert} Every summary has to land inside $\epsilon$ *at the same
-time*, so acceptance falls off geometrically as you add them. This, not taste, is
-why people use three or four.
-
-. . .
-
-[**Whether they move with $\theta$.**]{.alert} A summary that barely responds to
-the parameters shrinks the acceptance region and tells you nothing. Ideally each
-one pins down a different parameter.
-
-. . .
-
-[**What scale they are on.**]{.alert} A total in the hundreds and a peak day in
-the tens are not comparable. Weight each by its spread under the prior
-predictive, or the largest summary quietly becomes the only one.
 
 ## Choosing $\epsilon$
 
