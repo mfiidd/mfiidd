@@ -35,7 +35,7 @@ where $\lambda_t$ is what the model predicts at time $t$.
 That is a modelling [choice]{.alert}.
 It makes a specific claim about how observation works.
 
-## What Poisson assumes
+## What we have assumed so far
 
 - The variance **equals** the mean. Expect 100 cases, expect a spread of about
   $\pm 10$.
