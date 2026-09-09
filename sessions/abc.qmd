@@ -20,11 +20,26 @@ parameters from the prior, simulate a dataset, and keep the parameters whose
 simulation came out equal to the data. Nothing is approximated at that point, and
 the parameters you keep are draws from the posterior.
 
+The particle filter took a different route to the same difficulty. It estimated
+the likelihood, and the [particle MCMC](pmcmc.qmd) session
+fitted a stochastic model that way. Two requirements came with it. The filter
+weights each particle by an observation density $p(y_t \mid x_t)$, which you have
+to write down, and it stops the simulator at every observation to weight and
+resample the state, which means starting the simulator from a state you hand it.
+
+ABC asks for neither. It runs the simulator from beginning to end and compares
+the output with the data through a distance you choose. That is the whole of what
+it needs from the model, and it is why ABC reaches simulators the filter cannot:
+a black box you can only run start to finish, or an observation process you
+cannot write down. [Do they give similar
+results?](#do-they-give-similar-results) puts the two posteriors side by side on
+this outbreak.
+
 The trouble is that exact equality never happens. Two concessions rescue it, and
-this session is largely about what each one costs. Keeping simulations that come
-*close* rather than equal means choosing a distance and a tolerance. Comparing
-*summaries* rather than whole datasets means choosing what to condition on, and
-that is the one you cannot undo by being patient.
+this session is largely about what each one gives up. Accepting simulations that
+come *close* means choosing a distance and a tolerance. Comparing *summaries*
+means choosing what to condition on, and that concession stands however long you
+are willing to wait.
 
 # Objectives
 
@@ -76,7 +91,7 @@ Random.seed!(1234)
 
 # Load Tristan da Cunha data
 
-We'll use the same influenza outbreak data from 1971:
+We use the same influenza outbreak data from 1971:
 
 ```{julia}
 # Load data
@@ -98,10 +113,13 @@ We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 
 We keep the SEIT4L model from the [particle filter](particle_filters.qmd) and
 [particle MCMC](pmcmc.qmd) sessions, simulated stochastically.
-That choice is what makes this session necessary: run it twice at the same parameters and you get two different epidemics, so there is no single curve to hold against the data and no Poisson likelihood to write down.
+Run it twice at the same parameters and you get two different epidemics, so there is no single curve to hold against the data and no likelihood to write down directly.
+The particle filter dealt with that by estimating the likelihood, and we use ABC here because it needs less of the model, as the introduction sets out.
 
 Three parameters are estimated, $R_0$, $D_\mathrm{inf}$ and $\rho$, and the rest are fixed at the values the earlier sessions used.
-Fixing most of a model and estimating a few is normal in ABC: every free parameter has to land inside the acceptance window at the same time, so acceptance falls away as you add them.
+The particle MCMC session estimated all six.
+That difference is ABC's main weakness on display. Every free parameter has to land inside the acceptance window at the same time, so the acceptance rate falls away sharply as the number of free parameters grows, and a run that was quick with three becomes impossible with six.
+Fixing parameters is ordinary practice in any inference, for identifiability as much as for speed. ABC forces the decision sooner than a likelihood-based method does.
 
 ```{julia}
 ## Fixed at the values used in the SEITL session
@@ -141,13 +159,16 @@ scatter!(p_runs, flu_tdc.time, flu_tdc.obs, color = :red, markersize = 4,
 ```
 
 Ten runs, one parameter set, ten different epidemics.
-This is the problem ABC is here to solve, and it is worth looking at the spread before going on: whatever distance you choose has to tolerate that much variation between runs that are all equally correct.
+That spread sets the standard every distance in this session has to meet, because those ten runs are all equally correct.
+It also puts a floor under the threshold: no parameter set, however good, lands close to the data on every run, and the ABC-MCMC section below shows what that does to a sampler.
 
 ::: {.callout-note collapse="true"}
 ## The likelihood fit we compare against
 At the end we hold the ABC posterior against a likelihood-based one.
 For this model that is the particle MCMC fit from the [previous session](pmcmc.qmd), whose chain is precomputed in `data/`.
-There is no Poisson likelihood to write here, so the comparison is genuinely likelihood-based against likelihood-free, rather than one tractable model fitted two ways.
+The Poisson observation model is still in use, inside the filter, weighting particles one observation at a time.
+What has no closed form is $p(y \mid \theta)$ itself, because forming it means summing over every path the epidemic could have taken.
+The particle filter estimates that sum. ABC never forms it, and compares simulated output with the data through a distance.
 
 ```{julia}
 pmcmc_chain = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
@@ -159,11 +180,13 @@ first(pmcmc_chain, 3)
 
 ## ABC: Making the distance explicit
 
-Instead of choosing a parametric likelihood, ABC directly chooses:
+A parametric likelihood settles three questions for you, quietly, as a consequence of the distribution you picked. ABC puts the same three in front of you and makes you answer them yourself:
 
-1. *Summary statistics*: What features of the data matter?
-2. *Distance metric*: How do we measure similarity?
-3. *Threshold*: How close is "close enough"?
+1. *Summary statistics*: which features of the data matter?
+2. *Distance*: how do we measure similarity?
+3. *Threshold*: how close is close enough?
+
+That is the sense in which ABC makes the distance explicit. The choices were always there.
 
 Here is a simple ABC rejection sampler from scratch:
 
@@ -206,7 +229,7 @@ function abc_rejection(prior_sampler, simulator, distance_fn, observed_data,
 end
 ```
 
-Now let's define the components:
+The components are:
 
 ```{julia}
 # Prior
@@ -252,16 +275,16 @@ end
 observed_data = flu_tdc.obs
 ```
 
-::: {.callout-note}
+::: {.callout-note collapse="true"}
 ## Understanding the distance functions
 
-We've defined three distance functions, each with different properties:
+The three distance functions have different properties:
 
 - **L1 (Manhattan)**: `sum(|sim - obs|)` - Sums absolute deviations. Robust to outliers because large errors contribute linearly. A mismatch of 20 cases counts twice as much as a mismatch of 10.
 
 - **L2 (Euclidean)**: `sqrt(sum((sim - obs)²))` - Root of squared deviations. Penalises large errors more heavily than L1. A mismatch of 20 cases counts *four times* as much as 10 (because 20² = 400 vs 10² = 100).
 
-- **Weighted**: `sum(w × |sim - obs|)` where `w = 1/(obs + 1)` - Weights inversely by observation size. This mimics Poisson variance scaling: a mismatch of 5 when obs=2 is penalised more than when obs=50. Useful when you care about relative rather than absolute fit.
+- **Weighted**: `sum(w × |sim - obs|)` where `w = 1/(obs + 1)` - Weights inversely by observation size. This mimics Poisson variance scaling: a mismatch of 5 when obs=2 is penalised more than when obs=50. Useful when you care about relative fit.
 
 **When to use each:**
 
@@ -273,7 +296,7 @@ We've defined three distance functions, each with different properties:
 
 Run ABC with L1 distance:
 
-::: {.callout-tip}
+::: {.callout-warning}
 ## Choosing the threshold
 ABC rejection sampling is sensitive to the threshold choice:
 
@@ -282,7 +305,7 @@ ABC rejection sampling is sensitive to the threshold choice:
 - **In between** (e.g., 200-400): Runs quickly, but at the loose end of this band the posterior still carries a good deal of the prior
 
 We start with a relaxed threshold (230) here.
-Note what that costs: the run below accepts around a quarter of what it proposes, which by the guidance later in this session is loose enough that the posterior is still carrying a good deal of the prior.
+The run below accepts around a quarter of what it proposes. By the guidance later in this session that is loose, and the posterior still holds a good deal of the prior.
 The exercise that follows asks you to tighten it.
 
 **If you get 0 samples**: Increase the threshold (try 280, then 330). The sampler may be struggling to find parameter combinations that produce simulations close to the data. This can happen due to random variation - ABC is inherently stochastic.
@@ -313,14 +336,14 @@ changing it.
    does it get through, and how long does it take?
 2. Re-run with a loose one, say 800. How wide is the resulting posterior for
    $R_0$ compared with the run at 230?
-3. What is the trade-off you are making, and how would you decide on a value if
+3. What are you giving up on each side, and how would you decide on a value if
    you had no answer to compare against?
 :::
 
 ::: {.callout-tip title="Solution" collapse="true"}
 Tightening the threshold narrows the posterior but the acceptance rate collapses,
 so you wait much longer for the same number of samples: about 6% of prior draws
-are accepted at 230, roughly 1% at 190 and 0.2% at 165, so each step costs you
+are accepted at 230, roughly 1% at 190 and 0.2% at 165, so each step takes
 about five times as many simulations as the last.
 There is a floor as well.
 Over twenty thousand prior draws the closest any simulation came to these data was
@@ -359,35 +382,68 @@ else
 end
 ```
 
-## A summary statistic instead of the series
+## A summary statistic in place of the series
 
-`distance_total` throws away everything except the total number of cases.
-That is one number against fifty-nine, so simulations land inside the window far more often and the sampler runs much faster.
+`distance_total` throws away everything except the total number of cases, one number against fifty-nine.
+It is also on a different scale from `distance_L1`, so the two acceptance rates below can only be compared once you fix a threshold for each, and the thresholds here were picked to make them roughly comparable.
+The posteriors are what the comparison rests on.
 
-::: {.callout-tip title="Exercise: What does the cheaper distance cost?"}
-Run `abc_rejection` with `distance_total` at a threshold of 25, and again at 12.
+::: {.callout-tip title="Exercise: What does the summary give up?"}
+The cell below runs `abc_rejection` with `distance_total` at a threshold of 25 and
+again at 12, and prints the $R_0$ posterior beside the `distance_L1` one and the
+particle MCMC one. Predict the three answers before you run it.
 
 1. How does the acceptance rate compare with `distance_L1`?
-2. Does the posterior for $R_0$ agree with the particle MCMC answer?
-3. Tightening the threshold from 25 to 12 costs you simulations. What does it buy?
+2. Does the $R_0$ posterior agree with the particle MCMC answer, in its centre and in its width?
+3. Tightening the threshold from 25 to 12 takes more simulations. What do you get for them?
 :::
 
+```{julia}
+function summarise_R_0(name, samples, attempts)
+    R_0 = [θ[1] for θ in samples]
+    println(rpad(name, 22),
+            " acceptance ", lpad(round(100 * length(samples) / attempts, digits = 2), 6),
+            "%   R_0 mean ", lpad(round(mean(R_0), digits = 2), 5),
+            "  90% interval ", lpad(round(quantile(R_0, 0.05), digits = 2), 5),
+            " to ", lpad(round(quantile(R_0, 0.95), digits = 2), 5))
+end
+
+for ε in (25.0, 12.0)
+    samples, attempts = abc_rejection(sample_from_prior, simulate_abc,
+                                      distance_total, observed_data, ε, 200)
+    summarise_R_0("total, ε = $ε", samples, attempts)
+end
+
+summarise_R_0("L1, ε = $threshold", abc_samples, abc_attempts)
+
+println(rpad("particle MCMC", 22), "                    R_0 mean ",
+        lpad(round(mean(pmcmc_chain.R_0), digits = 2), 5),
+        "  90% interval ", lpad(round(quantile(pmcmc_chain.R_0, 0.05), digits = 2), 5),
+        " to ", lpad(round(quantile(pmcmc_chain.R_0, 0.95), digits = 2), 5))
+```
+
 ::: {.callout-tip title="What to look for" collapse="true"}
-Acceptance goes up by an order of magnitude, and the posterior gets worse.
+The acceptance rates are close, around 7% for L1 at 230 and around 7% for the
+total at 25, because the thresholds were chosen to make them so. The posteriors
+are not close.
 
-$R_0$ comes out near 4.5 against the particle MCMC value of about 6.3, and the
-interval sits low. Many different epidemics produce 312 cases in total: a fast one
-that burns out, a slow one that grinds on, a small $R_0$ with a high reporting
-rate. The total cannot tell them apart, so the posterior is a mixture of all of
-them.
+$R_0$ centres near 4.7 on the total, against 5.6 on L1 and 6.4 from particle
+MCMC. The interesting part is where that difference does *not* show up. The 90%
+intervals are about equally wide, roughly 4.4 wide on the total and 4.3 on L1, so
+throwing away the timing has moved the posterior down instead of spreading it out.
+Both ABC intervals still cover the particle MCMC mean; the total's sits lowest.
 
-The third question is the one worth sitting with. Tightening from 25 to 12 roughly
-halves the acceptance rate and moves the posterior almost not at all. That is
-different from what happens with `distance_L1`, where a tighter threshold pulls
-the answer towards the particle MCMC one.
+Many different epidemics produce 312 cases: a fast one that burns out, a slow one
+that grinds on, a small $R_0$ with a high reporting rate. The total cannot tell
+them apart, so it leaves $R_0$ and $\rho$ free to trade against each other, and the
+posterior settles lower down that trade than the full series allows.
+
+Tightening from 25 to 12 halves the acceptance rate and moves the posterior almost
+not at all: the mean shifts by about 0.1 and the interval is unchanged. A tighter
+threshold on `distance_L1` does pull the answer towards the particle MCMC one.
 
 This is the difference between the two approximations ABC makes. The threshold is
-one, and you can buy your way out of it with simulations. The summary is the
+one, and more simulations get you out of it. The summary is the
 other, and you cannot: once the total is all you compare, no threshold recovers
 the timing information you discarded. A summary that is not sufficient puts a
 floor under the error, and $\epsilon \to 0$ does not lift it.
@@ -399,8 +455,8 @@ Different distance functions give different results.
 
 ::: {.callout-tip title="Exercise: Predict before you run"}
 Before running the cell below, write down your answer to this: if one day's count
-were much higher than the model predicts, which of the three distances — L1, L2
-or the weighted distance — would react most strongly, and why?
+were much higher than the model predicts, which of the three distances (L1, L2
+or the weighted distance) would react most strongly, and why?
 
 Then run it and see whether the ordering matches what you expected.
 :::
@@ -426,17 +482,33 @@ The weighted distance depends entirely on the weights. If it upweights the peak
 and the outlier falls near the peak, it can react more sharply than either; if the
 outlier falls somewhere it downweights, it can barely notice.
 
-The connection worth carrying forward is that this is the same comparison as
-Poisson against negative binomial, which you met yesterday. A Poisson likelihood
-behaves like L2 in that one improbable day dominates the total; a negative
-binomial behaves more like L1. Choosing a distance and choosing an observation
-model are the same decision about how much a single surprising observation should
-count.
+This is the same comparison as Poisson against negative binomial, which you met
+yesterday. A negative log-likelihood
+is a distance, and each observation model fixes how steeply that distance grows
+with one day's discrepancy $d$.
+
+Take an expected count of 5 and double a discrepancy from 10 cases to 20. L1
+doubles. The squared error inside L2 quadruples. The Poisson negative
+log-likelihood multiplies by 3, so it sits between the two: harder on a large
+discrepancy than L1, gentler than the square. A negative binomial with dispersion
+2 multiplies by 2.2, which puts it close to L1, and its heavier tail keeps
+flattening the penalty as the discrepancy grows.
+
+Near a good fit the Poisson term is about $d^2 / 2\lambda$, which is the weighted
+distance defined above with squares in place of absolute values. So the choice of
+observation model and the choice of distance are one decision, made twice: how
+steeply should a surprising observation count against you.
 :::
 
 The three distances are on different scales, so their raw values say nothing
-about sensitivity. Watch instead how much each one *moves* when a single day goes
-wrong.
+about sensitivity. Watch how much each one *moves* when a single day goes wrong.
+
+The cell below takes one simulation, adds thirty cases to day 30 of the data it is
+compared against, and asks two questions of each distance: what share of the
+summed terms comes from that one day, and by what percentage does the distance as
+a whole move. It does this twice, against a simulation that fits the data poorly
+and one that fits it better, because the answer depends on how well the rest of
+the series is explained.
 
 ```{julia}
 # Take one simulation, disturb a single day of the data it is compared against,
@@ -502,7 +574,7 @@ among them.
 An outlier is only conspicuous relative to how well everything else is
 explained.
 
-Notice that choosing a distance metric in ABC is philosophically similar to choosing a parametric likelihood.
+Choosing a distance in ABC is the same kind of decision as choosing a parametric likelihood.
 
 ## ABC-MCMC: the sampler you already know
 
@@ -574,9 +646,8 @@ for ε in (230.0, 200.0, 180.0, 165.0)
 end
 ```
 
-Two things are going on in that table, and only one of them is the acceptance rate.
-The acceptance rate falls as the threshold tightens, which is what you would expect.
-The effective sample size is poor at every threshold, including the loosest, where more than a quarter of proposals are being accepted.
+The acceptance rate falls as the threshold tightens.
+The effective sample size is poor at every threshold, including the loosest, where more than a quarter of proposals are accepted.
 
 ```{julia}
 ## The loosest and the tightest, for comparison
@@ -625,44 +696,43 @@ The effective sample size barely moves across the whole twenty-fold range.
 Whatever you set the proposal to, the chain is worth about a dozen independent draws out of four thousand.
 The knob is still turning and it is no longer connected to anything.
 
-The reason is the stochastic simulator, and it is worth being precise about it.
+The stochastic simulator is the reason.
 Run the model at one fixed parameter set and the L1 distance still moves from about 130 to about 420 between runs, because each run is a different epidemic.
 At ε = 165 that means a good parameter set fails the test most of the time and passes occasionally.
 The chain therefore accepts a step when it happens to draw a lucky epidemic, and then cannot leave, because leaving requires another lucky epidemic from the proposed parameters.
-It is stuck on a realisation rather than on a parameter value, and no proposal distribution addresses that, because the proposal is not what is being rejected.
+It is stuck on a realisation, and no proposal distribution addresses that, because the proposal is not what is being rejected.
 
-This is why the effective sample size is printed next to the acceptance rate.
 A few per cent acceptance does not look catastrophic on its own, and the chain underneath it is a handful of lucky draws, heavily repeated.
-The posterior you would report from it is not the ABC posterior.
+The effective sample size beside it exposes that, which is why the two are printed together.
 
 Compare that with what ABC-SMC does below.
-It reaches the same ε = 165 by walking the threshold down in stages, keeping a whole population of particles rather than one chain, and re-simulating the survivors at each stage.
-A particle that got through on a lucky run faces the test again in the next generation, and the population moves on without it.
+It reaches the same ε = 165 by walking the threshold down in stages and keeping a whole population of particles. Each generation draws a parent from the previous one in proportion to its weight, perturbs it, and simulates afresh.
+A particle that got through on a lucky run has no protection in the next generation: its child is a new parameter value with a new simulation, and it survives only by passing the tighter threshold on its own.
 :::
 
 ## ABC-SMC: Sequential Monte Carlo ABC
 
 Both samplers so far run out of road well before the threshold is tight.
 Rejection sampling wastes almost everything it draws, because it searches from the prior every time and never learns where the good parameters were.
-ABC-MCMC does learn that, and pays for it by seizing up: at a tight threshold it accepts only lucky realisations and then cannot leave them.
+ABC-MCMC does learn that, and seizes up as a result: at a tight threshold it accepts only lucky realisations and then cannot leave them.
 ABC-SMC (Sequential Monte Carlo ABC) gets round both by tightening the acceptance threshold across a sequence of generations, reusing the particles that survived the previous one.
 
 The key idea, introduced by [Toni et al. (2009)](https://doi.org/10.1098/rsif.2008.0172), is:
 
 1. *Start permissive*: Begin with a loose threshold that accepts many samples
 2. *Gradually tighten*: Reduce the threshold across generations
-3. *Reuse good samples*: Instead of sampling from the prior each time, perturb samples that passed the previous threshold
+3. *Reuse good samples*: after the first generation, draw a parent from the survivors in proportion to its weight and perturb it, leaving the prior behind
 
-The aim is to reach a threshold that rejection sampling could not afford, by refining particles that are already close rather than searching blindly from the prior each time. How much that saves depends entirely on the problem, the schedule and the kernel, so treat quoted speedup factors with suspicion until you have counted your own.
+The aim is to reach a threshold out of reach of rejection sampling, by refining particles that are already close. How much that saves depends entirely on the problem, the schedule and the kernel, so treat quoted speedup factors with suspicion until you have counted your own.
 
 ::: {.callout-note collapse="true"}
 ## Implementation: ABC-SMC
 
 This is a simplified ABC-SMC for pedagogical purposes. It does compute the importance weights, which is what makes the sample valid, but production implementations (like [ApproxBayes.jl](https://github.com/marcjwilliams1/ApproxBayes.jl) or [GpABC.jl](https://github.com/tanhevg/GpABC.jl)) add adaptive thresholds and better perturbation kernels.
 
-The redraw is worth a closer look. A perturbation landing outside the prior sends the loop back to its start, which draws a *new parent* as well as a new perturbation, so the proposal is the whole mixture restricted to the prior's support. The constant that restriction introduces is the same for every particle, so it cancels when the weights are normalised, and the weights computed here are exact. Had the redraw kept the same parent and only re-perturbed, it would not cancel, and children of near-boundary particles would come out over-weighted.
+A perturbation landing outside the prior sends the loop back to its start, which draws a *new parent* as well as a new perturbation, so the proposal is the whole mixture restricted to the prior's support. The constant that restriction introduces is the same for every particle, so it cancels when the weights are normalised, and the weights computed here are exact. Had the redraw kept the same parent and only re-perturbed, it would not cancel, and children of near-boundary particles would come out over-weighted.
 
-**Note on `Threads.@threads`**: The code below uses `Threads.@threads` to parallelise the particle loop — this macro distributes iterations across available CPU threads, so each particle can be simulated concurrently. For this to have any effect, Julia must be started with multiple threads (e.g., `julia -t auto`). See the [threading note in MCMC Diagnostics](mcmc_diagnostics.qmd#running-julia-with-multiple-threads) for setup instructions. Without multiple threads, the loop runs sequentially (slower but still correct).
+**Note on `Threads.@threads`**: The code below uses `Threads.@threads` to parallelise the particle loop. The macro distributes iterations across available CPU threads, so each particle can be simulated concurrently. For this to have any effect, Julia must be started with multiple threads (e.g., `julia -t auto`). See the [threading note in MCMC Diagnostics](mcmc_diagnostics.qmd#running-julia-with-multiple-threads) for setup instructions. Without multiple threads, the loop runs sequentially (slower but still correct).
 
 ```{julia}
 "Standard deviation of the perturbation kernel applied to a particle."
@@ -835,47 +905,68 @@ plot(p1, p2, layout=(1, 2), size=(900, 400),
      title=["R_0: Rejection vs SMC" "D_inf: Rejection vs SMC"])
 ```
 
-Compare the printed counts rather than taking any efficiency claim on trust, including this session's.
+The two totals printed above answer different questions: the rejection run stops
+at 230, and ABC-SMC goes on to 165. The figure below shows why that gap decides
+the comparison. It samples parameter sets from the prior, simulates each one, and
+plots the fraction landing under each threshold.
 
-The generations usually get *more* expensive, not less: the first is cheap because a loose threshold accepts almost anything, and each tightening tends to cost more simulations per particle than the last. Now and then a later generation comes out cheaper, so read the direction rather than the individual numbers.
+```{julia}
+#| code-fold: true
+#| code-summary: "Plotting code"
+prior_draws = [distance_L1(simulate_abc(sample_from_prior()), observed_data)
+               for _ in 1:20_000]
+grid = 130:5:400
+acceptance = [mean(prior_draws .< ε) for ε in grid]
 
-The two totals printed above are not comparable as they stand: the rejection run stops at a threshold of 230 and ABC-SMC goes on to 165, so one has bought a tighter posterior than the other.
-Compare them at the same final threshold, and per effective sample rather than per draw.
+plot(grid, 100 .* max.(acceptance, 1e-4), yscale = :log10,
+     xlabel = "Threshold ε", ylabel = "Prior acceptance (%)",
+     label = "", linewidth = 2,
+     title = "What each threshold asks of rejection sampling")
+vline!([230.0], label = "rejection run", linestyle = :dash)
+vline!([165.0], label = "ABC-SMC final generation", linestyle = :dash)
+```
 
-Start with what the tighter threshold costs rejection sampling.
-Drawing 200,000 parameter sets from the prior and simulating each one puts prior acceptance at about 6% at a threshold of 230 and about 0.2% at 165, so reaching 165 by rejection alone would take in the order of 100,000 simulations for 200 draws.
-That is the number ABC-SMC is competing against, and it is the reason the method exists: acceptance from the prior falls away far faster than the threshold does.
+Acceptance falls away far faster than the threshold does. Around 6% of prior
+draws land under 230, and about 0.2% under 165, so reaching 165 by rejection
+alone would take in the order of 100,000 simulations for 200 draws. ABC-SMC gets
+there in the total printed above.
 
-Now the comparison per effective sample.
-Rejection sampling's draws are unweighted, so its effective sample size is the number of draws, and at 165 it is paying around 500 simulations for each one.
-ABC-SMC's 100 particles are weighted, so the figure to divide by is the effective sample size printed for its final generation, which is well below 100.
-Its whole total counts, because the earlier generations cannot be skipped.
-On the run above that works out at a few hundred simulations per effective sample, which puts ABC-SMC ahead at this threshold, and by more if you compare raw draws rather than effective ones.
+Per effective sample the gap narrows. Rejection draws are unweighted, so its
+effective sample size is the number of draws, and at 165 it needs around 500
+simulations for each one. The ABC-SMC particles are weighted, so divide its whole
+total, earlier generations included, by the effective sample size of its final
+generation. That leaves ABC-SMC ahead at this threshold, and further ahead on raw
+draws. The factor moves between runs, so take the ordering and the reason for it:
+ABC-SMC concentrates its effort where the data are without being told where that
+is, and that wins whenever prior acceptance at the threshold you want is small.
+At 230 it is not small, and rejection sampling is the better tool there.
 
-Read the direction rather than the ratio.
-The effective sample size of the last generation swings widely between runs, so the factor moves about, and a generation whose effective sample size collapses tends to make the next one dearer, because the next generation perturbs from whatever few particles still carry weight.
-The ordering is what to take away, along with why it holds: ABC-SMC concentrates its effort where the data are without being told where that is, and that pays whenever prior acceptance at the threshold you want is small.
-At a loose threshold it is not, which is why rejection sampling is perfectly reasonable at 230 and hopeless at 165.
-
-Watch the effective sample size as well. The first generation has all 100 particles, because they are drawn from the prior and weighted equally. After that it drops sharply, often to a small fraction of the particle count, and how far varies a great deal between runs: repeat this with different seeds and generation 2 can land anywhere from single figures to about half the particles. What does not vary is the direction.
-
-That is weight degeneracy. The effective sample size printed for the final generation, against the 100 particles it is computed from, is the measure of it, and the density plot above is drawn from correspondingly fewer distinct parameter vectors than its 1000 draws suggest, and its apparent concentration is partly an artefact of duplication rather than evidence of a sharper posterior. Production implementations resample between generations and adapt the kernel width to control this; ours does neither, so read the final spread as indicative rather than as a posterior you would report.
+The effective sample size printed for each generation measures a second problem.
+It starts at all 100 particles, which are drawn from the prior and weighted
+equally, then drops, sometimes to single figures. That is weight degeneracy, and
+it means the final density plot rests on fewer distinct parameter vectors than
+its 1000 draws suggest, so part of its apparent sharpness is duplication. Our
+sampler draws parents in proportion to weight, which spreads the next generation
+over the particles that hold it, but it never resets the weights when the
+effective sample size falls, and it never adapts the kernel width. Production
+implementations do both. Treat the final spread as indicative and do not report it
+as a posterior.
 
 ::: {.callout-important}
 ## Assessing ABC posterior quality
 
-Rejection ABC does not produce chains, so chain diagnostics like R-hat have nothing to work with. ABC-SMC does carry weights, and the effective sample size of those weights is worth watching, as above. Beyond that, assess ABC posterior quality by:
+Rejection ABC does not produce chains, so chain diagnostics like R-hat have nothing to work with. ABC-SMC produces weights, and the effective sample size of those weights tracks the same problem, as above. Beyond that, assess ABC posterior quality by:
 
 - **Acceptance rate**: Very low rates (< 0.1%) suggest the threshold is too strict or the model is a poor fit. Very high rates (> 10%) suggest the threshold is too loose and the posterior is close to the prior.
 - **Visual comparison with likelihood-based posteriors**: When a likelihood is available (as in this session), run both methods and compare. Large discrepancies suggest either the ABC threshold is too loose or the distance metric captures different features than the likelihood.
-- **Threshold sensitivity**: Run ABC with several thresholds. If the posterior changes substantially as you tighten the threshold, it has not yet converged — you need a stricter threshold (and more computation).
+- **Threshold sensitivity**: Run ABC with several thresholds. If the posterior changes substantially as you tighten the threshold, it has not yet converged, and you need a stricter threshold and more computation.
 - **Coverage of prior**: If the ABC posterior looks very similar to the prior, the threshold is too loose and the data are not informing the inference.
 - **Replicate runs**: Run ABC multiple times with different random seeds. If posteriors differ substantially between runs, you need more particles or a less strict threshold.
 :::
 
 # The big picture: Likelihood vs ABC
 
-Now let's step back and compare all our approaches - parametric likelihoods and ABC methods - to see what's fundamentally different (and what's surprisingly similar).
+Parametric likelihoods and ABC differ in what they ask of you, and agree more than you might expect in what they return.
 
 ## Summary of approaches
 
@@ -888,7 +979,10 @@ Now let's step back and compare all our approaches - parametric likelihoods and 
 
 ## Do they give similar results?
 
-Comparing the posteriors:
+The ABC posterior below is the rejection sample from the start of this session,
+200 draws at a threshold of 230 under the L1 distance. The ABC-SMC particles
+reach 165 and are weighted, which makes them harder to put in a histogram beside
+an unweighted chain, so they are left out of this comparison.
 
 ```{julia}
 # Extract MCMC results
@@ -930,7 +1024,7 @@ end
 ```
 
 **How to interpret these plots**: look for whether the posteriors overlap, and where they do not.
-Both were fitted to the same data, with the same model and the same priors, so any difference between them is the inference method rather than the setup.
+Both were fitted to the same data, with the same model and the same priors, so any difference between them comes from the inference method.
 The one on the left had a likelihood, estimated by a particle filter; the one on the right had only a distance and a threshold.
 
 ::: {.callout-tip title="Exercise: Where do the two disagree, and why?"}
@@ -959,8 +1053,8 @@ fixed and the two parameters trade off against each other. You can see it in the
 correlation between them: $+0.54$ in the ABC sample against $+0.28$ in the
 particle MCMC one, so ABC is lying along that ridge more tightly.
 
-The general point is worth more than the specific numbers. A posterior can be
-right about what the data determine and still look wrong parameter by parameter.
+A posterior can be right about what the data determine and still look wrong
+parameter by parameter.
 Marginal histograms hide that, because they show each parameter with the others
 integrated away. Plot the pairs before concluding that two methods disagree.
 :::
@@ -1009,10 +1103,9 @@ plot!(flu_tdc.time, data_outlier, label="Data with outlier", linewidth=2, linest
 Compare how the Poisson likelihood and ABC with L1 distance respond to the
 outlier.
 
-Simulate from a few parameter sets, compute the Poisson log-likelihood and the
-L1 distance against both `data_clean` and `data_outlier`, and see which metric
-shifts more. If you have time, try a full fit with both and compare the
-posteriors.
+The solution below computes the Poisson log-likelihood and the L1 distance
+against both `data_clean` and `data_outlier`, at one parameter set. Predict which
+of the two moves further, in proportion to its own scale, before you open it.
 :::
 
 ::: {.callout-tip collapse="true"}
@@ -1020,16 +1113,14 @@ posteriors.
 
 Poisson likelihood is sensitive to outliers because the log-probability drops sharply for counts far from the mean. An outlier of +30 cases when the model predicts 5 contributes a large penalty to the log-likelihood, pulling parameter estimates towards values that accommodate the outlier.
 
-ABC with L1 distance (defined earlier as `sum(abs.(sim .- obs))`) is more robust because the penalty grows linearly with the discrepancy, not exponentially. A single outlier affects the total distance, but doesn't dominate as severely.
+ABC with L1 distance (defined earlier as `sum(abs.(sim .- obs))`) is more robust because its penalty grows in step with the discrepancy: thirty extra cases add thirty. The Poisson penalty grows faster than that, as the comparison earlier in this session showed, so the same day counts for more.
 
 For likelihood-based inference, the Negative Binomial distribution (covered earlier in this session) offers a middle ground: its heavier tails make it less sensitive to occasional large deviations than Poisson, while still providing a proper likelihood for MCMC.
 :::
 
-::: {.callout-note collapse="true"}
-## Solution
+::: {.callout-tip title="Solution" collapse="true"}
 
 ```{julia}
-#| eval: false
 # Compare how each metric responds to the outlier.
 # The prediction has to be the *expected* incidence, not one stochastic run: it is
 # the rate a Poisson observation model would use, and the rate the distances are
@@ -1062,16 +1153,18 @@ println("  Outlier data: ", round(poisson_loglik(predicted, data_outlier), digit
 println("\nL1 distance:")
 println("  Clean data:   ", round(distance_L1(predicted, data_clean), digits=2))
 println("  Outlier data: ", round(distance_L1(predicted, data_outlier), digits=2))
-
-# The Poisson log-likelihood drops much more dramatically with the outlier,
-# because a count of ~35 when expecting ~5 has near-zero Poisson probability.
-# The L1 distance increases by only ~30 (the size of the outlier).
 ```
+
+The L1 distance rises by thirty, the size of the spike, whatever else the series
+is doing. The Poisson log-likelihood falls by much more than the equivalent
+share, because a count near 35 where the model expects about 5 has almost no
+Poisson probability. Neither number means anything on its own; the comparison is
+between how far each moves for the same one bad day.
 :::
 
-# The philosophical question
+# Choosing an observation model
 
-## Is there a "correct" observation model?
+## Is there a "correct" one?
 
 **No!** There are only:
 
@@ -1092,7 +1185,7 @@ println("  Outlier data: ", round(distance_L1(predicted, data_outlier), digits=2
 - You have a tractable likelihood function
 - You want efficient inference (MCMC with gradients)
 - The parametric family is flexible enough
-- You're comfortable with the implicit distance metric
+- You are comfortable with the implicit distance metric
 
 **When to use ABC/likelihood-free**:
 
@@ -1105,8 +1198,8 @@ println("  Outlier data: ", round(distance_L1(predicted, data_outlier), digits=2
 
 - Try multiple observation models (Poisson, NegBin, ABC with different distances)
 - Check if scientific conclusions change
-- If they don't → observation model choice doesn't matter much
-- If they do → you've learned something about what features of the data drive inference!
+- If they do not → the observation model choice does not matter much here
+- If they do → you have learned something about which features of the data drive the inference
 
 # Learning points
 
@@ -1118,9 +1211,9 @@ println("  Outlier data: ", round(distance_L1(predicted, data_outlier), digits=2
 - The acceptance threshold is the hard part: too tight and nothing is accepted,
   too loose and you are sampling the prior
 - ABC-SMC walks the threshold down in stages, concentrating effort where the data
-  are without being told where that is, at the cost of weights that can become
+  are without being told where that is, with weights that can become
   very uneven. On a problem as small as this one, where the prior already accepts
-  often, it does not pay for itself
+  often, it is not worth the extra machinery
 - Likelihoods are fast and need a tractable model; ABC is slow and needs only a
   simulator
 - A single outlying observation moves a Poisson likelihood far more than an L1
@@ -1132,7 +1225,7 @@ println("  Outlier data: ", round(distance_L1(predicted, data_outlier), digits=2
 
 ## Summary statistics for ABC
 
-Instead of comparing full time series, ABC often works better with carefully chosen summary statistics. For epidemic data, useful summaries include:
+ABC often works better on carefully chosen summary statistics than on full time series. For epidemic data, useful summaries include:
 
 - **Total cases**: Sum of all observations
 - **Peak timing**: Day with maximum incidence
@@ -1163,11 +1256,11 @@ function distance_summaries(sim, obs)
 end
 ```
 
-Using fewer, well-chosen summaries can make ABC more robust to noise and model misspecification. However, there is a trade-off: summaries that discard too much information will produce wider posteriors. The choice of which summaries to use is problem-specific and often requires experimentation.
+Fewer, well-chosen summaries make ABC more robust to noise and model misspecification. Summaries that discard too much information produce wider posteriors. Which summaries to use is problem-specific, and finding out takes experimentation.
 
 Try passing `distance_summaries` to `abc_rejection` in place of `distance_L1` and compare the posteriors you get.
 The four summaries throw away the day-to-day shape of the curve, so expect them to widen.
-How much each parameter widens tells you how much of what identified it was in the detail of the trajectory rather than in its peak, total and timing.
+How much each parameter widens tells you how much of what identified it lived in the detail of the trajectory, beyond the peak, total and timing.
 
 ## Alternative observation models
 
@@ -1183,7 +1276,7 @@ Computing the variance/mean ratio in your data can help diagnose whether Poisson
 
 For ABC with outliers or model misspecification, consider robust distances:
 
-- **Median absolute deviation** instead of mean squared error
+- **Median absolute deviation** in place of mean squared error
 - **Quantile-based distances** that down-weight extreme values
 - **Feature-based distances** that focus on epidemiologically meaningful patterns
 
