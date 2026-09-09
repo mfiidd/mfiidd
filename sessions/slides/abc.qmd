@@ -85,18 +85,26 @@ No likelihood anywhere. Just a simulator, a distance, and a threshold.
 ## What you are really choosing {.smaller}
 
 A summary is [sufficient]{.alert} if it carries everything the data say about
-$\theta$ — once you have it, the rest of the data is noise as far as the
-parameters are concerned.
+$\theta$. With a sufficient summary $p(\theta \mid s(y))$ **is**
+$p(\theta \mid y)$ — nothing has been lost.
 
 . . .
 
-For a model like ours, no such summary exists short of the whole dataset.
+For a model like ours there is no such summary short of the whole dataset.
 
 . . .
 
-So ABC is not a blurred version of $p(\theta \mid y)$. It gives you a
-**different** posterior, $p(\theta \mid s(y))$ — and shrinking $\epsilon$ never
-gets back what $s$ threw away.
+So ABC makes [two]{.alert} approximations, not one:
+
+| | removed by |
+|---|---|
+| the threshold $\epsilon$ | letting $\epsilon \to 0$ |
+| the summary $s$ | nothing |
+
+. . .
+
+Shrinking $\epsilon$ sharpens the answer onto $p(\theta \mid s(y))$, which is not
+the posterior you wanted unless $s$ was sufficient.
 
 ## Choosing summary statistics {.smaller}
 
