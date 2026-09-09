@@ -18,10 +18,9 @@ function SSMProblems.simulate(
     prev_state;
     kwargs...,
 )
-    ## One 9-element vector per particle per day, and no more: the compartments
-    ## are copied into it, the stepper advances them in place, and the incidence
-    ## goes in the ninth slot. Building it with `collect`, `copy` and `vcat`
-    ## instead costs three vectors on every one of those calls.
+    # One nine-element vector per particle per day: the compartments are copied
+    # in, the stepper advances them in place, and the incidence goes in the last
+    # slot. `prev_state` may be a view, so it is read element by element.
     state = Vector{Float64}(undef, 9)
     @inbounds for i in 1:8
         state[i] = prev_state[i]

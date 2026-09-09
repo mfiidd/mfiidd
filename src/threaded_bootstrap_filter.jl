@@ -18,15 +18,13 @@ using SSMProblems: LatentDynamics, ObservationProcess, StatePrior
 A bootstrap filter that propagates its particles across threads.
 
 The particles within a day do not interact, so propagating them is the one part
-of a filter run that parallelises without changing the algorithm. Weighting,
-resampling and the likelihood accumulation are left to `GeneralisedFilters`,
-which owns them: this type overrides one method, `predict`, and forwards
-everything else to the filter it wraps.
+of a filter run that parallelises without changing the algorithm. One method
+changes behaviour, `predict`; the rest forward to the filter this wraps, so
+weighting, resampling and the likelihood accumulation stay with
+`GeneralisedFilters`.
 
-`nchunks` blocks of particles are propagated in parallel. One block per thread is
-the default and is usually enough: more blocks give the scheduler something to
-balance with, which mattered when this simulator allocated heavily and matters
-little now. Each block draws from
+`nchunks` blocks of particles are propagated in parallel, one block per thread by
+default. Each block draws from
 its own `Xoshiro`, seeded from the filter's own generator before the parallel
 region starts, so a run is reproducible from a single `Random.seed!` **for a
 fixed `nchunks`**. Change the number of chunks and the stream changes, in the
@@ -36,14 +34,14 @@ way that changing the number of particles does.
 
 ```julia
 using GeneralisedFilters: BF
-algo = ThreadedBF(BF(256))
+algo = ThreadedBF(BF(128))
 _, log_lik = GeneralisedFilters.filter(rng, model, algo, obs)
 ```
 
 Start Julia with `--threads=auto` for this to do anything.
 """
-struct ThreadedBF{PF <: AbstractParticleFilter} <: AbstractParticleFilter
-    pf::PF
+struct ThreadedBF{F <: AbstractParticleFilter} <: AbstractParticleFilter
+    pf::F
     nchunks::Int
 end
 
@@ -112,15 +110,15 @@ function GeneralisedFilters.predict(
 )
     N = num_particles(algo)
 
-    ## `@threads` would happily partition `1:N` by itself. The partition is
-    ## explicit because each block needs its own generator, and the only stable
-    ## label to seed one from is the block index: `threadid()` is not stable
-    ## across a task's lifetime, and seeding inside the loop body would tie the
-    ## stream to the order the scheduler happened to choose.
+    # `@threads` would partition `1:N` by itself. The partition is explicit
+    # because each block needs its own generator and the block index is the only
+    # stable label to seed one from: `threadid()` is not stable across a task's
+    # lifetime, and seeding inside the loop body ties the stream to whatever
+    # order the scheduler chose.
     blocks = collect(Iterators.partition(1:N, cld(N, algo.nchunks)))
 
-    ## seeds are drawn here, in order, so the run does not depend on the
-    ## order the threads happen to finish in
+    # seeds are drawn here, in order, so the run does not depend on the order
+    # the threads happen to finish in
     seeds = rand(rng, UInt64, length(blocks))
 
     particles = Vector{eltype(state.particles)}(undef, N)
@@ -141,7 +139,9 @@ function GeneralisedFilters.predict(
         end
     end
 
-    ## the same baseline GeneralisedFilters' own `predict` accumulates
-    baseline = GeneralisedFilters.logsumexp(log_weights(state)) + state.ll_baseline
+    # the same baseline GeneralisedFilters' own `predict` accumulates
+    lw = log_weights(state)
+    m = maximum(lw)
+    baseline = (m + log(sum(w -> exp(w - m), lw))) + state.ll_baseline
     return ParticleDistribution(particles, baseline)
 end

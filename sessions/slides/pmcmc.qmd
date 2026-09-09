@@ -70,8 +70,8 @@ Tune $J$ so the standard deviation of the log likelihood estimate is roughly
 . . .
 
 Measured here at the posterior mean. The estimator is noisier out in the tails
-of the posterior, which is why the practical uses 256 rather than the 128 this
-curve appears to license.
+of the posterior, so the practical takes some headroom over the count this curve
+appears to license.
 
 ::: {.cite}
 @pitt2012; @doucet2015

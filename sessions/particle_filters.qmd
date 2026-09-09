@@ -149,9 +149,10 @@ From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather t
 The particle filter needs to simulate many stochastic trajectories.
 We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), adapted here for the SEIT4L model with its four T compartments.
 The implementation below is shown from the package source rather than repeated by
-hand, so that the page and the code cannot drift apart. `gillespie_step` is what
-`SEIT4LDynamics` calls once per particle per day, and the stoichiometry table and
-the rate function it uses sit beside it:
+hand, so that the page and the code cannot drift apart. `gillespie_step!` is what
+`SEIT4LDynamics` calls once per particle per day, advancing a state vector the caller
+owns. `gillespie_step` is the same simulator with the copy taken for you, and is the
+one used in the propagation example below:
 
 ::: {.callout-note collapse="true"}
 ## Gillespie step implementation
@@ -165,9 +166,8 @@ println("```julia\n", source_for("seit4l_gillespie.jl"), "\n```")
 
 Key aspects:
 
-- **Stoichiometry table**: Defines how each transition changes the state vector. It is a
-  constant rather than something the stepper builds, because the stepper runs once per
-  particle per day and an allocation there is millions of allocations in a filter run
+- **Stoichiometry table**: How each transition changes the state vector, held as a
+  constant so the stepper does not rebuild it on every call
 - **Rates**: Computed from current state and parameters
 - **Event selection**: Exponential waiting time, event chosen proportional to rates
 - **Incidence tracking**: Counts E→I transitions as new cases
@@ -380,7 +380,7 @@ A few Julia features worth unpacking:
 
 - `kwargs...` at the end of a function signature means "accept any additional keyword arguments". We don't use them here, but `SSMProblems.jl` may pass extra keyword arguments depending on the filter being used, so our methods need to accept them without complaining.
 
-- `vcat(prior.init_state, 0.0)` appends `0.0` to the 8-element state vector to make a 9-element vector. We use the 9th slot to track daily incidence, because the observation process needs to see it. `collect(prev_state[1:8])` grabs the first 8 elements (the compartments) and copies them into a plain `Vector` — some inputs arrive as views or other array-like types, and `gillespie_step` wants a concrete vector.
+- `vcat(prior.init_state, 0.0)` appends `0.0` to the 8-element state vector to make a 9-element vector. We use the 9th slot to track daily incidence, because the observation process needs to see it. The transition builds that 9-element vector itself and copies the compartments into it one at a time, because `prev_state` arrives as a view or another array-like type rather than a plain `Vector`.
 :::
 
 How the pieces fit together:

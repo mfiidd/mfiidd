@@ -50,8 +50,7 @@ function run_particle_filter(
     model = StateSpaceModel(initial, dynamics, observation)
 
     # Run bootstrap particle filter. `threaded` propagates the particles across
-    # threads, which is the same filter and the same estimator; see
-    # `ThreadedBF` for what it changes about reproducibility.
+    # threads; see `ThreadedBF` for what that changes about reproducibility.
     rng = default_rng()
     algo = threaded ? ThreadedBF(BF(n_particles); nchunks) : BF(n_particles)
     _, log_lik = GeneralisedFilters.filter(rng, model, algo, obs)

@@ -45,9 +45,9 @@ PMMH uses particle filters internally, introducing two sources of randomness: th
 
 PMMH combines particle filters with MCMC, making it computationally demanding. For this session:
 
-- **Memory**: ~4 GB RAM recommended
-- **Runtime**: Each MCMC iteration is one filter run, a few hundredths of a second at 128 particles with threads
-- **Full inference**: 10,000 iterations takes ~30-60 minutes; we use pre-computed chains for the main analysis
+- **Memory**: modest; one filter run at 1024 particles allocates under 20 MB
+- **Runtime**: one MCMC iteration is one filter run, under 10 ms at 128 particles with threads
+- **Full inference**: the short chain below runs 500 warm-up and 500 kept iterations in well under a minute; the analysis that follows loads pre-computed chains
 - **Short test runs**: the demonstration below runs 500 warmup iterations and 500 kept ones, so budget roughly twice what 500 iterations alone would cost
 
 The pre-computed chains (loaded from `data/`) were generated with 500,000 iterations over several hours.
@@ -221,7 +221,7 @@ end
 - **`StateSpaceModel(...)`** - assembles the state-space model from initial distribution, dynamics, and observation components defined in [`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl).
 - **`GeneralisedFilters.filter(...)`** - runs the bootstrap particle filter (`BF`) and returns the estimated log-likelihood. `Random.default_rng()` provides the global random number generator — this is Julia's way of passing randomness explicitly rather than relying on a hidden global state.
 - [`@addlogprob!`](https://turinglang.org/DynamicPPL.jl/stable/api/#DynamicPPL.@addlogprob!) - manually adds the particle filter's log-likelihood estimate to the model. The priors specified with `~` still contribute automatically. This is the [recommended pattern](https://github.com/TuringLang/Turing.jl/issues/2428) for integrating external likelihood estimators with Turing.
-- **Why 128 particles?** PMMH acceptance depends on the variance of the log-likelihood estimate. Using more particles reduces variance but increases computation, and the cost is linear in the count while the gain is not. The calibration in the [previous session](particle_filters.qmd) put the minimum at 64, measured at a single parameter set, and 128 sits comfortably inside the target band with some room for the fact that the noise depends on where in the posterior you are. Measured against effective sample size per second, 64 is fastest, 128 is close behind, and 256 costs about twice as long for the same answer.
+- **Why 128 particles?** PMMH acceptance depends on the variance of the log-likelihood estimate. Using more particles reduces variance but increases computation, and the cost is linear in the count while the gain is not. The calibration in the [previous session](particle_filters.qmd) put the minimum at 64, measured at a single parameter set. 128 sits below that band, which is the headroom worth having because how noisy the estimate is depends on where in the posterior you are.
 :::
 
 Now let's run PMMH. Unlike standard MCMC where NUTS auto-tunes proposals, PMMH requires Metropolis-Hastings because the particle filter likelihood is not differentiable.
@@ -293,41 +293,26 @@ not look obviously broken, it just has not gone anywhere yet.
 
 ## Using more than one core
 
-Every iteration above runs one particle filter, and the particles within a day never
-interact until they are weighted.
-Propagating them is therefore the one part of the algorithm that parallelises without
-changing what is being computed, and `ThreadedBF` does exactly that: it splits the
-particles into blocks, propagates the blocks on separate threads, and leaves the
-weighting, the resampling and the likelihood accumulation to `GeneralisedFilters`.
+Every iteration above runs one particle filter, and the particles within a day never interact until they are weighted.
+Propagating them is the one part of the algorithm that parallelises without changing what is computed, and `ThreadedBF` does that: it splits the particles into blocks and propagates the blocks on separate threads.
 
-Two things are needed, and only one of them is code.
-
-Julia does not use extra threads unless you ask for them, so start it with
-`julia --project=. --threads=auto`, or set `JULIA_NUM_THREADS`.
-The cell below prints how many you have.
-
+Julia does not use extra threads unless you ask, so start it with `julia --project=. --threads=auto`, or set `JULIA_NUM_THREADS`.
 Then wrap the filter you are already using.
-If you have written your own model, this is the only line that changes:
+In a model of your own this is the only line that changes:
 
 ```julia
-## in your @model, where you had this
+## where you had this
 _, log_lik = GeneralisedFilters.filter(rng, ssm, BF(n_particles), obs)
 
 ## use this
 _, log_lik = GeneralisedFilters.filter(rng, ssm, ThreadedBF(BF(n_particles)), obs)
 ```
 
-The model defined earlier in this session already does it, so the chain you ran above
-used whatever threads Julia was started with.
-If you are calling the course helper rather than building the model yourself, pass
-`threaded`:
+If you are calling the course helper rather than building the model yourself, pass `threaded`:
 
 ```julia
 log_lik = run_particle_filter(θ, flu_tdc.obs, 128; threaded = true)
 ```
-
-Both take `nchunks` if you want to fix the number of blocks rather than take one per
-thread, which matters for reproducibility below.
 
 ```{julia}
 println("Julia is running with $(Threads.nthreads()) thread(s)")
@@ -348,48 +333,16 @@ println("  threaded: $(round(threaded, digits=4)) s")
 println("  speed-up: $(round(serial / threaded, digits=2))x")
 ```
 
-What that prints depends on the machine and on how busy it is: on twelve threads a run
-at 128 particles is several times faster, and more particles scale better than fewer,
-because there is more work to divide against the same per-day overhead.
-
-The speed-up still stops well short of the thread count, and the reason is not the one
-that first suggests itself.
-Resampling is serial, but it is cheap: swapping the resampler for another makes no
-measurable difference.
-Nor is it that the threads wait on the slowest particle, which varies by less than a
-factor of two.
-What limited it was memory, until it was fixed: the stepper used to build its
-stoichiometry table on every call and a rates vector on every event, which came to
-about 500 MB of allocation for one run at 1024 particles, and threads share one garbage
-collector.
-Holding the table as a constant and returning the rates as a tuple took that to under
-40 MB and moved the collector from a third of the run to a twentieth, which made the
-serial filter faster and the threaded one faster still.
+The speed-up stops well short of the thread count.
+Weighting and resampling happen once a day on one thread, and at 128 particles there is not enough work in a block to hide that behind, so the same run at 1024 particles gets about twice the speed-up.
+A second chain scales better than a second thread does, so spare cores are better spent on chains unless the warm-up dominates the run, since every chain pays its own.
 
 ::: {.callout-warning}
 ## Threads change what a seed reproduces
 
-Each block of particles draws from its own generator, seeded from the filter's own
-generator before the parallel region starts, so a threaded run is reproducible from a
-single `Random.seed!` for a **fixed number of blocks**.
-Change the number of blocks, by moving to a machine with a different thread count, and
-the stream changes, in the same way that changing the number of particles does.
+Each block of particles draws from its own generator, seeded from the filter's own generator before the parallel region starts, so a threaded run is reproducible from a single `Random.seed!` for a **fixed number of blocks**.
+Move to a machine with a different thread count and the stream changes, in the same way that changing the number of particles does.
 Fix `nchunks` explicitly if you need a result to reproduce across machines.
-:::
-
-::: {.callout-note collapse="true"}
-## Threads here, or more chains?
-
-Chains scale almost linearly and threads do not: the speed-up inside one chain
-saturates some way below the thread count, because each day ends in a step that cannot
-be divided.
-Chains have their own ceiling: each one pays the warm-up separately, so warm-up is the
-cost that grows with the number of chains instead of being shared between them.
-Which way to split the cores therefore depends on how much of the run is warm-up, and
-the more it dominates the more the cores belong inside the filter.
-For a run with a long warm-up and a moderate number of kept iterations, which is what
-the scripts here do, a few chains with several threads each finishes sooner than either
-one threaded chain or a chain per core.
 :::
 
 ## Why is PMMH mixing difficult?
@@ -400,10 +353,8 @@ The particle filter gives a *noisy estimate* of the likelihood. Even at the same
 
 ::: {.callout-note}
 ## Pre-computed chains
-The chains loaded here were generated by `scripts/generate_pmcmc_seit4l.jl`: 50,000 warm-up iterations for RAM to adapt in, then 450,000 kept and thinned by 50.
-That is far more than the posterior needs, and it is worth knowing what it is made of.
-The chain produces one effective draw about every 200 iterations, so those 450,000 iterations buy an effective sample of roughly 2,200 for the worst-mixing parameter and eight thousand for the best.
-A few hundred is plenty for anything on this page, which is around 80,000 iterations, and with threads that is well under an hour rather than the overnight job it used to be.
+The chains loaded here are precomputed, by `scripts/generate_pmcmc_seit4l.jl`.
+Running one yourself is minutes rather than hours with threads: this chain needs roughly 200 iterations for each effective draw, and a few hundred effective draws is enough for anything on this page.
 :::
 
 ```{julia}
