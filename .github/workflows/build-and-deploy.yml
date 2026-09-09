@@ -35,6 +35,10 @@ jobs:
       LANG: "en_US.UTF-8"
       LC_ALL: "en_US.UTF-8"
       JULIA_PROJECT: "@."
+      # The particle MCMC session times a threaded filter against a serial one.
+      # Julia takes one thread unless asked, so without this the published page
+      # reports a speed-up of one under a section about using more than one core.
+      JULIA_NUM_THREADS: "auto"
     steps:
       - uses: actions/checkout@v4
 

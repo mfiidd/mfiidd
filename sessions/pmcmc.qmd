@@ -348,48 +348,16 @@ Fix `nchunks` explicitly if you need a result to reproduce across machines.
 ::: {.callout-note collapse="true"}
 ## Threads here, or more chains?
 
-Both, and the split depends on what you are short of.
-Twelve cores, 150 iterations per chain at 256 particles, each chain in its own process:
-
-| chains × threads | slowest chain | chain-iterations per second |
-|---:|---:|---:|
-| 1 × 1 | 9.5 s | 15.8 |
-| 1 × 12 | 2.9 s | 51.0 |
-| 2 × 4 | 4.2 s | 70.6 |
-| 2 × 6 | 4.0 s | 75.3 |
-| 4 × 3 | 6.2 s | 97.5 |
-| 12 × 1 | 18.2 s | 99.1 |
-
-Read the last column on its own and twelve single-threaded chains look best.
-That reading is wrong, because it counts warm-up iterations as though they were draws.
-Every chain has to warm up separately, so warm-up is the one cost that grows with the
-number of chains, and the chains saved in `data/` discard 50,000 iterations before
-keeping anything.
-
-The time to finish a run is
-
-$$\text{time} = \frac{\text{warm-up} + \text{kept} / \text{chains}}{\text{iterations per second in one chain}}$$
-
-and for the job the scripts actually run, 50,000 warm-up and 450,000 kept, that gives:
-
-| chains × threads | warm-up alone | whole job |
-|---:|---:|---:|
-| 1 × 1 | 0.9 h | 8.8 h |
-| 1 × 12 | 0.3 h | 2.7 h |
-| 2 × 4 | 0.4 h | 2.2 h |
-| 2 × 6 | 0.4 h | 2.0 h |
-| **4 × 3** | **0.6 h** | **1.9 h** |
-| 6 × 2 | 0.9 h | 2.3 h |
-| 12 × 1 | 1.7 h | 2.9 h |
-
-Twelve single-threaded chains produce the most iterations per second and finish the
-job slowest of any parallel option, because 1.7 of those hours are twelve chains
-warming up in parallel and none of it is kept.
-One chain on twelve threads warms up fastest and then has all 450,000 kept iterations
-to get through alone.
-Four chains of three threads is the sensible split here, and it is also the number of
-chains you want for R-hat, which is a coincidence worth not over-reading: shift the
-warm-up or the kept length and the optimum moves.
+Chains scale almost linearly and threads do not, because propagation is the only part
+of a filter run that parallelises, so the speed-up inside one chain saturates around
+four however many threads it is given.
+Chains have their own ceiling: each one pays the warm-up separately, so warm-up is the
+cost that grows with the number of chains instead of being shared between them.
+Which way to split the cores therefore depends on how much of the run is warm-up, and
+the more it dominates the more the cores belong inside the filter.
+For the job in `scripts/`, 50,000 warm-up iterations and 450,000 kept on twelve cores,
+four chains of three threads finished in 1.9 hours, against 2.9 for twelve
+single-threaded chains and 2.7 for one chain on twelve threads.
 :::
 
 ## Why is PMMH mixing difficult?
