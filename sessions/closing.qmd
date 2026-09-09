@@ -3,7 +3,7 @@ title: "Synthesis and next steps"
 subtitle: "Closing session"
 format: html
 engine: julia
-order: 15
+order: 10
 ---
 
 ::: {.callout-note appearance="simple"}
