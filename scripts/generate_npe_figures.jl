@@ -488,7 +488,7 @@ p_thin = plot(
     xlabel = "number of observed days",
     ylabel = "90% width, relative to fully observed",
     title = "Thirty posteriors, no retraining",
-    legend = :topleft,
+    legend = :topright,
     size = (1000, 500),
 )
 for p in string.(PNAMES)

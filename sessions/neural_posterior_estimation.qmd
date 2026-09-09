@@ -368,7 +368,7 @@ Here we do not have a fixed training set.
 A simulation costs a fraction of a millisecond, so we draw a **fresh batch for every gradient step**.
 No example is ever seen twice, and overfitting becomes impossible by construction.
 
-Simulating a batch of 128 costs about twice the gradient step it feeds, and with the periodic validation passes on top the simulator comes to a little over half the training time.
+Simulating a batch of 128 is the same order of cost as the gradient step it feeds, so the simulator takes a substantial share of the training time.
 At this model size that is affordable, and it is the price of the guarantee.
 With a simulator a hundred times slower it would not be: you would go back to a fixed training set, and back to watching for overfitting.
 :::
@@ -672,7 +672,7 @@ summary_widths = combine(groupby(widths, [:nobs, :param]), :width => mean => :w)
 ## fully observed schedule instead, and every curve starts at 1 on the right.
 pl = plot(xlabel="number of observed days",
           ylabel="90% width, relative to fully observed",
-          title="Posterior width vs surveillance intensity", legend=:topleft)
+          title="Posterior width vs surveillance intensity", legend=:topright)
 for p in string.(PNAMES)
     s = sort(summary_widths[summary_widths.param .== p, :], :nobs)
     plot!(pl, s.nobs, s.w ./ s.w[end], lw=2, marker=:circle, ms=3, label=p)
