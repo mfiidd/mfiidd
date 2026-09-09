@@ -62,6 +62,7 @@ using Random
 using LinearAlgebra
 using DrWatson
 using StatsBase  # For Weights in ABC-SMC
+using FlexiChains ## for ess, used by the ABC-MCMC diagnostics
 using MFIIDD ## the course package, which holds the SEIT4L implementation
 ```
 
@@ -494,9 +495,156 @@ explained.
 
 Notice that choosing a distance metric in ABC is philosophically similar to choosing a parametric likelihood.
 
+## ABC-MCMC: the sampler you already know
+
+You have built Metropolis-Hastings twice in this course: once by hand in the [MCMC session](mcmc.qmd), and once with a particle filter supplying the likelihood in the [particle MCMC session](pmcmc.qmd).
+ABC gives you a third version of the same loop.
+Propose a step, simulate once from the proposed parameters, and accept if that simulation lands within ε of the data.
+That is ABC-MCMC, introduced by [Marjoram et al. (2003)](https://doi.org/10.1073/pnas.0306899100).
+
+::: {.callout-note collapse="true"}
+## Implementation: ABC-MCMC
+
+The accept step is the Metropolis-Hastings one with the likelihood ratio deleted and the distance test put in its place.
+The prior ratio stays.
+The priors here are the truncated normals and the Beta that the particle MCMC session used, so nothing cancels, and a proposal walking into a region the prior disfavours has to earn its place exactly as it would in ordinary Metropolis-Hastings.
+
+```{julia}
+const PRIOR_R0 = truncated(Normal(3.0, 2.0), lower = 1.0)
+const PRIOR_DINF = truncated(Normal(3.0, 2.0), lower = 0.5)
+const PRIOR_RHO = Beta(2, 2)
+
+## -Inf outside the support, so this doubles as the bounds check
+log_prior(θ) = logpdf(PRIOR_R0, θ[1]) + logpdf(PRIOR_DINF, θ[2]) +
+               logpdf(PRIOR_RHO, θ[3])
+
+"""
+ABC-MCMC. Propose, test the prior ratio, then simulate once and accept if the
+simulation lands within `threshold` of the data. Returns the chain and the
+acceptance rate.
+"""
+function abc_mcmc(θ_start, simulator, distance_fn, observed_data, threshold,
+                  n_iterations; proposal_sd = [0.4, 0.3, 0.05])
+    chain = Vector{Vector{Float64}}(undef, n_iterations)
+    θ = copy(θ_start)
+    lp = log_prior(θ)
+    n_accepted = 0
+
+    for i in 1:n_iterations
+        θ_proposed = θ .+ randn(length(θ)) .* proposal_sd
+        lp_proposed = log_prior(θ_proposed)
+
+        ## The prior ratio is checked first because it is free, and a proposal
+        ## that fails it needs no simulation. The proposal is symmetric, so it
+        ## contributes nothing to the ratio
+        if isfinite(lp_proposed) && log(rand()) < lp_proposed - lp &&
+           distance_fn(simulator(θ_proposed), observed_data) < threshold
+            θ, lp = θ_proposed, lp_proposed
+            n_accepted += 1
+        end
+
+        chain[i] = copy(θ) ## the state after the step, whether or not it moved
+    end
+
+    return chain, n_accepted / n_iterations
+end
+```
+:::
+
+Run it down a ladder of thresholds, from the one the rejection sampler used to the one ABC-SMC finishes on later in this session.
+Alongside the acceptance rate, report the effective sample size of the $R_0$ draws, using the diagnostic from the [MCMC diagnostics session](mcmc_diagnostics.qmd).
+
+```{julia}
+## Start from the closest sample the rejection run found. ABC-MCMC has to be
+## initialised somewhere the threshold accepts, and a short rejection run is how
+## you find such a point
+start_distances = [distance_L1(simulate_abc(θ), observed_data) for θ in abc_samples]
+θ_start = abc_samples[argmin(start_distances)]
+
+"Effective sample size of the R_0 draws in an ABC-MCMC chain."
+ess_R_0(chain) = ess([θ[1] for θ in chain])
+
+for ε in (230.0, 200.0, 180.0, 165.0)
+    chain, acceptance = abc_mcmc(θ_start, simulate_abc, distance_L1,
+                                 observed_data, ε, 4000)
+    println("ε = ", ε,
+            ": acceptance ", lpad(round(100 * acceptance, digits = 1), 5),
+            "%, ESS ", lpad(round(Int, ess_R_0(chain)), 3), " from 4000 draws")
+end
+```
+
+Two things are going on in that table, and only one of them is the acceptance rate.
+The acceptance rate falls as the threshold tightens, which is what you would expect.
+The effective sample size is poor at every threshold, including the loosest, where more than a quarter of proposals are being accepted.
+
+```{julia}
+## The loosest and the tightest, for comparison
+mcmc_traces = [(ε, first(abc_mcmc(θ_start, simulate_abc, distance_L1,
+                                  observed_data, ε, 4000)))
+               for ε in (230.0, 165.0)]
+
+plot(xlabel = "Iteration", ylabel = "R_0", title = "ABC-MCMC traces")
+for (ε, chain) in mcmc_traces
+    plot!([θ[1] for θ in chain], label = "ε = $ε", alpha = 0.7)
+end
+plot!()
+```
+
+::: {.callout-tip title="Exercise: predict what tuning will do"}
+In the [MCMC session](mcmc.qmd) a low acceptance rate meant the proposal was too wide, and you fixed it by tuning `proposal_sd`.
+The cell below tries that here, sweeping the proposal scale over a twenty-fold range at the loosest threshold and at the tightest.
+
+Predict the two columns before you run it.
+At ε = 230, does widening the proposal raise or lower the effective sample size?
+And at ε = 165, does it do the same thing?
+:::
+
+```{julia}
+for scale in (0.25, 1.0, 2.5, 5.0)
+    proposal_sd = scale .* [0.4, 0.3, 0.05]
+    for ε in (230.0, 165.0)
+        chain, acceptance = abc_mcmc(θ_start, simulate_abc, distance_L1,
+                                     observed_data, ε, 4000;
+                                     proposal_sd = proposal_sd)
+        println("proposal × ", lpad(scale, 4), ", ε = ", ε,
+                ": acceptance ", lpad(round(100 * acceptance, digits = 1), 5),
+                "%, ESS ", lpad(round(Int, ess_R_0(chain)), 3))
+    end
+end
+```
+
+::: {.callout-tip title="Solution" collapse="true"}
+At the loose threshold, tuning behaves exactly as the MCMC session taught you.
+Widening the proposal lowers the acceptance rate and raises the effective sample size, because the chain takes longer steps and decorrelates faster.
+ABC-MCMC is an ordinary Metropolis-Hastings sampler here, and it responds to tuning like one.
+
+At the tight threshold it stops responding.
+The acceptance rate is a few per cent throughout and bounces around without a clear trend, because at that rate the number of accepted steps is small enough to be noisy.
+The effective sample size barely moves across the whole twenty-fold range.
+Whatever you set the proposal to, the chain is worth about a dozen independent draws out of four thousand.
+The knob is still turning and it is no longer connected to anything.
+
+The reason is the stochastic simulator, and it is worth being precise about it.
+Run the model at one fixed parameter set and the L1 distance still moves from about 130 to about 420 between runs, because each run is a different epidemic.
+At ε = 165 that means a good parameter set fails the test most of the time and passes occasionally.
+The chain therefore accepts a step when it happens to draw a lucky epidemic, and then cannot leave, because leaving requires another lucky epidemic from the proposed parameters.
+It is stuck on a realisation rather than on a parameter value, and no proposal distribution addresses that, because the proposal is not what is being rejected.
+
+This is why the effective sample size is printed next to the acceptance rate.
+A few per cent acceptance does not look catastrophic on its own, and the chain underneath it is a handful of lucky draws, heavily repeated.
+The posterior you would report from it is not the ABC posterior.
+
+Compare that with what ABC-SMC does below.
+It reaches the same ε = 165 by walking the threshold down in stages, keeping a whole population of particles rather than one chain, and re-simulating the survivors at each stage.
+A particle that got through on a lucky run faces the test again in the next generation, and the population moves on without it.
+:::
+
 ## ABC-SMC: Sequential Monte Carlo ABC
 
-The rejection sampler above is inefficient - most samples from the prior are rejected, wasting computation. ABC-SMC (Sequential Monte Carlo ABC) attacks that by gradually tightening the acceptance threshold across multiple generations, reusing the particles that survived the previous one.
+Both samplers so far run out of road well before the threshold is tight.
+Rejection sampling wastes almost everything it draws, because it searches from the prior every time and never learns where the good parameters were.
+ABC-MCMC does learn that, and pays for it by seizing up: at a tight threshold it accepts only lucky realisations and then cannot leave them.
+ABC-SMC (Sequential Monte Carlo ABC) gets round both by tightening the acceptance threshold across a sequence of generations, reusing the particles that survived the previous one.
 
 The key idea, introduced by [Toni et al. (2009)](https://doi.org/10.1098/rsif.2008.0172), is:
 
@@ -1028,6 +1176,7 @@ A robust distance stops a handful of large daily discrepancies dominating the fi
 
 # References
 
+- Marjoram, P. et al. (2003). [Markov chain Monte Carlo without likelihoods](https://doi.org/10.1073/pnas.0306899100). *PNAS* 100(26), 15324-15328. (ABC-MCMC)
 - Toni, T. et al. (2009). [Approximate Bayesian computation scheme for parameter inference and model selection in dynamical systems](https://doi.org/10.1098/rsif.2008.0172). *J. R. Soc. Interface* 6(31), 187-202. (The ABC-SMC paper - highly readable introduction)
 - Wood, S.N. (2010). [Statistical inference for noisy nonlinear ecological dynamic systems](https://doi.org/10.1038/nature09319). *Nature* 466, 1102-1104. (Synthetic likelihood approach)
 - Marin, J.-M. et al. (2012). [Approximate Bayesian computational methods](https://doi.org/10.1007/s11222-011-9288-2). *Statistics and Computing* 22, 1167-1180.
