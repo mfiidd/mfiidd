@@ -52,13 +52,25 @@ distribution attached.
   - something that is **easy** to calculate and approximates the likelihood
   - e.g. final size, number of peaks, height or timing of peaks
 
-- The idea of **sufficient** summary statistics: to be exact, we would need
-  summary statistics that give the *same* result as the likelihood.
+## What you are really choosing {.smaller}
 
-## Choosing them {.smaller}
+A summary is [sufficient]{.alert} if it carries everything the data say about
+$\theta$ — once you have it, the rest of the data is noise as far as the
+parameters are concerned.
 
-Sufficiency is not on offer outside textbook cases, so you are choosing what to
-condition on. Three things decide whether a choice is any good:
+. . .
+
+For a model like ours, no such summary exists short of the whole dataset.
+
+. . .
+
+So ABC is not a blurred version of $p(\theta \mid y)$. It gives you a
+**different** posterior, $p(\theta \mid s(y))$ — and shrinking $\epsilon$ never
+gets back what $s$ threw away.
+
+## Choosing summary statistics {.smaller}
+
+Three things decide whether a choice is any good.
 
 . . .
 
