@@ -486,8 +486,9 @@ On this run the NPE posterior is wider than PMMH for five of the six parameters,
 Wider is the direction the theory predicts.
 The forward KL that NPE minimises is mass-covering, so an estimator that has not closed the amortisation gap errs towards intervals that are too generous, and a conservative error is the safer one to make.
 
-What the figure cannot tell you is whether those intervals sit in the right place.
-Note which parameter looks healthiest here, because the calibration check in the next section flags exactly that one: a width that matches PMMH says nothing about where the interval is centred.
+Widths are only half of it.
+`R_0` is the parameter whose width matches PMMH best and whose *centre* agrees with it worst: the NPE median is 5.16 against PMMH's 6.28, about one PMMH posterior standard deviation low, and the two modes are visibly apart in that panel.
+So a matching width tells you nothing about where an interval sits, and the next section flags `R_0` as well.
 
 Read the weakly identified parameters differently from the well identified ones.
 A single 59-day outbreak says little about `D_lat` and `D_inf` separately, because a shorter latent period and a longer infectious period reproduce much the same epidemic curve, so the two posteriors have most licence to disagree there.
@@ -537,9 +538,10 @@ Look at `R_0`.
 Its curve sits above zero across almost the whole range and leaves the band between roughly 0.24 and 0.35, with no sign change, so this is bias rather than width.
 Ranks skewed low mean the true value falls below the NPE draws more often than it should, which is the estimator centring `R_0` too high.
 `D_lat` and `ρ` bow gently the other way but stay inside the band, and `D_inf`, `α` and `D_imm` sit close to the line.
-So the calibration check adds something the width comparison could not.
-`R_0` was the parameter whose width matched PMMH almost exactly, which is the one the previous figure gave least reason to worry about.
-Width and centring are separate questions, and only this check asks the second.
+So both checks land on `R_0`, and they disagree about the direction, which is worth sitting with.
+Against PMMH on the Tristan da Cunha data the NPE median came out *low*; averaged over datasets drawn from the prior, calibration says the estimator runs *high*.
+Both can hold at once, because they ask different questions: SBC describes the estimator across every dataset the prior can produce, while the comparison describes one fit to one outbreak.
+An estimator biased high on average can still land low on the particular dataset in front of you.
 
 Two things to keep in mind when reading it.
 The band is pointwise, computed separately at each of the 100 grid points, so under perfect calibration a curve still strays outside it somewhere reasonably often; judge the shape of the excursion rather than the fact of one.
