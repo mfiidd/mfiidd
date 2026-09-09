@@ -130,14 +130,14 @@ function run_pmmh(
     n_samples = N_SAMPLES,
     thinning = THINNING,
 )
-    println("=" ^ 60)
+    println("="^60)
     println("Running PMMH for $name with RAM")
     println("  Particles: $N_PARTICLES")
     println("  Warmup (adaptation, discarded): $n_warmup")
     println("  Samples kept: $n_samples")
     println("  Thinning: $thinning")
     println("  Final samples: $(n_samples ÷ thinning)")
-    println("=" ^ 60)
+    println("="^60)
 
     t_start = time()
     chain_full = sample(
