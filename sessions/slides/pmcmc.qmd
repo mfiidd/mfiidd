@@ -4,21 +4,16 @@ title: "Particle MCMC"
 subtitle: "Fitting parameters of stochastic models"
 ---
 
-# Plugging in an estimated likelihood
-
 ## Where we got to
 
-The particle filter gives us an estimate of the marginal likelihood for **one**
-value of $\theta$:
+![](images/particle_filter_19.svg){.pfwide}
 
-$$\hat{p}(y \mid \theta) \approx \frac{1}{J}\sum_{j=1}^{J} p(y \mid x_j, \theta)$$
+$$\hat{p}(y \mid \theta) = \prod_{t} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
-. . .
+An estimate of the marginal likelihood at **one** $\theta$. We want the
+**posterior** over $\theta$.
 
-But we do not want the likelihood at one $\theta$. We want the **posterior**
-over $\theta$.
-
-## The obvious idea
+## Substituting the estimate
 
 We already have an algorithm that explores a posterior using nothing but
 likelihood evaluations: Metropolis-Hastings.
@@ -36,38 +31,23 @@ This is [particle marginal Metropolis-Hastings]{.alert} (PMMH).
 
 ## Why should that work at all?
 
-We are plugging a **noisy, random** likelihood estimate into an algorithm
-derived assuming the **exact** likelihood.
+![](images/pmmh_likelihood_noise.svg)
 
-. . .
+Same $\theta$, same data, 400 runs of the filter — fed into an algorithm derived
+assuming the [exact]{.alert} likelihood.
 
-Run the filter twice at the same $\theta$ and you get two different numbers. It
-looks like this should break the chain.
+## The reason it works
 
-. . .
-
-It does not. The chain still targets the correct posterior — exactly, not
-approximately.
-
-## The reason it works {.smaller}
-
-The particle filter estimate is [unbiased]{.alert}:
+The estimate is [unbiased]{.alert}:
 
 $$\mathbb{E}\big[\hat{p}(y \mid \theta)\big] = p(y \mid \theta)$$
 
 ::: {.fragment}
-Treat the random numbers used inside the filter as **auxiliary variables** and
-run Metropolis-Hastings on the enlarged space of $(\theta, \text{particles})$.
-
-That extended chain has the right invariant distribution, and $\theta$ marginally
-has the posterior we wanted.
-:::
-
-::: {.fragment}
-The noise costs us **efficiency**, never **correctness**.
+The chain still targets the correct posterior — exactly, not approximately. The
+noise costs us **efficiency**, never **correctness**.
 
 ::: {.cite}
-@andrieu2010
+@andrieu2010 — derived in the appendix
 :::
 :::
 
@@ -75,67 +55,44 @@ The noise costs us **efficiency**, never **correctness**.
 
 ## Noise makes the chain sticky
 
-When the filter happens to return an unusually **high** estimate, that value sits
-in the denominator of every subsequent acceptance ratio.
+![](images/pmmh_sticky_trace.svg)
+
+A lucky **high** estimate sits in the denominator of every later acceptance
+ratio, so the chain rejects good proposals until something beats it.
+
+## Choosing the number of particles
+
+![](images/pmmh_particle_tradeoff.svg)
+
+Tune $J$ so the standard deviation of the log likelihood estimate is roughly
+[1 to 3]{.alert} at a representative $\theta$.
 
 . . .
 
-The chain then rejects good proposals for a long stretch, because it is
-comparing them against a lucky number rather than the truth.
-
-. . .
-
-The result is the flat plateaus you will see in the trace plots — much worse
-mixing than any chain we have run so far.
-
-## Choosing the number of particles {.smaller}
-
-There is a genuine trade-off:
-
-- **Too few particles**: the likelihood estimate is noisy, the chain sticks, and
-  mixing collapses.
-- **Too many particles**: every single MCMC iteration costs a full particle
-  filter run, so the chain crawls.
-
-::: {.fragment}
-The standard guidance is to tune $J$ so that the **standard deviation of the log
-likelihood estimate** is roughly 1 to 3 at a representative $\theta$.
+Measured here at the posterior mean. The estimator is noisier out in the tails
+of the posterior, which is why the practical uses 256 rather than the 128 this
+curve appears to license.
 
 ::: {.cite}
 @pitt2012; @doucet2015
 :::
-:::
 
-## Why RAM rather than NUTS {.smaller}
+## Why RAM rather than NUTS
 
-Two things stand in the way, and the second is the deeper one.
-
-- Resampling and discrete events make the likelihood **non-differentiable**, so
-  there is no gradient to follow.
-- The filter returns a different number every run, so the likelihood is not even
-  **deterministic**. HMC integrates along a fixed surface, and there is none here.
+- Resampling and discrete events make the likelihood **non-differentiable**:
+  no gradient to follow.
+- The filter returns a different number every run, so there is no fixed surface
+  for HMC to integrate along.
 
 . . .
 
-Metropolis-Hastings survives the second because the estimate is *unbiased*: the
-pseudo-marginal result this session rests on. HMC does not.
+Metropolis-Hastings survives the second because the estimate is unbiased. HMC
+does not.
 
 . . .
 
-So we use **robust adaptive Metropolis**, which at least learns the proposal
-covariance for us [@vihola2012].
-
-## What to expect when you run it
-
-- Acceptance rates lower than you are used to
-- Long flat stretches in the trace
-- Convergence needing **far** more iterations than the deterministic fits
-
-. . .
-
-The pre-computed chain in the practical used 500,000 samples, 50,000 burn-in,
-thinned by 50, and took hours. This is normal for PMCMC, and it is the price of
-fitting a genuinely stochastic model.
+So we use **robust adaptive Metropolis**, which learns the proposal covariance
+for us [@vihola2012].
 
 ## The pay-off
 
@@ -152,24 +109,27 @@ And we get the latent trajectories for free: each accepted $\theta$ comes with a
 sampled state path, which is **state estimation** alongside parameter
 estimation.
 
-## Comparing models {.smaller}
+## Comparing models
 
 Is temporary immunity better described by one compartment or four?
 No amount of sampling SEITL answers that: you have to fit both.
 
 . . .
 
-Three ways to compare them:
-
 - **Posterior predictive checks**: which reproduces the features you care about?
-- **Predictive performance** on held-out data
-- **The marginal likelihood**, which the particle filter already estimates, though
-  not cheaply
+- **DIC**: the deviance at the posterior mean, penalised by its spread across
+  the posterior
 
 . . .
 
-In the practical you fit both. Expect them to agree on the first wave and differ
-on the timing of the second.
+Both ask only for the likelihood of the whole series, which is what the filter
+returns. WAIC and LOO need $p(y_i \mid \theta)$ per observation, and a shared
+stochastic trajectory leaves the observations dependent given $\theta$.
+
+. . .
+
+[The criterion that is appropriate for model comparison is determined by the
+structure of the model.]{.alert}
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
@@ -179,7 +139,98 @@ In the practical you will
 - run a short chain and see the poor mixing for yourself
 - vary the particle count and watch the trade-off appear
 - work with a pre-computed long chain, and compare against the deterministic fit
+- compare SEITL against SEIT4L, from the pre-computed chains, with DIC and a
+  posterior predictive check
 
+
+# Appendix: why PMMH is exact
+
+## Making the randomness explicit {.smaller}
+
+The filter is random only because it consumes random numbers. Collect all of
+them into one vector $u$:
+
+- the draws that initialise the particles
+- the noise that propagates each particle at each step
+- the uniforms that drive resampling
+
+. . .
+
+Write $m(u)$ for their density. Because the propagation is a deterministic map
+applied to standard draws, $m$ does not depend on $\theta$.
+
+. . .
+
+Given $u$, the filter is a [deterministic]{.alert} function:
+
+$$\hat{p}(y \mid \theta) = \hat{p}(y \mid \theta, u)$$
+
+## A distribution on the enlarged space {.smaller}
+
+Define a joint density over the pair $(\theta, u)$:
+
+$$\tilde{\pi}(\theta, u) = \frac{p(\theta)\, \hat{p}(y \mid \theta, u)\, m(u)}{p(y)}$$
+
+. . .
+
+Integrating $u$ out at fixed $\theta$ averages the estimator over its own
+randomness, which is exactly what unbiasedness controls:
+
+$$\int \hat{p}(y \mid \theta, u)\, m(u)\, \mathrm{d}u = \mathbb{E}\big[\hat{p}(y \mid \theta)\big] = p(y \mid \theta)$$
+
+. . .
+
+This is the [only]{.alert} place unbiasedness is used.
+
+## The marginal is the posterior
+
+It follows that $\tilde{\pi}$ integrates to one, and that
+
+$$\int \tilde{\pi}(\theta, u)\, \mathrm{d}u = \frac{p(\theta)\, p(y \mid \theta)}{p(y)} = p(\theta \mid y)$$
+
+. . .
+
+The $\theta$-marginal of the enlarged target is the posterior we wanted.
+
+## PMMH is Metropolis-Hastings on that target {.smaller}
+
+Propose $\theta^*$ from $q(\cdot \mid \theta)$, then fresh random numbers
+$u^* \sim m(\cdot)$. The Metropolis-Hastings ratio for $\tilde{\pi}$ under
+that proposal is
+
+$$\underbrace{\frac{p(\theta^*)}{p(\theta)} \cdot \frac{\hat{p}(y \mid \theta^*, u^*)}{\hat{p}(y \mid \theta, u)} \cdot \frac{m(u^*)}{m(u)}}_{\text{target}} \;\cdot\; \underbrace{\frac{q(\theta \mid \theta^*)}{q(\theta^* \mid \theta)} \cdot \frac{m(u)}{m(u^*)}}_{\text{proposal}}$$
+
+. . .
+
+The two $m$ factors are reciprocals, so they cancel, leaving
+
+$$\frac{p(\theta^*)\, \hat{p}(y \mid \theta^*, u^*)\, q(\theta \mid \theta^*)}{p(\theta)\, \hat{p}(y \mid \theta, u)\, q(\theta^* \mid \theta)}$$
+
+. . .
+
+This is the acceptance ratio we started from. The random numbers never appear in
+the implementation because their proposal density cancels against their target
+density.
+
+## What the argument gives {.smaller}
+
+- It holds for [any]{.alert} number of particles, $J = 1$ included. Correctness
+  never required $J$ to be large.
+- The variance of $\hat{p}$ never entered, which is why noise costs efficiency
+  alone.
+- $u$ is part of the chain's state and changes only when a move is accepted. A
+  lucky $u$ is carried until something beats it: the plateaus we saw earlier,
+  seen from the enlarged space.
+
+. . .
+
+The condition worth naming is that $\tilde{\pi}$ must be a proper density, so the
+estimator has to be non-negative and strictly positive wherever the posterior is.
+Particle filter estimates satisfy this.
+
+::: {.cite}
+@andrieu2009; @andrieu2010
+:::
 
 #
 
