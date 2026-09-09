@@ -355,9 +355,15 @@ The end-to-end gain for a chain is steadier, because the sampler does work eithe
 Timed as separate processes, 150 iterations at 256 particles took 9.5 seconds on one
 thread and 2.9 seconds on twelve.
 
-The speed-up saturates well below the thread count.
-Resampling is serial, and there is a synchronisation point on each of the 59 days, so
-adding threads past a handful buys progressively less.
+The speed-up saturates around four or five, well below the thread count, and not for
+the reason you would guess.
+Resampling is serial, but it is also cheap: swapping the resampler for another makes no
+measurable difference here.
+The limit is memory. One run at 1024 particles allocates about 500 MB, because every
+particle gets a fresh state vector on every day, and garbage collection takes roughly 30
+per cent of a serial run and closer to half of a threaded one.
+Threads share one allocator, so the more of them there are the larger that share
+becomes, and it is what stops the curve rather than anything about the filter.
 
 ::: {.callout-warning}
 ## Threads change what a seed reproduces
@@ -373,16 +379,16 @@ Fix `nchunks` explicitly if you need a result to reproduce across machines.
 ::: {.callout-note collapse="true"}
 ## Threads here, or more chains?
 
-Chains scale almost linearly and threads do not, because propagation is the only part
-of a filter run that parallelises, so the speed-up inside one chain saturates around
-four however many threads it is given.
+Chains scale almost linearly and threads do not: the speed-up inside one chain
+saturates around four or five however many threads it is given, because the threads
+share an allocator and this simulator allocates heavily.
 Chains have their own ceiling: each one pays the warm-up separately, so warm-up is the
 cost that grows with the number of chains instead of being shared between them.
 Which way to split the cores therefore depends on how much of the run is warm-up, and
 the more it dominates the more the cores belong inside the filter.
-For the job in `scripts/`, 50,000 warm-up iterations and 450,000 kept on twelve cores,
-four chains of three threads finished in 1.9 hours, against 2.9 for twelve
-single-threaded chains and 2.7 for one chain on twelve threads.
+For a run with a long warm-up and a moderate number of kept iterations, which is what
+the scripts here do, a few chains with several threads each finishes sooner than either
+one threaded chain or a chain per core.
 :::
 
 ## Why is PMMH mixing difficult?
