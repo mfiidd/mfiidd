@@ -1,6 +1,6 @@
 ---
-footer: "Approximate Bayesian Computation"
-title: "Approximate Bayesian Computation"
+footer: "Approximate Bayesian computation"
+title: "Approximate Bayesian computation"
 subtitle: "Inference by simulation"
 ---
 
@@ -24,7 +24,7 @@ came out [exactly equal to the data]{.alert}.
 Nothing has been approximated. The $\theta$ you keep are draws from
 $p(\theta \mid y)$.
 
-## Approximate Bayesian Computation
+## Approximate Bayesian computation
 
 Exact equality has probability zero, so nothing would ever be accepted. Two
 concessions, and this is where the [approximate]{.alert} comes from.
