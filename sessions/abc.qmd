@@ -61,7 +61,6 @@ using Random
 using LinearAlgebra
 using DrWatson
 using StatsBase  # For Weights in ABC-SMC
-using MCMCChains ## for the effective sample size of an ABC-MCMC chain
 using FlexiChains ## for ess, used by the ABC-MCMC diagnostics
 using MFIIDD ## the course package, which holds the SEIT4L implementation
 ```
@@ -904,10 +903,7 @@ start_distances = [distance_L1(simulate_abc(θ), observed_data) for θ in abc_sa
 θ_start = abc_samples[argmin(start_distances)]
 
 "Effective sample size of the R_0 draws in an ABC-MCMC chain."
-function ess_R_0(chain)
-    draws = reshape([θ[1] for θ in chain], :, 1, 1)
-    return only(DataFrame(ess(Chains(draws, [:R_0]))).ess)
-end
+ess_R_0(chain) = ess(reshape([θ[1] for θ in chain], :, 1)) ## draws by chains
 
 for ε in (230.0, 200.0, 180.0, 165.0)
     chain, acceptance = abc_mcmc(θ_start, simulate_abc, distance_L1,
