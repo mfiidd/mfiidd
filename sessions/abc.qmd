@@ -96,69 +96,64 @@ scatter(
 
 We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 
-# Simple SIR model for comparison
+# The model we fit
 
-For this session, let's use a simpler SIR model to make the concepts clearer.
+We keep the SEIT4L model from the [particle filter](particle_filters.qmd) and
+[particle MCMC](pmcmc.qmd) sessions, simulated stochastically.
+That choice is what makes this session necessary: run it twice at the same parameters and you get two different epidemics, so there is no single curve to hold against the data and no Poisson likelihood to write down.
 
-These two functions live in [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl) and arrived with `using MFIIDD` above.
+Three parameters are estimated, $R_0$, $D_\mathrm{inf}$ and $\rho$, and the rest are fixed at the values the earlier sessions used.
+Fixing most of a model and estimating a few is normal in ABC: every free parameter has to land inside the acceptance window at the same time, so acceptance falls away as you add them.
 
 ```{julia}
-#| echo: false
-#| output: asis
-println("```julia\n", source_for(sir_ode!), "\n\n", source_for(simulate_sir), "\n```")
+## Fixed at the values used in the SEITL session
+const D_LAT = 2.0
+const ALPHA = 0.5
+const D_IMM = 13.0
+
+## The island as the ship lands, at the start of day 1: three of the five
+## returning islanders are past their infectious period and start in T1, the two
+## who fell ill on landing start in I. N = 284
+init_test = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
+n_obs = length(flu_tdc.obs)
+
+## One stochastic SEIT4L run, thinned to reported cases, one value per day
+function simulate_seit4l_obs(R_0, D_inf, ρ)
+    θ = Dict(:R_0 => R_0, :D_lat => D_LAT, :D_inf => D_inf,
+             :α => ALPHA, :D_imm => D_IMM)
+    state = copy(init_test)
+    inc = [gillespie_step_seit4l!(state, θ, 1.0) for _ in 1:n_obs]
+    return [rand(Poisson(max(ρ * x, 1e-10))) for x in inc]
+end
 ```
 
 ```{julia}
-# Try some parameters
-## `times` starts at 0.0, the left edge of the first observation day, because the
-## incidence over that day is S(0) - S(1) and there is no way to form it without a
-## point at 0. `traj.Inc[i + 1]` is then the incidence over the day the i-th
-## observation counts
-times = [0.0; flu_tdc.time]
-θ_test = Dict(:R_0 => 10.0, :D_inf => 2.5)
-## The island as the ship lands, at the start of day 1. Of the five islanders it
-## brought back, three had been ill during the eight day voyage and are past their
-## infectious period, so they start recovered; the two who fell ill on landing
-## start infectious. N = 284, the island population
-init_test = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
+#| code-fold: true
+#| code-summary: "Plotting code"
+p_runs = plot(xlabel = "Time (days)", ylabel = "Cases",
+              title = "Ten runs at the same parameters")
 
-traj_test = simulate_sir(θ_test, init_test, times)
-
-# Plot
-plot(traj_test.time, traj_test.Inc,
-     label="Predicted incidence", linewidth=2, color=:blue)
-scatter!(flu_tdc.time, flu_tdc.obs,
-         label="Observed cases", markersize=4, color=:red,
-         xlabel="Time (days)", ylabel="Cases",
-         title="SIR Model vs Observed Data")
-```
-
-Not a perfect fit, but good enough for illustration!
-
-In your own work, you should run [prior and posterior predictive checks](model_checking.qmd) when fitting models. We skip them here to focus on observation model choices.
-
-::: {.callout-note collapse="true"}
-## Yesterday's likelihood fit, refitted
-Later we compare the ABC posterior against a likelihood-based one. That is the
-Poisson fit from the [observation models session](observation_models.qmd), rerun
-here so this session stands on its own.
-
-```{julia}
-@model function sir_poisson(times, init_state, n_obs)
-    R_0 ~ Uniform(1.0, 20.0)
-    D_inf ~ Uniform(1.0, 10.0)
-    ρ ~ Uniform(0.1, 1.0)
-
-    traj = simulate_sir(Dict(:R_0 => R_0, :D_inf => D_inf), init_state, times)
-
-    lambdas = [max(ρ * traj.Inc[i + 1], 1e-10) for i in 1:n_obs]
-    obs ~ arraydist(Poisson.(lambdas))
-
-    return traj
+for i in 1:10
+    plot!(p_runs, flu_tdc.time, simulate_seit4l_obs(7.0, 2.5, 0.65),
+          color = :steelblue, alpha = 0.4, label = i == 1 ? "Simulated" : "")
 end
 
-model_poisson = sir_poisson(times, init_test, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
-chain_poisson = sample(model_poisson, NUTS(0.65), 500, progress=false)
+scatter!(p_runs, flu_tdc.time, flu_tdc.obs, color = :red, markersize = 4,
+         label = "Observed")
+```
+
+Ten runs, one parameter set, ten different epidemics.
+This is the problem ABC is here to solve, and it is worth looking at the spread before going on: whatever distance you choose has to tolerate that much variation between runs that are all equally correct.
+
+::: {.callout-note collapse="true"}
+## The likelihood fit we compare against
+At the end we hold the ABC posterior against a likelihood-based one.
+For this model that is the particle MCMC fit from the [previous session](pmcmc.qmd), whose chain is precomputed in `data/`.
+There is no Poisson likelihood to write here, so the comparison is genuinely likelihood-based against likelihood-free, rather than one tractable model fitted two ways.
+
+```{julia}
+pmcmc_chain = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
+first(pmcmc_chain, 3)
 ```
 :::
 
@@ -217,20 +212,17 @@ Now let's define the components:
 
 ```{julia}
 # Prior sampler
+## The same priors the particle MCMC session used, so that any difference
+## between the two posteriors is the inference method rather than the setup
 function sample_from_prior()
-    R_0 = rand(Uniform(1.0, 20.0))
-    D_inf = rand(Uniform(1.0, 10.0))
-    ρ = rand(Uniform(0.1, 1.0))
+    R_0 = rand(truncated(Normal(3.0, 2.0), lower = 1.0))
+    D_inf = rand(truncated(Normal(3.0, 2.0), lower = 0.5))
+    ρ = rand(Beta(2, 2))
     return [R_0, D_inf, ρ]
 end
 
 # Simulator
-function simulate_sir_abc(params)
-    R_0, D_inf, ρ = params
-    θ = Dict(:R_0 => R_0, :D_inf => D_inf)
-    traj = simulate_sir(θ, init_test, times)
-    return ρ .* traj.Inc[2:end]  ## drop the padding zero at t = 0, to match the observations
-end
+simulate_abc(params) = simulate_seit4l_obs(params...)
 
 # Distance functions
 distance_L1(sim, obs) = sum(abs.(sim .- obs))
@@ -278,21 +270,21 @@ ABC rejection sampling is sensitive to the threshold choice:
 - **Too loose** (e.g., 1000): Fast, but approximate posterior is close to the prior
 - **In between** (e.g., 200-400): Runs quickly, but at the loose end of this band the posterior still carries a good deal of the prior
 
-We start with a relaxed threshold (300) here.
+We start with a relaxed threshold (230) here.
 Note what that costs: the run below accepts around a quarter of what it proposes, which by the guidance later in this session is loose enough that the posterior is still carrying a good deal of the prior.
 The exercise that follows asks you to tighten it.
 
-**If you get 0 samples**: Increase the threshold (try 400, then 500). The sampler may be struggling to find parameter combinations that produce simulations close to the data. This can happen due to random variation - ABC is inherently stochastic.
+**If you get 0 samples**: Increase the threshold (try 280, then 330). The sampler may be struggling to find parameter combinations that produce simulations close to the data. This can happen due to random variation - ABC is inherently stochastic.
 :::
 
 ```{julia}
 # Start with a relaxed threshold to get some samples
-threshold = 300.0  # Relaxed for faster acceptance
+threshold = 230.0  # about 7% acceptance from the prior
 
 println("Running ABC rejection sampler...")
 abc_samples, abc_attempts = abc_rejection(
     sample_from_prior,
-    simulate_sir_abc,
+    simulate_abc,
     distance_L1,
     observed_data,
     threshold,
@@ -303,10 +295,10 @@ println("\nObtained $(length(abc_samples)) samples")
 ```
 
 ::: {.callout-tip title="Exercise: Find a workable threshold"}
-The threshold above (300) was chosen for you. Find out what it is doing by
+The threshold above (230) was chosen for you. Find out what it is doing by
 changing it.
 
-1. Re-run the sampler with a stricter threshold, say 200. How many simulations
+1. Re-run the sampler with a stricter threshold, say 190. How many simulations
    does it get through, and how long does it take?
 2. Re-run with a loose one, say 800. How wide is the resulting posterior for
    $R_0$ compared with the run at 300?
@@ -402,7 +394,7 @@ wrong.
 # Take one simulation, disturb a single day of the data it is compared against,
 # and ask how much of each distance that one day is then responsible for
 test_params = [10.0, 2.5, 0.8]
-test_sim = simulate_sir_abc(test_params)
+test_sim = simulate_abc(test_params)
 
 spiked = copy(observed_data)
 spiked[30] += 30  # one day, thirty extra cases
@@ -412,12 +404,12 @@ l1_terms(sim, obs) = abs.(sim .- obs)
 l2_terms(sim, obs) = (sim .- obs) .^ 2
 weighted_terms(sim, obs) = abs.(sim .- obs) ./ (obs .+ 1.0)
 
-# The likelihood fit's posterior mean, taken from the chain rather than copied out
-# of it. It is closer than the simulation above but still a poor fit, at a distance
-# of about 308, which the threshold of 300 would reject
-fitted_params = [mean(chain_poisson[:R_0]), mean(chain_poisson[:D_inf]),
-                 mean(chain_poisson[:ρ])]
-fitted_sim = simulate_sir_abc(fitted_params)
+# The particle MCMC posterior mean, taken from the chain rather than copied out of
+# it. Note the distance is not small even here: at the best parameters the model
+# still lands 100 to 400 away depending on the run, because it is stochastic
+fitted_params = [mean(pmcmc_chain.R_0), mean(pmcmc_chain.D_inf),
+                 mean(pmcmc_chain.ρ)]
+fitted_sim = simulate_abc(fitted_params)
 
 for (label, sim) in (("poorly fitting simulation", test_sim),
                      ("closer simulation", fitted_sim))
@@ -587,12 +579,12 @@ end
 ```{julia}
 # Run ABC-SMC with decreasing thresholds
 println("Running ABC-SMC...")
-thresholds = [400.0, 300.0, 250.0]  # Decreasing threshold sequence
+thresholds = [230.0, 190.0, 165.0]  # Decreasing threshold sequence
 
 abc_smc_samples, abc_smc_weights, abc_smc_sims, abc_smc_ess = abc_smc(
     sample_from_prior,
     in_prior,
-    simulate_sir_abc,
+    simulate_abc,
     distance_L1,
     observed_data,
     thresholds,
@@ -637,11 +629,11 @@ println("  Simulations in total: $(sum(abc_smc_sims))")
 println("\nPosterior summaries:")
 println("="^50)
 
-println("Rejection ABC (threshold=300):")
+println("Rejection ABC (threshold=230):")
 println("  R_0:   mean=$(round(mean(abc_df.R_0), digits=2)), std=$(round(std(abc_df.R_0), digits=2))")
 println("  D_inf: mean=$(round(mean(abc_df.D_inf), digits=2)), std=$(round(std(abc_df.D_inf), digits=2))")
 
-println("\nABC-SMC (final threshold=250):")
+println("\nABC-SMC (final threshold=165):")
 println("  R_0:   mean=$(round(mean(abc_smc_df.R_0), digits=2)), std=$(round(std(abc_smc_df.R_0), digits=2))")
 println("  D_inf: mean=$(round(mean(abc_smc_df.D_inf), digits=2)), std=$(round(std(abc_smc_df.D_inf), digits=2))")
 ```
@@ -669,7 +661,7 @@ Compare the printed counts rather than taking any efficiency claim on trust, inc
 The generations usually get *more* expensive, not less: the first is cheap because a loose threshold accepts almost anything, and each tightening tends to cost more simulations per particle than the last. Now and then a later generation comes out cheaper, so read the direction rather than the individual numbers.
 
 Whether the total beats rejection sampling depends on the schedule, and on a problem this small it does not.
-The two totals printed above are not comparable as they stand, though: the rejection run stops at a threshold of 300 and ABC-SMC goes on to 250, so one has bought a tighter posterior than the other.
+The two totals printed above are not comparable as they stand, though: the rejection run stops at a threshold of 230 and ABC-SMC goes on to 165, so one has bought a tighter posterior than the other.
 Compare them at the same final threshold, and per effective sample rather than per draw.
 Rejection sampling's draws are unweighted, so its effective sample size is the number of draws; run to 250 it needs about 2300 simulations for 200 of them, which is about 11 each.
 ABC-SMC's 100 particles are weighted, so the figure to divide by is the effective sample size printed for its final generation, which is well below 100.
@@ -716,7 +708,7 @@ Comparing the posteriors:
 
 ```{julia}
 # Extract MCMC results
-mcmc_df = DataFrame(chain_poisson)
+mcmc_df = pmcmc_chain
 
 # Plot comparison
 p1 = histogram(mcmc_df.R_0, bins=30, alpha=0.5,
@@ -755,12 +747,7 @@ We can test sensitivity to outliers:
 
 ```{julia}
 # Helper function to simulate and return incidence
-function simulate_and_summarize(params)
-    R_0, D_inf, ρ = params
-    θ = Dict(:R_0 => R_0, :D_inf => D_inf)
-    traj = simulate_sir(θ, init_test, times)
-    return ρ .* traj.Inc[2:end]  ## drop the padding zero at t = 0, to match the observations
-end
+simulate_and_summarize(params) = simulate_seit4l_obs(params...)
 
 # Create one synthetic dataset, then a copy of it with a single day disturbed.
 # Drawing fresh noise for each would make the two datasets differ everywhere, and
