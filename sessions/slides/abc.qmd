@@ -49,7 +49,7 @@ never happens. Compare $s(y_\text{sim})$ with $s(y)$ instead.
 
 . . .
 
-Both are forced on you. Neither is free.
+Shrinking $\epsilon$ can undo the first. Nothing undoes the second.
 
 ## The approximation {.smaller}
 
