@@ -541,7 +541,7 @@ Its curve sits above zero across almost the whole range and leaves the band betw
 Ranks skewed low mean the true value falls below the NPE draws more often than it should, which is the estimator centring `R_0` too high.
 `D_lat` bows gently the other way but stays inside the band, and `ρ` bows the same way and dips below it over the lowest ranks.
 `D_inf` and `D_imm` stay inside throughout, and `α` touches the edge at a single point, which a pointwise band produces by chance.
-So both checks land on `R_0`, and they disagree about the direction, which is worth sitting with.
+So both checks land on `R_0`, but they disagree about the direction.
 Against PMMH on the Tristan da Cunha data the NPE median came out *low*; averaged over datasets drawn from the prior, calibration says the estimator runs *high*.
 Both can hold at once, because they ask different questions: SBC describes the estimator across every dataset the prior can produce, while the comparison describes one fit to one outbreak.
 An estimator biased high on average can still land low on the particular dataset in front of you.
@@ -588,9 +588,8 @@ The posterior predictive check is your main guard.
 The replicates above re-roll the epidemic from day 0, because the flow returns parameters and nothing else.
 No latent path appears anywhere in $q_\phi(\theta \mid y)$, so the estimator holds nothing that could be conditioned on the observations.
 
-Be careful how you read the median in that figure.
-It sits far below the observed second wave, which looks like a model unable to produce one.
-Count the replicates instead and most of them manage it, and what they disagree about is *when*: the peaks land anywhere across the second half of the outbreak.
+The median in that figure sits far below the observed second wave, which makes the model look unable to produce one.
+Count the replicates instead and most of them manage it; they disagree about *when*, with peaks landing anywhere across the second half of the outbreak.
 A median taken separately at each day averages over that disagreement and flattens a wave the individual replicates have.
 
 ```{julia}
@@ -603,7 +602,7 @@ println("their peak day, 90% range: ", quantile(peak_day, 0.05), " to ", quantil
 println("pointwise median on the observed peak day (32): ", median(ppc[:, 32]))
 ```
 
-A particle filter can hand back a path that *was* conditioned on the data, which is what the [PMMH session](pmcmc.qmd) does for its own chain.
+A particle filter can hand back a path that *was* conditioned on the data, and the [PMMH session](pmcmc.qmd) does this for its own chain.
 The same helper works here.
 The parameter draws came from a neural network rather than from MCMC, which the filter neither knows nor needs to.
 
@@ -647,7 +646,7 @@ Here the filter runs once per trajectory you actually want, and only if you want
 
 The filtered envelope tracks the observations because it was told what they were, and it would do the same for a model that generates nothing like this outbreak when left to run.
 Judge the fit on the re-simulated envelope, and read the filtered one as a picture of what the epidemic plausibly did.
-Each of the two hundred paths comes from its own filter run at its own posterior draw, which is what keeps them independent: within one run the surviving particles share ever fewer ancestors as you trace them back, so two hundred paths from a single run would understate the spread badly.
+Each of the two hundred paths comes from its own filter run at its own posterior draw, and that keeps them independent: within one run the surviving particles share ever fewer ancestors as you trace them back, so two hundred paths from a single run would understate the spread badly.
 :::
 
 
@@ -748,7 +747,7 @@ An undertrained flow initialised this way is a cautious one; one initialised dif
 
 The ordering is steadier than the ratios alone suggest.
 Repeat the exercise with other seeds in `build_flow` and `D_inf` and `α` stay the least affected, at around 1.1, while `ρ` stays the worst, at roughly twice the width its fully trained counterpart has.
-`α` is the one worth noticing: it narrows sharply under full training and yet loses least when training is cut short, because whether a second wave happens at all is written directly into the shape of the data, and even a short run captures most of that update.
+`α` narrows sharply under full training and yet loses least when training is cut short, because whether a second wave happens at all is written directly into the shape of the data, and even a short run captures most of that update.
 :::
 
 ## Exercise 2: Informative missingness

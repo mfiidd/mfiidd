@@ -47,8 +47,7 @@ The same number of 256-particle likelihood evaluations: hours.
 
 . . .
 
-That is the trade in one line. We spend simulation, and we buy back the
-likelihood evaluations.
+We spend simulation and buy back the likelihood evaluations.
 
 ## The trade
 
@@ -122,8 +121,8 @@ per cent.
 
 . . .
 
-`R_0` is the exception, and it is the interesting one: its width matches PMMH
-almost exactly, while its centre sits about a posterior standard deviation low.
+`R_0` is the exception: its width matches PMMH almost exactly, while its centre
+sits about a posterior standard deviation low.
 
 . . .
 
