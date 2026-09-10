@@ -194,9 +194,10 @@ your own.
 
 ## Before you go {.smaller}
 
-- A short **feedback survey** is coming by email and linked on the course
-  website. This is the first time we have taught the material in this form, so
-  please fill it in.
+- A short **feedback survey** at
+  [bit.ly/4h086oM](https://bit.ly/4h086oM), also coming by email.
+  This is the first time we have taught the material in this form, so please fill
+  it in.
 - Everything here stays online and is MIT licensed. Reuse it, with attribution.
 - The [Discussion board](https://github.com/mfiidd/mfiidd/discussions) is for
   questions, and for showing what you have fitted.
