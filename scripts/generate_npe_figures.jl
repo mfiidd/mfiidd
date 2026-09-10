@@ -416,7 +416,7 @@ ppc_rng = Xoshiro(4242)
 ppc = reduce(vcat, [simulate_obs(ppc_rng, post[j, :])' for j in 1:500])
 
 Random.seed!(2)
-filtered = map(1:20) do _
+filtered = map(1:200) do _
     r = posterior[rand(1:nrow(posterior)), :]
     θ = Dict(
         :R_0 => r.R_0,
