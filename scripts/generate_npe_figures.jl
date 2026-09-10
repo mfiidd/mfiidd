@@ -483,9 +483,10 @@ end
 
 summary_widths = combine(groupby(widths, [:nobs, :param]), :width => mean => :w)
 
-## D_imm is an order of magnitude wider than the rest, so on a shared axis it
-## is the only curve you can read. Scale each parameter by its own width under
-## the fully observed schedule instead: every curve then starts at 1 on the
+## The widths differ by more than an order of magnitude between parameters, from
+## about 0.2 for α and ρ to six days or more for D_imm, so on a shared axis the
+## narrow curves flatten along the bottom. Scale each parameter by its own width
+## under the fully observed schedule instead: every curve then starts at 1 on the
 ## right and shows what thinning costs it.
 p_thin = plot(
     xlabel = "number of observed days",
