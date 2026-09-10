@@ -150,8 +150,8 @@ scatter!(p_runs, flu_tdc.time, flu_tdc.obs, color = :red, markersize = 4,
 ```
 
 Ten runs, one parameter set, ten different epidemics.
-That spread sets the standard every distance in this session has to meet, because those ten runs are all equally correct.
-It also puts a floor under the threshold: no parameter set, however good, lands close to the data on every run, and the ABC-MCMC section below shows what that does to a sampler.
+That spread sets the standard every distance in this session has to meet, because those ten runs are all equally plausible under those parameters.
+It prevents even a good parameter set from landing close to the data reliably, and the ABC-MCMC section below shows what that does to a sampler.
 
 ::: {.callout-note collapse="true"}
 ## The likelihood fit we compare against
@@ -224,8 +224,9 @@ The components are:
 
 ```{julia}
 # Prior
-## The same priors the particle MCMC session used, so that any difference
-## between the two posteriors is the inference method rather than the setup.
+## The same priors the particle MCMC session used for these three parameters.
+## Particle MCMC estimated three additional parameters that ABC fixes above, so
+## their posterior comparison is not a pure comparison of inference methods.
 ## Defined once here and read by all three samplers below: rejection draws from
 ## them, ABC-MCMC uses the density in its accept step, and ABC-SMC uses it in the
 ## importance weights
@@ -257,7 +258,7 @@ function distance_L2(sim, obs)
 end
 
 function distance_weighted(sim, obs)
-    # Weight by 1/observation (similar to Poisson variance structure)
+    # An observation-scaled absolute distance: closer to relative error
     weights = 1.0 ./ (obs .+ 1.0)
     return sum(weights .* abs.(sim .- obs))
 end
@@ -273,15 +274,15 @@ The three distance functions have different properties:
 
 - **L1 (Manhattan)**: `sum(|sim - obs|)` - Sums absolute deviations. Robust to outliers because large errors contribute linearly. A mismatch of 20 cases counts twice as much as a mismatch of 10.
 
-- **L2 (Euclidean)**: `sqrt(sum((sim - obs)²))` - Root of squared deviations. Penalises large errors more heavily than L1. A mismatch of 20 cases counts *four times* as much as 10 (because 20² = 400 vs 10² = 100).
+- **L2 (Euclidean)**: `sqrt(sum((sim - obs)²))` - Root of squared deviations. The *squared contribution* of a mismatch of 20 is four times that of 10 (400 versus 100). If it is the only mismatch, the final Euclidean distance is twice as large because of the square root.
 
-- **Weighted**: `sum(w × |sim - obs|)` where `w = 1/(obs + 1)` - Weights inversely by observation size. This mimics Poisson variance scaling: a mismatch of 5 when obs=2 is penalised more than when obs=50. Useful when you care about relative fit.
+- **Weighted**: `sum(w × |sim - obs|)` where `w = 1/(obs + 1)` - Weights inversely by observation size, so a mismatch of 5 when obs=2 is penalised more than when obs=50. This is an observation-scaled absolute error, useful when you care about relative fit; it is not a Poisson discrepancy.
 
 **When to use each:**
 
 - L1: Good default. Robust to occasional large mismatches.
 - L2: When large deviations are particularly bad (e.g., outbreak peaks).
-- Weighted: When fit quality should be scale-independent (similar to Poisson likelihood).
+- Weighted: When fit quality should be relative to the observed scale.
 
 This is the same comparison as Poisson against negative binomial, which you met
 yesterday. A negative log-likelihood is a distance, and each observation model
@@ -304,12 +305,12 @@ Run ABC with L1 distance:
 ## Choosing the threshold
 ABC rejection sampling is sensitive to the threshold choice:
 
-- **Too strict** (e.g., 100): below the closest this model can get, so it accepts nothing at all and exhausts the attempt budget
+- **Too strict** (e.g., 100): no acceptance was seen at this level in calibration runs, so it is likely to exhaust the attempt budget
 - **Too loose** (e.g., 1000): Fast, but approximate posterior is close to the prior
 - **In between** (e.g., 200-400): Runs quickly, but at the loose end of this band the posterior still carries a good deal of the prior
 
 We start with a relaxed threshold (230) here.
-The run below accepts around a quarter of what it proposes. By the guidance later in this session that is loose, and the posterior still holds a good deal of the prior.
+The run below accepts around 7% of what it proposes. By the guidance later in this session that is loose, and the posterior still holds a good deal of the prior.
 The exercise that follows asks you to tighten it.
 
 **If you get 0 samples**: Increase the threshold (try 280, then 330). The sampler may be struggling to find parameter combinations that produce simulations close to the data. This can happen due to random variation - ABC is inherently stochastic.
@@ -349,10 +350,12 @@ Tightening the threshold narrows the posterior but the acceptance rate collapses
 so you wait much longer for the same number of samples: about 6% of prior draws
 are accepted at 230, roughly 1% at 190 and 0.2% at 165, so each step takes
 about five times as many simulations as the last.
-There is a floor as well.
+There is a practical floor as well.
 Over twenty thousand prior draws the closest any simulation came to these data was
-a distance of about 130, so a threshold below that accepts nothing however long
-you leave it running. Some of that floor is the model and some of it is the noise:
+a distance of about 130, so acceptance below that was not observed and would be
+computationally inaccessible in this practical. This is empirical, not a hard
+mathematical bound: the count simulator can in principle produce a closer series.
+Some of the practical floor is the model and some of it is the noise:
 even at the particle MCMC parameters, two runs differ from the data by anywhere
 between 155 and 420.
 
@@ -825,7 +828,11 @@ end
 ```
 
 **How to interpret these plots**: look for whether the posteriors overlap, and where they do not.
-Both were fitted to the same data, with the same model and the same priors, so any difference between them comes from the inference method.
+Both use the same data, stochastic epidemic simulator and priors for the three
+parameters shown. They are not identical inferential targets, however: particle
+MCMC estimated three additional parameters that ABC fixes. Differences can
+therefore reflect both the inference approximation and the treatment of those
+nuisance parameters.
 The one on the left had a likelihood, estimated by a particle filter; the one on the right had only a distance and a threshold.
 
 ::: {.callout-tip title="Exercise: Where do the two disagree, and why?"}
