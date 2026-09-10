@@ -103,6 +103,7 @@ D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
 ```
 
 There are seven copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `seit4l_deterministic_model` in `sessions/pmcmc.qmd`, `scripts/pmmh_setup.jl`, `seit4l_deterministic` in `scripts/generate_pmcmc_figures.jl`, which draws the deterministic fit for the day 3 review, and `PRIORS` in both `sessions/neural_posterior_estimation.qmd` and `scripts/generate_npe_figures.jl`, which need a vector of distributions to draw from and to invert rather than `~` statements.
+`PRIORS` in `sessions/abc.qmd` also repeats three of them, those for `R_0`, `D_inf` and `ρ`.
 Change one and change the rest.
 The committed chains in `data/` were generated under these priors, so a change to them means re-running `scripts/generate_pmcmc_seitl.jl` and `scripts/generate_pmcmc_seit4l.jl` and committing the new output.
 The deck figures under `sessions/slides/images/` are committed too, so a change also means re-running `scripts/generate_npe_figures.jl` and `scripts/generate_pmcmc_figures.jl`, every stage of which depends on the priors, directly or through the committed chain.
