@@ -82,12 +82,12 @@ Unbiased $\hat{p}$, so the chain still targets the [right posterior]{.alert}.
 
 ![](images/pmmh_posteriors.svg)
 
-## And the trajectories that go with them
+## Filtered vs. resimulated trajectories
 
 ![](images/pmmh_filtered_vs_resimulated.svg)
 
 ::: {.cite}
-Re-simulated paths never see the data; filtered paths are conditioned on it.
+Filtered paths are conditioned on data, resimulated just drawn from parameters that are.
 :::
 
 ##  {.center}
