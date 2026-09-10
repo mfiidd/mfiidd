@@ -646,7 +646,7 @@ Here the filter runs once per trajectory you actually want, and only if you want
 
 The filtered envelope tracks the observations because it was told what they were, and it would do the same for a model that generates nothing like this outbreak when left to run.
 Judge the fit on the re-simulated envelope, and read the filtered one as a picture of what the epidemic plausibly did.
-Each of the two hundred paths comes from its own filter run at its own posterior draw, and that keeps them independent: within one run the surviving particles share ever fewer ancestors as you trace them back, so two hundred paths from a single run would understate the spread badly.
+Each of the two hundred paths comes from its own filter run at its own posterior draw, and that keeps them independent: within one run the surviving particles share ever fewer distinct ancestors as you trace them back, so two hundred paths from a single run would understate the spread badly.
 :::
 
 
