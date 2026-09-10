@@ -171,8 +171,8 @@ simulate_obs(rng, θ_test)                  ## warm up
 ## Simulation cost in Julia
 
 A single outbreak takes well under a millisecond.
-Compare that with the SEIT4L particle filter behind the [PMMH session](pmcmc.qmd), where *one* likelihood evaluation with 256 particles takes around 20 ms.
-Streaming the 512,000 simulations this training run consumes takes a couple of minutes, against nearly three hours for the same number of 256-particle likelihood evaluations at the 20 ms above.
+Compare that with the SEIT4L particle filter behind the [PMMH session](pmcmc.qmd), where *one* likelihood evaluation runs 256 such outbreaks side by side.
+Streaming the 512,000 simulations this training run consumes takes a couple of minutes, while the committed PMMH chain needed about as many likelihood evaluations, each roughly 256 times the work, and took hours.
 This is the trade NPE makes: pay a large one-off simulation and training cost, then get posteriors for free.
 In a slower language the simulation stage is usually the bottleneck.
 :::

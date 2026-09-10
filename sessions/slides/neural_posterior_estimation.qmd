@@ -43,7 +43,7 @@ Simulating the 512,000 outbreaks a training run consumes: about two minutes.
 
 . . .
 
-The same number of 256-particle likelihood evaluations: nearly three hours.
+The same number of 256-particle likelihood evaluations: hours.
 
 . . .
 
