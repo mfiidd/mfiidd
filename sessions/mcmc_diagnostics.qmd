@@ -1016,7 +1016,7 @@ MCMC only works if you use it correctly. Diagnostics are not optional.
 - Gelman and Rubin (1992). [Inference from iterative simulation using multiple sequences](https://doi.org/10.1214/ss/1177011136). *Statistical Science* 7(4), 457-472. (The original R̂)
 - Geyer (1992). [Practical Markov chain Monte Carlo](https://doi.org/10.1214/ss/1177011137). *Statistical Science* 7(4), 473-483. (The effective sample size estimator and its truncation rule)
 - Gelman et al. (2013). [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/), 3rd ed. Chapman & Hall/CRC. (Chapter 11 covers diagnostics)
-- [MCMCChains.jl documentation](https://turinglang.org/MCMCChains.jl/stable/) - Chain diagnostics in Julia
+- [FlexiChains.jl documentation](https://juliabayes.org/FlexiChains.jl/stable) - the chain type this course uses, and its diagnostics
 - [ArviZ](https://arviz-devs.github.io/arviz/) - Exploratory analysis of Bayesian models (Python, with Julia bindings via ArviZ.jl)
 
 **Next session**: Converged chains don't guarantee a good model. In [Model checking and validation](model_checking.qmd), we'll learn how to check whether your model actually describes the data well.

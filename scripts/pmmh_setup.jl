@@ -13,7 +13,8 @@ using Random
 using Distributions
 using DataFrames
 using Turing
-using MCMCChains
+using FlexiChains
+using FlexiChains: Parameter
 using CSV
 using DrWatson
 using StatsBase
@@ -159,11 +160,12 @@ the session reads back out of the saved CSV.
 """
 function print_diagnostics(chain, name)
     df = chain_frame(chain)
-    mcmc_chain = Chains(Matrix(df[:, PARAMETERS]), PARAMETERS)
+    mcmc_chain = SymChain(nrow(df), 1,
+                          Dict(Parameter(k) => df[!, k] for k in PARAMETERS))
 
     println("\n$name summary statistics:")
     show(stdout, MIME("text/plain"), summarystats(mcmc_chain))
     println("\n\n$name quantiles:")
-    show(stdout, MIME("text/plain"), quantile(mcmc_chain))
+    show(stdout, MIME("text/plain"), quantile(mcmc_chain, [0.025, 0.5, 0.975]))
     println()
 end

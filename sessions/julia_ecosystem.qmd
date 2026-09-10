@@ -399,9 +399,9 @@ Whatever produced your samples, you still have to check and summarise them.
 - [PosteriorDB](https://github.com/sethaxen/PosteriorDB.jl) provides reference
   posteriors, which are useful for checking that an implementation is correct.
 
-Note that a chain from DynamicHMC is a plain matrix rather than an `MCMCChains`
-object, so you either convert it or work with the matrix directly. This is a
-small but real cost of stepping outside Turing.
+Note that a chain from DynamicHMC is a plain matrix, not the `FlexiChains`
+object the rest of the course works with, so you either convert it or work with
+the matrix directly. This is a small but real cost of stepping outside Turing.
 
 # The rest of the stack
 
