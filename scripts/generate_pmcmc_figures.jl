@@ -18,6 +18,7 @@
 include(joinpath(@__DIR__, "pmmh_setup.jl"))
 
 using Plots
+using StatsPlots ## for the posterior density panels
 using Printf
 using LinearAlgebra: Symmetric
 
@@ -33,7 +34,8 @@ const IMAGE_DIR = joinpath(@__DIR__, "..", "sessions", "slides", "images")
 ##     julia --project=. scripts/generate_pmcmc_figures.jl trace
 ##
 ## With no argument every stage runs.
-const STAGES = isempty(ARGS) ? ["noise", "tradeoff", "trace"] : ARGS
+const STAGES =
+    isempty(ARGS) ? ["noise", "tradeoff", "trace", "posteriors", "trajectories"] : ARGS
 
 ## Deck figures are projected, so they need larger type than a notebook plot.
 default(
@@ -352,3 +354,82 @@ if "trace" in STAGES
     )
 end
 println("Written to ", IMAGE_DIR)
+
+# ---------------------------------------------------------------------------
+# Day 3 review: what the fit gives us
+# ---------------------------------------------------------------------------
+
+## Both figures below read the committed SEIT4L chain rather than sampling, so
+## they cost a couple of minutes of filtering rather than an hour of PMMH.
+const INIT_4L = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]   ## S, E, I, T1-T4, L
+
+if "posteriors" in STAGES
+    println("posteriors")
+    chain = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
+    panels = map(PARAMETERS) do p
+        density(
+            chain[!, p],
+            lw = 3,
+            colour = :steelblue,
+            fill = (0, 0.2, :steelblue),
+            legend = false,
+            title = string(p),
+            titlefontsize = 13,
+            yticks = false,
+            ylabel = "",
+        )
+    end
+    save_figure(plot(panels..., layout = (2, 3), size = (1100, 520)), "pmmh_posteriors.svg")
+end
+
+if "trajectories" in STAGES
+    println("trajectories")
+    chain = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
+    n_obs = length(OBS)
+    draw(row) = Dict(p => row[p] for p in PARAMETERS)
+
+    Random.seed!(1)
+    n_rep = 200
+    ## re-simulated: a fresh latent path from the model, with no sight of the data
+    resim = map(1:n_rep) do _
+        θ = draw(chain[rand(1:nrow(chain)), :])
+        state = copy(INIT_4L)
+        [
+            rand(Poisson(max(θ[:ρ] * gillespie_step_seit4l!(state, θ, 1.0), 1e-10))) for
+            _ in 1:n_obs
+        ]
+    end
+    ## filtered: one path per filter run, each conditioned on the observations
+    filt = map(1:n_rep) do _
+        θ = draw(chain[rand(1:nrow(chain)), :])
+        [rand(Poisson(max(θ[:ρ] * x, 1e-10))) for x in filtered_incidence(θ, OBS, 256)]
+    end
+
+    function envelope!(p, sims, label, colour)
+        M = reduce(hcat, sims)
+        lo = [quantile(M[t, :], 0.025) for t in 1:size(M, 1)]
+        hi = [quantile(M[t, :], 0.975) for t in 1:size(M, 1)]
+        med = [median(M[t, :]) for t in 1:size(M, 1)]
+        plot!(
+            p,
+            1:size(M, 1),
+            med,
+            ribbon = (med .- lo, hi .- med),
+            label = label,
+            colour = colour,
+            fillalpha = 0.2,
+            linewidth = 3,
+        )
+    end
+
+    p_traj = plot(
+        xlabel = "day",
+        ylabel = "reported cases",
+        size = (1000, 500),
+        legend = :topright,
+    )
+    envelope!(p_traj, resim, "re-simulated", :darkorange)
+    envelope!(p_traj, filt, "filtered", :seagreen)
+    scatter!(p_traj, 1:n_obs, OBS, colour = :black, ms = 4, label = "observed")
+    save_figure(p_traj, "pmmh_filtered_vs_resimulated.svg")
+end
