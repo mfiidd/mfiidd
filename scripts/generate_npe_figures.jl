@@ -382,8 +382,11 @@ for j in 1:n_sbc
 end
 
 grid = range(0, 1, length = 100)
-lo = [quantile(Binomial(n_sbc, x), 0.025) / n_sbc for x in grid]
-hi = [quantile(Binomial(n_sbc, x), 0.975) / n_sbc for x in grid]
+## a rank takes L_sbc + 1 values, so under calibration P(u <= x) rises in steps
+## of 1 / (L_sbc + 1) rather than along the diagonal
+p0 = [(floor(Int, L_sbc * x) + 1) / (L_sbc + 1) for x in grid]
+lo = [quantile(Binomial(n_sbc, p), 0.025) / n_sbc for p in p0]
+hi = [quantile(Binomial(n_sbc, p), 0.975) / n_sbc for p in p0]
 
 sbc_plots = []
 for (i, p) in enumerate(PNAMES)
@@ -391,8 +394,8 @@ for (i, p) in enumerate(PNAMES)
     ecdf_vals = [mean(u .<= x) for x in grid]
     pl = plot(
         grid,
-        hi .- grid,
-        fillrange = lo .- grid,
+        hi .- p0,
+        fillrange = lo .- p0,
         fillalpha = 0.2,
         colour = :grey,
         lw = 0,
@@ -400,7 +403,7 @@ for (i, p) in enumerate(PNAMES)
         title = string(p),
         titlefontsize = 12,
     )
-    plot!(pl, grid, ecdf_vals .- grid, lw = 3, colour = NPE_COLOUR)
+    plot!(pl, grid, ecdf_vals .- p0, lw = 3, colour = NPE_COLOUR)
     hline!(pl, [0], colour = :black, ls = :dot)
     push!(sbc_plots, pl)
 end

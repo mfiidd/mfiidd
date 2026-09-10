@@ -514,16 +514,19 @@ for j in 1:n_sbc
 end
 
 grid = range(0, 1, length=100)
-lo = [quantile(Binomial(n_sbc, x), 0.025) / n_sbc for x in grid]
-hi = [quantile(Binomial(n_sbc, x), 0.975) / n_sbc for x in grid]
+## a rank takes L_sbc + 1 values, so under calibration P(u <= x) rises in steps
+## of 1 / (L_sbc + 1) rather than along the diagonal
+p0 = [(floor(Int, L_sbc * x) + 1) / (L_sbc + 1) for x in grid]
+lo = [quantile(Binomial(n_sbc, p), 0.025) / n_sbc for p in p0]
+hi = [quantile(Binomial(n_sbc, p), 0.975) / n_sbc for p in p0]
 
 sbc_plots = []
 for (i, p) in enumerate(PNAMES)
     u = ranks[:, i] ./ L_sbc
     ecdf_vals = [mean(u .<= x) for x in grid]
-    pl = plot(grid, hi .- grid, fillrange=lo .- grid, fillalpha=0.2, c=:grey, lw=0,
+    pl = plot(grid, hi .- p0, fillrange=lo .- p0, fillalpha=0.2, c=:grey, lw=0,
               legend=false, title=string(p), titlefontsize=10)
-    plot!(pl, grid, ecdf_vals .- grid, lw=2)
+    plot!(pl, grid, ecdf_vals .- p0, lw=2)
     hline!(pl, [0], c=:black, ls=:dot)
     push!(sbc_plots, pl)
 end
@@ -537,7 +540,8 @@ A curve bowed to one side, staying above or below the line across the whole rang
 Look at `R_0`.
 Its curve sits above zero across almost the whole range and leaves the band between roughly 0.24 and 0.35, with no sign change, so this is bias rather than width.
 Ranks skewed low mean the true value falls below the NPE draws more often than it should, which is the estimator centring `R_0` too high.
-`D_lat` bows gently the other way but stays inside the band, `ρ` slips just outside it at the extremes, and `D_inf`, `α` and `D_imm` sit close to the line.
+`D_lat` bows gently the other way but stays inside the band, and `ρ` bows the same way and dips below it over the lowest ranks.
+`D_inf` and `D_imm` stay inside throughout, and `α` touches the edge at a single point, which a pointwise band produces by chance.
 So both checks land on `R_0`, and they disagree about the direction, which is worth sitting with.
 Against PMMH on the Tristan da Cunha data the NPE median came out *low*; averaged over datasets drawn from the prior, calibration says the estimator runs *high*.
 Both can hold at once, because they ask different questions: SBC describes the estimator across every dataset the prior can produce, while the comparison describes one fit to one outbreak.
