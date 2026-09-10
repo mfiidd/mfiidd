@@ -161,6 +161,16 @@ like a converged chain from an adequate one.
 - Which features of the data would an approximate method discard?
 - What would tell you the fit had failed, and would it be loud or silent?
 
+## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
+
+Now take a model *you* actually want to fit. You have **two minutes**.
+
+Work through the five questions on the previous slide. This should help answer
+these two questions:
+
+- Which inference method would you use?
+- What would you check first if the answer looked wrong?
+
 # Where to go next
 
 ## Further topics {.smaller}
