@@ -127,7 +127,8 @@ almost exactly, while its centre sits about a posterior standard deviation low.
 
 . . .
 
-Wider is the direction the theory predicts, and the safer way to be wrong.
+Wider on this run. A flow trained on a finite budget is often too narrow instead
+[@hermans2022].
 
 . . .
 

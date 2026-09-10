@@ -483,8 +483,8 @@ plot(plts..., layout=(2, 3), size=(950, 520))
 Expect broad agreement in location, and expect the widths to disagree.
 On this run the NPE posterior is wider than PMMH for five of the six parameters, by 8% to 38%, and for `R_0` the two widths match to within a few percent.
 
-Wider is the direction the theory predicts.
-The forward KL that NPE minimises is mass-covering, so an estimator that has not closed the amortisation gap errs towards intervals that are too generous, and a conservative error is the safer one to make.
+That is a property of this run.
+The mass-covering argument in the comparison with variational inference holds only at the optimum, and a flow trained on a finite budget can just as easily come out too narrow; benchmarks find that it often does [@hermans2022].
 
 Widths are only half of it.
 `R_0` is the parameter whose width matches PMMH best and whose *centre* agrees with it worst: the NPE median is 5.16 against PMMH's 6.28, about one PMMH posterior standard deviation low, and the two modes are visibly apart in that panel.
@@ -740,8 +740,8 @@ comparison
 ```
 
 Every interval is wider, here by 13% to 101%.
-That direction is the robust result: with less training the estimator has learned less of the prior-to-posterior update, so it falls back towards the prior, and the amortisation gap closes from above rather than from below.
-An undertrained NPE posterior is a cautious one.
+That direction follows from how this flow is built: it starts out equal to the prior, so with less training it has learned less of the prior-to-posterior update and falls back towards the prior, and the amortisation gap closes from above.
+An undertrained flow initialised this way is a cautious one; one initialised differently need not be.
 
 The ordering is steadier than the ratios alone suggest.
 Repeat the exercise with other seeds in `build_flow` and `D_inf` and `α` stay the least affected, at around 1.1, while `ρ` stays the worst, at roughly twice the width its fully trained counterpart has.
