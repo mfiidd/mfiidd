@@ -109,7 +109,7 @@ Both VI and NPE replace sampling with optimisation, so it is worth being precise
 | What is optimised | $q(\theta)$ for **one** dataset | $q_\phi(\theta \mid y)$ over **all** datasets |
 | Divergence | reverse KL, $\mathrm{KL}(q \,\|\, p)$ | forward KL, in expectation over $y$ |
 | Behaviour at the optimum | mode-seeking, **too narrow** | mass-covering, **too wide** |
-| Typical failure in practice | too narrow | **too narrow**, though an undertrained flow errs wide instead |
+| Typical failure in practice | too narrow | **too narrow**; a flow that starts at the prior, like this one, errs wide if undertrained |
 | Needs | the likelihood | only the simulator |
 | New dataset | re-optimise from scratch | free |
 
