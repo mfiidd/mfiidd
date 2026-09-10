@@ -21,6 +21,7 @@ using Plots
 using StatsPlots ## for the posterior density panels
 using Printf
 using LinearAlgebra: Symmetric
+using DifferentialEquations: ODEProblem, SciMLBase, Tsit5, solve ## deterministic fit
 
 ENV["GKSwstype"] = "100"  ## no display during rendering
 Random.seed!(20260908)
@@ -359,27 +360,76 @@ println("Written to ", IMAGE_DIR)
 # Day 3 review: what the fit gives us
 # ---------------------------------------------------------------------------
 
-## Both figures below read the committed SEIT4L chain rather than sampling, so
-## they cost a couple of minutes of filtering rather than an hour of PMMH.
+## Both figures below read the committed SEIT4L chain for the stochastic fit, so
+## they cost minutes rather than an hour of PMMH.
 const INIT_4L = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]   ## S, E, I, T1-T4, L
+
+"""
+    seit4l_deterministic(obs)
+
+The deterministic SEIT4L fit from `sessions/pmcmc.qmd`: the same priors and
+Poisson reporting as the PMMH model, with the ODE in place of the particle
+filter. `diff` of the cumulative incidence gives one value per observed day, so
+`inc[i]` is the day observation `i` counts.
+"""
+@model function seit4l_deterministic(obs)
+    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
+    α ~ Beta(2, 2)
+    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
+    ρ ~ Beta(2, 2)
+
+    params = [R_0, D_lat, D_inf, α, D_imm]
+    ## promote the initial state so ForwardDiff Duals propagate through the solve
+    u0 = eltype(params).([INIT_4L; 0.0])
+    times = 0.0:1.0:length(obs)
+    prob = ODEProblem(seit4l_ode!, u0, (times[1], times[end]), params)
+    sol = solve(prob, Tsit5(), saveat = times)
+
+    if !SciMLBase.successful_retcode(sol) || length(sol.t) != length(times)
+        Turing.@addlogprob! -Inf
+        return
+    end
+
+    inc = diff(sol[9, :])
+    obs ~ arraydist(Poisson.(max.(ρ .* inc, 1e-10)))
+end
 
 if "posteriors" in STAGES
     println("posteriors")
-    chain = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
-    panels = map(PARAMETERS) do p
-        density(
-            chain[!, p],
+    stochastic = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
+    deterministic =
+        chain_frame(sample(seit4l_deterministic(OBS), NUTS(), 2000; progress = false))
+
+    ## same colours as the comparison in the session
+    panels = map(enumerate(PARAMETERS)) do (i, p)
+        pl = density(
+            deterministic[!, p],
             lw = 3,
             colour = :steelblue,
-            fill = (0, 0.2, :steelblue),
-            legend = false,
+            label = "deterministic",
+            legend = i == 1 ? :topright : false,
             title = string(p),
             titlefontsize = 13,
             yticks = false,
             ylabel = "",
         )
+        density!(pl, stochastic[!, p], lw = 3, colour = :darkorange, label = "stochastic")
     end
-    save_figure(plot(panels..., layout = (2, 3), size = (1100, 520)), "pmmh_posteriors.svg")
+    save_figure(
+        plot(panels..., layout = (2, 3), size = (1100, 520)),
+        "pmmh_deterministic_vs_stochastic.svg",
+    )
+
+    for p in PARAMETERS
+        @printf(
+            "  %-6s SD deterministic %.3f, stochastic %.3f\n",
+            p,
+            std(deterministic[!, p]),
+            std(stochastic[!, p])
+        )
+    end
 end
 
 if "trajectories" in STAGES

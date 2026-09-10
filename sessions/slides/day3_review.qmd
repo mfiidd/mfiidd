@@ -23,50 +23,29 @@ Use MCMC to get **samples** from it: $\theta_1, \theta_2, \theta_3, \ldots$
 
   $$p(\text{data} \mid \theta) = \int_{X} p(\text{data} \mid X, \theta)\, p(X \mid \theta)$$
 
-## The particle filter {.smaller}
+## The particle filter
 
-Replaces the integral by a sum over Monte Carlo samples of trajectories.
-
-:::: {.r-stack}
-::: {.fragment .current-visible fragment-index=1}
-**propagate**
-$$p(X_1 \mid \theta)$$
+::: {.r-stack}
+![](images/particle_filter_03.svg){.pfwide .fragment .fade-out fragment-index=1}
+![](images/particle_filter_04.svg){.pfwide .fragment .current-visible fragment-index=1}
+![](images/particle_filter_05.svg){.pfwide .fragment .current-visible fragment-index=2}
+![](images/particle_filter_06.svg){.pfwide .fragment .current-visible fragment-index=3}
+![](images/particle_filter_19.svg){.pfwide .fragment fragment-index=4}
 :::
 
-::: {.fragment .current-visible fragment-index=2}
-**resample**
-$$p(\text{data}_1 \mid X_1, \theta)\, p(X_1 \mid \theta)$$
+::: {.cite}
+Red diamonds are the data, yellow circles the particles, sized by weight.
 :::
 
-::: {.fragment .current-visible fragment-index=3}
-**propagate**
-$$p(X_2 \mid X_1, \theta)\, p(\text{data}_1 \mid X_1, \theta)\, p(X_1 \mid \theta)$$
-:::
+## The estimator
 
-::: {.fragment .current-visible fragment-index=4}
-**resample**
-$$p(\text{data}_2 \mid X_2, \theta)\, p(X_2 \mid X_1, \theta)\, p(\text{data}_1 \mid X_1, \theta)\, p(X_1 \mid \theta)$$
-:::
+Average the weights each day, before resampling:
 
-::: {.fragment .current-visible fragment-index=5}
-$$\ldots$$
-:::
+$$\hat{p}(y \mid \theta) = \prod_{t=1}^{T} \frac{1}{J}\sum_{j=1}^{J} w_{t,j}$$
 
-::: {.fragment .current-visible fragment-index=6}
-**evaluate**
-$$p(\text{data}_N \mid X_N, \theta)\, p(X_N \mid X_{1:N-1}, \theta) \ldots p(\text{data}_1 \mid X_1, \theta)\, p(X_1 \mid \theta)$$
-:::
+. . .
 
-::: {.fragment .current-visible fragment-index=7}
-**average**
-$$\sum p(\text{data}_N \mid X_N, \theta) \ldots p(\text{data}_1 \mid X_1, \theta)\, p(X \mid \theta)$$
-:::
-
-::: {.fragment fragment-index=8}
-**Result:**
-$$\sum p(\text{data} \mid X)\, p(X \mid \theta)$$
-:::
-::::
+A Monte Carlo estimate of the integral, built one day at a time.
 
 # Particle MCMC
 
@@ -78,9 +57,13 @@ $$r = \min\left(1, \frac{\hat{p}(y \mid \theta^*)\, p(\theta^*)}{\hat{p}(y \mid 
 
 Unbiased $\hat{p}$, so the chain still targets the [right posterior]{.alert}.
 
-## Posteriors for a stochastic model
+## Deterministic vs. stochastic
 
-![](images/pmmh_posteriors.svg)
+![](images/pmmh_deterministic_vs_stochastic.svg)
+
+::: {.cite}
+Same SEIT4L model, priors and data.
+:::
 
 ## Filtered vs. resimulated trajectories
 
