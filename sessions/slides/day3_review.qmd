@@ -68,6 +68,28 @@ $$\sum p(\text{data} \mid X)\, p(X \mid \theta)$$
 :::
 ::::
 
+# Particle MCMC
+
+## The estimate goes inside Metropolis-Hastings
+
+$$r = \min\left(1, \frac{\hat{p}(y \mid \theta^*)\, p(\theta^*)}{\hat{p}(y \mid \theta)\, p(\theta)}\right)$$
+
+. . .
+
+Unbiased $\hat{p}$, so the chain still targets the [right posterior]{.alert}.
+
+## Posteriors for a stochastic model
+
+![](images/pmmh_posteriors.svg)
+
+## Filtered vs. resimulated trajectories
+
+![](images/pmmh_filtered_vs_resimulated.svg)
+
+::: {.cite}
+Filtered paths are conditioned on data, resimulated just drawn from parameters that are.
+:::
+
 ##  {.center}
 
 ![](images/Stochastic_methods.png)
