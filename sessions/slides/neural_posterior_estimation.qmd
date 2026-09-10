@@ -193,7 +193,7 @@ In the practical you will
 - simulate a training set from the stochastic SEIT4L model
 - build a conditional coupling flow and train it in about forty lines
 - draw ten thousand posterior samples in milliseconds and check them against PMMH
-- see calibration and the width comparison land on the same parameter, and disagree about it
+- see calibration and the comparison with PMMH land on the same parameter, and disagree about which way it is off
 - compare surveillance schedules the network was never trained on
 
 #
