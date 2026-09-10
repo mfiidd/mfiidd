@@ -149,8 +149,8 @@ Calibrated means uniform.
 
 . . .
 
-A check MCMC never needed, because MCMC had convergence diagnostics instead.
-A flow has none.
+Convergence says a sampler settled; calibration says it settled on the right
+posterior [@talts2018]. A flow only has the second.
 
 # The catch
 
