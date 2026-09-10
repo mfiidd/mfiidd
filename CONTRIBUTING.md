@@ -102,10 +102,10 @@ D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
 ρ ~ Beta(2, 2)
 ```
 
-There are six copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `seit4l_deterministic_model` in `sessions/pmcmc.qmd`, `scripts/pmmh_setup.jl`, and `PRIORS` in both `sessions/neural_posterior_estimation.qmd` and `scripts/generate_npe_figures.jl`, which need a vector of distributions to draw from and to invert rather than `~` statements.
+There are seven copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `seit4l_deterministic_model` in `sessions/pmcmc.qmd`, `scripts/pmmh_setup.jl`, `seit4l_deterministic` in `scripts/generate_pmcmc_figures.jl`, which draws the deterministic fit for the day 3 review, and `PRIORS` in both `sessions/neural_posterior_estimation.qmd` and `scripts/generate_npe_figures.jl`, which need a vector of distributions to draw from and to invert rather than `~` statements.
 Change one and change the rest.
 The committed chains in `data/` were generated under these priors, so a change to them means re-running `scripts/generate_pmcmc_seitl.jl` and `scripts/generate_pmcmc_seit4l.jl` and committing the new output.
-The deck figures under `sessions/slides/images/` are committed too, so a change also means re-running `scripts/generate_npe_figures.jl`.
+The deck figures under `sessions/slides/images/` are committed too, so a change also means re-running `scripts/generate_npe_figures.jl` and the `posteriors` stage of `scripts/generate_pmcmc_figures.jl`.
 
 The duplication is deliberate.
 These are two sessions whose subject is what the priors say and why, so a reader who has to open a package file to find out what the model assumes has lost the thread.

@@ -1,5 +1,5 @@
 ---
-title: "Model Checking and Validation"
+title: "Model checking and validation"
 format: html
 engine: julia
 order: 4
@@ -746,7 +746,7 @@ The next session marks a shift in the course. So far, we've focused on **inferen
 
 - How to define models and compute posteriors (Introduction)
 - How to sample from posteriors efficiently (MCMC)
-- How to verify convergence (MCMC Diagnostics)
+- How to verify convergence (MCMC diagnostics)
 - How to check if your model makes sense (this session)
 
 Now we'll apply these methods to a **real scientific problem**: explaining the unusual two-wave influenza outbreak on Tristan da Cunha in 1971. This requires a more complex model (SEITL) and, because the population was small, stochastic simulation.

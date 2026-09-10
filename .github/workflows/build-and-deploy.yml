@@ -44,6 +44,13 @@ jobs:
         with:
           version: '1.12.6'
 
+      # Caches ~/.julia: artifacts, packages, and the compiled/ directory. Without
+      # it every run precompiles the whole stack (Turing, DifferentialEquations,
+      # Enzyme, Plots) from scratch, which takes longer than the render it is
+      # setting up for. Keyed on the manifests, so a CompatHelper bump misses and
+      # recompiles, which is what you want.
+      - uses: julia-actions/cache@v2
+
       - name: Install Julia dependencies
         run: |
           julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.resolve()'

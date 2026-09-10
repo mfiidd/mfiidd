@@ -27,7 +27,7 @@ No prior Julia experience is required; the course introduces Julia syntax as you
 
 # Course map
 
-The course has 15 sessions organised into three tiers, and closes with a session that puts the methods side by side.
+The course has 15 sessions organised into four tiers, and closes with a session that puts the methods side by side.
 Work through them in order, or use this map to plan your time.
 
 **Core sessions** (10-12 hours) - complete in order:
@@ -36,16 +36,19 @@ Work through them in order, or use this map to plan your time.
 
 **Stochastic sessions** (5-6 hours) - for fitting models with demographic stochasticity:
 
-> SEITL Interlude (Susceptible–Exposed–Infectious–Temporary immunity–Long-term immunity) → Particle Filters → Particle MCMC
+> SEITL Interlude (Susceptible–Exposed–Infectious–Temporary immunity–Long-term immunity) → Particle filters → Particle MCMC
 
-**Advanced sessions** (2-3 hours each) - independent, pick based on interest:
+**Likelihood-free sessions** (2-3 hours each) - taught on days 3 and 4:
 
 > - **Observation Models** — requires MCMC (can skip stochastic track)
-> - **Approximate Bayesian Computation** — requires Observation Models
+> - **Approximate Bayesian computation** — requires Observation Models
+
+**Further topics** (2-3 hours each) - not taught in the room, pick based on interest:
+
 > - **Variational Inference** — requires MCMC only (can skip stochastic track)
+> - **Neural Posterior Estimation** — requires Particle MCMC and Variational Inference
 > - **Universal Differential Equations** — requires Introduction only (independent track)
 > - **Beyond Turing: the wider Julia ecosystem** — requires MCMC only (independent track)
-> - **Neural Posterior Estimation** — requires Particle MCMC and Variational Inference
 
 **Closing session** (20 minutes):
 
@@ -58,7 +61,7 @@ Work through them in order, or use this map to plan your time.
 | Half day (4 hrs) | Getting Started → Introduction → MCMC (read-only, skip exercises) |
 | Full day (8 hrs) | Core sessions (Getting Started through Model Checking) |
 | Two days (16 hrs) | Core + Stochastic models |
-| Full course | All sessions, including advanced topics of interest |
+| Full course | All sessions, including the further topics of interest |
 
 # Session structure
 
