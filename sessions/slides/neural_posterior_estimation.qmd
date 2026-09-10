@@ -149,8 +149,8 @@ Calibrated means uniform.
 
 . . .
 
-Convergence says a sampler settled; calibration says it settled on the right
-posterior [@talts2018]. A flow only has the second.
+Convergence says a sampler settled; calibration tests where it settled, though
+even the prior passes it [@talts2018]. A flow only has the second.
 
 # The catch
 
