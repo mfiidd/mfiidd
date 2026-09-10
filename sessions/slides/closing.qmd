@@ -175,6 +175,11 @@ warnings to establish that the algorithm explored its target.
 to ask whether the fitted model reproduces the features that matter to your
 question. If it does not, revise the model and go round again.
 
+[A workflow for infectious disease
+modelling](https://samabbott.co.uk/a-workflow-for-infectious-disease-modelling/paper.pdf)
+(Abbott et al., 2026) sets out the full version, including how to combine data
+sources.
+
 # Where to go next
 
 ## Further topics {.smaller}
