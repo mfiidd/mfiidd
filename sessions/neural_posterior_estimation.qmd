@@ -30,9 +30,8 @@ The approach is **neural posterior estimation** (NPE), part of the wider family 
 ::: {.callout-note collapse="true"}
 ## Coming from R?
 
-There is no mature R equivalent.
-The established tools are Python's [`sbi`](https://sbi-dev.github.io/sbi/) and [BayesFlow](https://bayesflow.org/) [@radev2020], which package the whole simulation-based workflow rather than the flow alone.
-Julia has no equivalent to those, though it does have flows: [NormalizingFlows.jl](https://github.com/TuringLang/NormalizingFlows.jl) fits one to a fixed target density, which is variational inference rather than the conditional estimator we need, and [InvertibleNetworks.jl](https://github.com/slimgroup/InvertibleNetworks.jl) does offer conditional coupling layers.
+In R, the [`NeuralEstimators`](https://cran.r-project.org/package=NeuralEstimators) package on CRAN does neural posterior estimation by calling out to Julia, so the tool underneath is a Julia one.
+The established tools are Python's [`sbi`](https://sbi-dev.github.io/sbi/) and [BayesFlow](https://bayesflow.org/) [@radev2020], which package the whole simulation-based workflow rather than the flow alone, and in Julia [NeuralEstimators.jl](https://github.com/msainsburydale/NeuralEstimators.jl) does the same, training on simulations generated as it goes.
 We build the flow ourselves with [Lux.jl](https://lux.csail.mit.edu/) in about forty lines instead.
 For a course that is a feature: every part of the method stays visible in the session's own code.
 The ideas transfer directly — everything below is ordinary Bayesian inference for the same mechanistic model you have been fitting all week.
