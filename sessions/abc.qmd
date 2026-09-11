@@ -234,8 +234,8 @@ The components are:
 ```{julia}
 # Prior
 ## The same priors the particle MCMC session used for these three parameters.
-## Particle MCMC estimated three additional parameters that ABC fixes above, so
-## their posterior comparison is not a pure comparison of inference methods.
+## The six-parameter chain also estimates D_lat, α and D_imm; the three-parameter
+## chain fixes them at the values above, so it is the like-for-like comparison.
 ## Defined once here and read by all three samplers below: rejection draws from
 ## them, ABC-MCMC uses the density in its accept step, and ABC-SMC uses it in the
 ## importance weights
