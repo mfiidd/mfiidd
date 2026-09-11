@@ -1,6 +1,6 @@
 ---
-footer: "Modelling interlude"
-title: "Modelling interlude"
+footer: "Structure and stochasticity"
+title: "Structure and stochasticity"
 subtitle: "Stochastic models and the state-space view"
 ---
 

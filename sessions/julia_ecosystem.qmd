@@ -414,7 +414,7 @@ have already been using without necessarily noticing:
   differentiating through a solver, which is what makes gradient-based fitting of
   ODE models possible
 - [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/) for stochastic
-  simulation of the kind we hand-coded in the [SEITL session](seitl.qmd)
+  simulation of the kind we hand-coded in the [Structure and stochasticity](seitl.qmd) session
 
 # When to reach outside Turing
 

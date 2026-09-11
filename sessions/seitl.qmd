@@ -1,5 +1,5 @@
 ---
-title: "Tristan da Cunha and the SEITL model"
+title: "Structure and stochasticity"
 subtitle: "Modelling interlude"
 format: html
 engine: julia
@@ -14,23 +14,29 @@ order: 5
 
 # Introduction
 
-> **Entering the stochastic tier**: You've completed the core sessions with deterministic ODE models. This session introduces stochastic simulation and a new dataset (Tristan da Cunha) that we'll use for the rest of the course. Fitting resumes in the particle filters session.
+> **Entering the stochastic tier**: You've completed the core sessions with deterministic ODE models, and diagnosed an SIR model that could not reproduce the Tristan da Cunha outbreak. This session builds a model that can, and introduces stochastic simulation. Fitting resumes in the particle filters session.
 
-This session focuses on modelling rather than fitting (fitting returns in the [Particle filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions). The aim is to familiarise you with a real dataset - the Tristan da Cunha outbreak - and a new model called SEITL. This dataset and model serve as the running example for all remaining sessions.
+We have a model, we ran posterior predictive checks on it, and it went wrong.
+So we change something. This session is about the two changes that we'll make to our SIR model.
+
+**We add a mechanism.**
+The SIR model cannot infect anybody twice, and the outbreak infected 92 islanders twice.
+No value of $R_0$, $D_\mathrm{inf}$ or $\rho$ repairs that, because it is the structure that forbids it.
+The SEITL model adds a temporary immune stage that drains back into susceptible, so a second wave can run through people the first wave already had.
 The name follows its compartments: susceptible, exposed, infectious, temporarily immune and long-term immune.
 SEIT4L is the same model with the temporary immunity stage split into four, which is where its 4 comes from.
 
-As you will read below, the SEITL model has been proposed as a mechanistic explanation for a two-wave influenza A/H3N2 epidemic that occurred on the remote island of Tristan da Cunha in 1971.
-Given the small population size of this island (284 inhabitants), random effects at the individual level may have had important consequences at the population level.
-For instance, even if the distribution of the infectious period is the same for all islanders, some islanders will stay infectious longer than others just by chance and might therefore produce more secondary cases.
-This phenomenon is called *demographic stochasticity* and it could have played a significant role in the dynamics of the epidemic on Tristan da Cunha.
+**We add stochasticity.**
+The ODE model treats 284 people as a smooth quantity, and they are not.
+Even if the distribution of the infectious period is the same for all islanders, some will stay infectious longer than others by chance and produce more secondary cases.
+This is *demographic stochasticity*, and in a population this small it drives the dynamics rather than jittering them.
+Whether the epidemic takes off at all, and how large the second wave is, are partly matters of luck.
 
-Unsurprisingly, to account for demographic stochasticity we need a stochastic model.
-However, as you will see in this session and the following, simulating and fitting a stochastic model is much more computationally costly than doing so for a deterministic model.
-This is why it is important to understand when and why you need to use stochastic or deterministic models.
-In fact, we hope that by the end of the day you'll be convinced that both approaches are complementary.
+The two changes are independent, and this session makes each of them in turn.
+Stochastic simulation costs much more to run and, as the next sessions show, far more to fit, so it is worth understanding when you need it.
 
-Finally, because this session is devoted to modelling rather than fitting, we thought it was useful to show you how you can make your model biologically more realistic by using distributions for the time spent in each compartment that are more realistic than the exponential distribution.
+This session focuses on modelling rather than fitting, which returns in the [Particle filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions.
+It also takes the opportunity to make the model biologically more realistic, by using distributions for the time spent in each compartment that beat the exponential.
 
 # Objectives
 
@@ -55,7 +61,7 @@ We set `Random.seed!(1234)` for reproducibility within a session, but the key in
 
 ::: {.callout-note}
 ## Course roadmap
-This session marks a transition in the course. We move from general inference methods (MCMC, diagnostics, model checking) to applying them to a specific scientific question: explaining the two-wave Tristan da Cunha outbreak.
+This session marks a transition in the course. We move from general inference methods (MCMC, diagnostics, model checking) to the modelling the last session's failed checks call for, and to the stochastic simulation a population of 284 requires.
 
 The remaining sessions build on the SEITL/SEIT4L models introduced here:
 
@@ -103,41 +109,22 @@ We set a random seed for reproducibility.
 Random.seed!(1234)
 ```
 
-But first of all, let's have a look at the data.
-
-# Tristan da Cunha outbreak
-
-![](../figures/TdC.png)
-
-[Tristan da Cunha](http://en.wikipedia.org/wiki/Tristan_da_Cunha) is a volcanic island in the South Atlantic Ocean.
-It has been inhabited since the $19^{th}$ century and in 1971, the 284 islanders were living in the single village of the island: Edinburgh of the Seven Seas.
-Whereas the internal contacts were typical of close-knit village communities, contacts with the outside world were infrequent and mostly due to fishing vessels that occasionally took passengers to or from the island.
-These ships were often the cause of introduction of new diseases into the population.
-As for influenza, no outbreak had been reported since an epidemic of A/H1N1 in 1954.
-In this context of a small population with limited immunity against influenza, an unusual epidemic occurred in 1971, 3 years after the global emergence of the new subtype A/H3N2.
-
-On August 13, a ship returning from Cape Town landed five islanders on Tristan da Cunha.
-Three of them had developed acute respiratory disease during the 8-day voyage and the other two presented similar symptoms immediately after landing.
-Various family gatherings welcomed their disembarkation and in the ensuing days an epidemic started to spread rapidly throughout the whole island population.
-After three weeks of propagation, while the epidemic was declining, some islanders developed second episodes of illness and a second peak of cases was recorded.
-The epidemic faded out after this second wave and lasted a total of 59 days.
-Despite the lack of virological data, serological evidence indicates that all episodes of illness were due to influenza A/H3N2.
-
-Among the 284 islanders, 273 (96%) experienced at least one episode of illness and 92 (32%) experienced two, which is remarkable for influenza.
-Unfortunately, only 312 of the 365 attacks (85%) are known to within a single day of accuracy and constitute the dataset reported by [Mantle & Tyrrell in 1973](http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2130434/).
-
-The dataset of daily incidence can be loaded and plotted as follows:
+## Load data
 
 ```{julia}
-# Load Tristan da Cunha data
-# Alternatively, you can load directly from GitHub:
-# flu_tdc_url = "https://raw.githubusercontent.com/mfiidd/mfiidd/main/data/flu_tdc_1971.csv"
-# flu_tdc = CSV.read(download(flu_tdc_url), DataFrame)
 flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
-
-# Display first few rows
-first(flu_tdc, 6)
 ```
+
+# The outbreak, in brief
+
+You met the Tristan da Cunha outbreak in the [model checking session](model_checking.qmd) and fitted an SIR model to it: 284 islanders, 312 recorded attacks over 59 days, and a second peak on day 32 that a single wave of infection cannot produce.
+The checks said the structure was wrong.
+This session builds one that can produce a second wave, and simulates it stochastically because 284 people are few enough for chance to matter.
+
+Three details from that account matter below.
+The ship that started it landed five islanders on 13 August: three had fallen ill during the eight-day voyage and two fell ill on landing.
+Only 312 of the 365 attacks (85%) were dated precisely enough to be in the dataset.
+And the virus was influenza A/H3N2, which had emerged only three years earlier, while the island's last influenza outbreak had been A/H1N1 in 1954.
 
 ```{julia}
 # Plot daily observed incidence
@@ -194,7 +181,7 @@ $$
 
 ## Parameter values and initial state
 
-Based on the description of the outbreak above and the information below found in the literature, can you think of one or more set(s) of values for the parameters and initial state of the model?
+Based on the outbreak as recalled above (the full account is in the [model checking session](model_checking.qmd#tristan-da-cunha-outbreak)) and the information below found in the literature, can you think of one or more set(s) of values for the parameters and initial state of the model?
 
 1. The $R_0$ of influenza is commonly estimated to be around 2. However, it can be significantly larger in close-knit communities with exceptional contact configurations.
 2. Both the average latent and infectious periods for influenza have been estimated around 2 days each.
@@ -223,13 +210,14 @@ These are just starting points. The inference will refine them.
 # Deterministic vs stochastic simulations
 
 ::: {.callout-note}
-## Two independent modelling choices
-This session explores two separate decisions that can be combined independently:
+## Two choices in how the model runs
+The two changes above each come with a choice about how the model is written and run:
 
-1. **Simulation method**: deterministic (ODEs) vs stochastic (Gillespie) — controls whether we model individual-level randomness
-2. **Compartment durations**: exponential (SEITL) vs Erlang (SEIT4L) — controls how realistic the waiting times are
+1. **Simulation method**: deterministic (ODEs) vs stochastic (Gillespie) — the stochasticity change, which controls whether we model individual-level randomness
+2. **Compartment durations**: exponential (SEITL) vs Erlang (SEIT4L) — a refinement of the mechanism, which controls how realistic the waiting times are
 
-These are orthogonal: you can have a deterministic SEIT4L or a stochastic SEITL. We cover all four combinations below, but the key point is that each choice addresses a different biological question.
+These are orthogonal: a deterministic SEIT4L and a stochastic SEITL are both valid models.
+This session simulates three of the four combinations, leaving a stochastic SEIT4L to Going further, and each choice addresses a different biological question.
 :::
 
 Now, try to assess whether the SEITL model can reproduce the two-wave outbreak of Tristan da Cunha with your guess values for the initial state and the parameters.
@@ -292,7 +280,7 @@ end
 ```
 
 The simulator arrives as a keyword argument.
-The priors, the parameter dictionary and the Poisson observation process do not depend on how the trajectory is produced, so the two modelling choices set out above are orthogonal in the code as well as in the prose.
+The priors, the parameter dictionary and the Poisson observation process do not depend on how the trajectory is produced, so the simulation method and the compartment durations are orthogonal in the code as well as in the prose.
 
 Now let's try some parameter values based on the literature:
 

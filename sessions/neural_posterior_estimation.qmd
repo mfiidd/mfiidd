@@ -53,7 +53,7 @@ In this session you will:
 
 Everything here targets the same posterior as PMMH: the same SEITL model, the same priors, the same Poisson observation process.
 The neural network replaces the *sampler*, not the model.
-`R_0` still means what it meant in the [SEITL session](seitl.qmd) because it is still a parameter of a transmission model.
+`R_0` still means what it meant in the [Structure and stochasticity](seitl.qmd) session because it is still a parameter of a transmission model.
 :::
 
 # Setup

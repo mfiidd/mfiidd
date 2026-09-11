@@ -124,7 +124,7 @@ Three parameters are estimated, $R_0$, $D_\mathrm{inf}$ and $\rho$, and the rest
 Every free parameter has to land inside the acceptance window at the same time, so the acceptance rate falls away sharply as the number of free parameters grows.
 
 ```{julia}
-## Fixed at the values used in the SEITL session
+## Fixed at the values used in the structure and stochasticity session
 const D_LAT = 2.0
 const ALPHA = 0.5
 const D_IMM = 13.0

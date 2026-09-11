@@ -84,17 +84,18 @@ Tuesday 8 September: 12.00-12.30 and 13.30-14.30
 
 -   [Introduction](../sessions/slides/model_checking.qmd): the Bayesian workflow, prior and posterior predictive checks (25 mins)
 -   [Practice](../sessions/model_checking.qmd):
-    - prior predictive checks, and what vague priors actually imply (30 mins)
+    - meeting the Tristan da Cunha outbreak, and what the attack totals already say (10 mins)
+    - prior predictive checks, and what vague priors actually imply (20 mins)
     - posterior predictive distributions, predictive p-values and residuals (25 mins)
 -   Wrap up (10 mins)
 
-## Session 5: Modelling interlude — Tristan da Cunha and the SEITL model
+## Session 5: Modelling interlude — structure and stochasticity
 
 Tuesday 8 September: 14.30-15.15 and 15.45-17.00
 
 -   [Introduction](../sessions/slides/seitl.qmd): the state-space view, and why stochastic models need different machinery (20 mins)
 -   [Practice](../sessions/seitl.qmd):
-    - meeting the Tristan da Cunha outbreak and building the SEITL model (45 mins)
+    - building the SEITL model the failed checks call for (45 mins)
     - simulating it deterministically and stochastically, and comparing (45 mins)
 -   Wrap up (10 mins)
 
