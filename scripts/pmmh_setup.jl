@@ -160,8 +160,7 @@ the session reads back out of the saved CSV.
 """
 function print_diagnostics(chain, name)
     df = chain_frame(chain)
-    mcmc_chain = SymChain(nrow(df), 1,
-                          Dict(Parameter(k) => df[!, k] for k in PARAMETERS))
+    mcmc_chain = SymChain(nrow(df), 1, Dict(Parameter(k) => df[!, k] for k in PARAMETERS))
 
     println("\n$name summary statistics:")
     show(stdout, MIME("text/plain"), summarystats(mcmc_chain))
