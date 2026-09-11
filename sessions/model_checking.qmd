@@ -592,7 +592,8 @@ There is no universal threshold. All models are wrong — the question is whethe
 - Adding complexity doesn't meaningfully improve fit for your question
 - You've documented what the model does and doesn't capture
 
-A model that misses a second wave is fine if you only care about the first wave's peak. It's not fine if you're trying to understand long-term immunity.
+A model that misses a second wave can be good enough if you only care about the first wave's peak, although the SIR fit here misses that peak as well.
+It is not good enough if you are trying to understand long-term immunity.
 :::
 
 ::: {.callout-tip title="Exercise: Diagnosing the SIR failure"}
