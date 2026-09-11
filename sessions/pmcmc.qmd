@@ -304,8 +304,15 @@ Running PMMH with RAM for good mixing takes several hours. We load pre-computed 
 # Load pre-computed SEIT4L chain with good mixing
 chain_df = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
 chain_params = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
-chain_pmcmc = SymChain(nrow(chain_df), 1,
-                       Dict(Parameter(k) => chain_df[!, k] for k in chain_params))
+
+# FlexiChains builds a chain from an iterations × chains × parameters array, keeping
+# the parameters in the order given. The saved draws are a single chain
+function symchain(df, params)
+    draws = reshape(Matrix(df[:, params]), :, 1, length(params))
+    return SymChain(draws, Tuple(Parameter.(params)))
+end
+
+chain_pmcmc = symchain(chain_df, chain_params)
 ```
 
 ```{julia}
@@ -515,8 +522,7 @@ Both models were fitted using RAM with 50,000 warmup iterations, then 450,000 ke
 ```{julia}
 # Load pre-computed SEITL chain
 chain_seitl_df = CSV.read(datadir("pmcmc_seitl_chain.csv"), DataFrame)
-chain_seitl = SymChain(nrow(chain_seitl_df), 1,
-                       Dict(Parameter(k) => chain_seitl_df[!, k] for k in chain_params))
+chain_seitl = symchain(chain_seitl_df, chain_params)
 ```
 
 ```{julia}
