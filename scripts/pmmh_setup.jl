@@ -13,7 +13,8 @@ using Random
 using Distributions
 using DataFrames
 using Turing
-using MCMCChains
+using FlexiChains
+using FlexiChains: Parameter
 using CSV
 using DrWatson
 using StatsBase
@@ -67,6 +68,35 @@ end
 pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter_seitl)
 pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter)
 
+# sessions/abc.qmd estimates three of the six parameters and fixes the rest at
+# these values. The ABC posteriors there are only comparable with a likelihood
+# posterior that fixes them too, so this chain has the same target as they do.
+const ABC_FIXED = Dict(:D_lat => 2.0, :α => 0.5, :D_imm => 13.0)
+const ABC_PARAMETERS = [:R_0, :D_inf, :ρ]
+
+"""
+    pmmh_seit4l_abc(obs, n_particles)
+
+PMMH model for the SEIT4L parameters the ABC session estimates, with the same
+priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
+"""
+@model function pmmh_seit4l_abc(obs, n_particles)
+    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
+    ρ ~ Beta(2, 2)
+
+    θ = merge(
+        ABC_FIXED,
+        Dict(
+            :R_0 => ForwardDiff.value(R_0),
+            :D_inf => ForwardDiff.value(D_inf),
+            :ρ => ForwardDiff.value(ρ),
+        ),
+    )
+
+    Turing.@addlogprob! run_particle_filter(θ, obs, n_particles)
+end
+
 """
     flu_observations()
 
@@ -95,6 +125,16 @@ Write the chain to `path`, one row per retained iteration.
 save_chain_csv(chain, path) = CSV.write(path, chain_frame(chain))
 
 """
+    symchain(frames, keys)
+
+A `SymChain` from one data frame per chain, each with a column for every key in
+`keys`. The frames are stacked into the iterations × chains × parameters array that
+the FlexiChains array constructor takes.
+"""
+symchain(frames, keys) =
+    SymChain(stack([Matrix(f[:, keys]) for f in frames]; dims = 2), Tuple(Parameter.(keys)))
+
+"""
     acceptance_rate(chain)
 
 Proportion of iterations at which the sampler moved. A Metropolis chain repeats
@@ -110,7 +150,8 @@ end
     run_pmmh(model, name; n_warmup, n_samples, thinning)
 
 Sample `model` with Robust Adaptive Metropolis, reporting the acceptance rate of
-the kept draws, then thin. Returns the thinned chain.
+the kept draws, then thin. Returns the thinned draws as a data frame, one row per
+retained iteration and one column per parameter.
 
 `num_warmup` is what makes RAM adaptive: the sampler only updates its proposal
 covariance in the warmup phase, and those draws are discarded rather than kept.
@@ -124,14 +165,14 @@ function run_pmmh(
     n_samples = N_SAMPLES,
     thinning = THINNING,
 )
-    println("=" ^ 60)
+    println("="^60)
     println("Running PMMH for $name with RAM")
     println("  Particles: $N_PARTICLES")
     println("  Warmup (adaptation, discarded): $n_warmup")
     println("  Samples kept: $n_samples")
     println("  Thinning: $thinning")
     println("  Final samples: $(n_samples ÷ thinning)")
-    println("=" ^ 60)
+    println("="^60)
 
     t_start = time()
     chain_full = sample(
@@ -146,8 +187,11 @@ function run_pmmh(
     println("\n$name sampling took $(round(t_elapsed/60, digits=1)) minutes")
     println("Acceptance rate: $(round(acceptance_rate(chain_full) * 100, digits=1))%")
 
-    chain = chain_full[1:thinning:end]
-    println("After thinning: $(size(chain, 1)) samples")
+    # Thin the data frame: FlexiChains, which Turing now returns by default, does
+    # not support `end` inside an index, and a data frame thins the same way
+    # whatever chain type the sampler produced
+    chain = chain_frame(chain_full)[1:thinning:end, :]
+    println("After thinning: $(nrow(chain)) samples")
     return chain
 end
 
@@ -159,11 +203,13 @@ the session reads back out of the saved CSV.
 """
 function print_diagnostics(chain, name)
     df = chain_frame(chain)
-    mcmc_chain = Chains(Matrix(df[:, PARAMETERS]), PARAMETERS)
+    mcmc_chain = symchain([df], PARAMETERS)
 
     println("\n$name summary statistics:")
     show(stdout, MIME("text/plain"), summarystats(mcmc_chain))
-    println("\n\n$name quantiles:")
-    show(stdout, MIME("text/plain"), quantile(mcmc_chain))
+    println("\n\n$name 2.5%, 50% and 97.5% quantiles:")
+    for k in PARAMETERS
+        println("  $k: ", round.(quantile(df[!, k], [0.025, 0.5, 0.975]); digits = 3))
+    end
     println()
 end

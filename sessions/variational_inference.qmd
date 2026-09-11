@@ -1,5 +1,5 @@
 ---
-title: "Variational Inference: Speed vs Accuracy"
+title: "Variational inference"
 subtitle: "Fast approximate Bayesian inference for real-time applications"
 format: html
 engine: julia
@@ -486,7 +486,7 @@ it to appear, rather than as a promise about seconds here.
 - You need reliable uncertainty quantification
 - Problem is low-to-moderate dimensional (<50 parameters)
 
-## Use Mean-Field VI when:
+## Use mean-field VI when:
 
 - You need extremely fast approximate inference
 - Parameters are roughly independent
@@ -494,7 +494,7 @@ it to appear, rather than as a promise about seconds here.
 - You need to analyse many datasets quickly
 - Rough uncertainty estimates are sufficient
 
-## Use Full-Rank VI when:
+## Use full-rank VI when:
 
 - Speed is essential and MCMC is too slow (real-time systems)
 - Parameters are correlated (otherwise mean-field is fine)

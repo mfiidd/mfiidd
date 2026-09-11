@@ -1,5 +1,5 @@
 ---
-title: "MCMC Diagnostics"
+title: "MCMC diagnostics"
 format: html
 engine: julia
 order: 3
@@ -90,7 +90,7 @@ using MFIIDD
 ```
 
 ::: {.callout-note collapse="true"}
-## SIR Model Definition (from [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl))
+## SIR model definition (from [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl))
 
 ```{julia}
 #| echo: false
@@ -476,7 +476,7 @@ plot(chain_multi)
 
 This adds what the earlier figure did not: the marginal density beside each trace, and both parameters rather than one.
 
-## 2. Effective Sample Size (ESS)
+## 2. Effective sample size (ESS)
 
 ESS tells you how many independent samples your correlated MCMC samples are equivalent to.
 It is the autocorrelation function from the [autocorrelation section](#autocorrelation) read as a single number.
@@ -531,7 +531,7 @@ NUTS sometimes produces mildly anti-correlated draws, which carry a little more 
 
 The number above is the bulk ESS, which is what `ess` reports by default.
 
-## 3. Monte Carlo Standard Error (MCSE)
+## 3. Monte Carlo standard error (MCSE)
 
 When reporting posteriors it is important to understand how accurate the estimates are.
 MCSE is a way of asking how many digits of a reported number are real, and how many would change with a different seed.
@@ -1016,7 +1016,7 @@ MCMC only works if you use it correctly. Diagnostics are not optional.
 - Gelman and Rubin (1992). [Inference from iterative simulation using multiple sequences](https://doi.org/10.1214/ss/1177011136). *Statistical Science* 7(4), 457-472. (The original R̂)
 - Geyer (1992). [Practical Markov chain Monte Carlo](https://doi.org/10.1214/ss/1177011137). *Statistical Science* 7(4), 473-483. (The effective sample size estimator and its truncation rule)
 - Gelman et al. (2013). [Bayesian Data Analysis](http://www.stat.columbia.edu/~gelman/book/), 3rd ed. Chapman & Hall/CRC. (Chapter 11 covers diagnostics)
-- [MCMCChains.jl documentation](https://turinglang.org/MCMCChains.jl/stable/) - Chain diagnostics in Julia
+- [FlexiChains.jl documentation](https://juliabayes.org/FlexiChains.jl/stable) - the chain type this course uses, and its diagnostics
 - [ArviZ](https://arviz-devs.github.io/arviz/) - Exploratory analysis of Bayesian models (Python, with Julia bindings via ArviZ.jl)
 
-**Next session**: Converged chains don't guarantee a good model. In [Model Checking and Validation](model_checking.qmd), we'll learn how to check whether your model actually describes the data well.
+**Next session**: Converged chains don't guarantee a good model. In [Model checking and validation](model_checking.qmd), we'll learn how to check whether your model actually describes the data well.

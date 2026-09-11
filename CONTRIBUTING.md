@@ -17,7 +17,7 @@ Course materials for "Model fitting and inference for infectious disease dynamic
 
 - **Julia** (v1.12) with Turing.jl for probabilistic programming
 - **Quarto** for rendering the course website
-- Key dependencies: DifferentialEquations.jl, Distributions.jl, Plots.jl/StatsPlots.jl, MCMCChains.jl
+- Key dependencies: DifferentialEquations.jl, Distributions.jl, Plots.jl/StatsPlots.jl, FlexiChains.jl
 
 ## Development
 
@@ -102,9 +102,10 @@ D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
 ρ ~ Beta(2, 2)
 ```
 
-There are five copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `seit4l_deterministic_model` in `sessions/pmcmc.qmd`, `scripts/pmmh_setup.jl`, and `PRIORS` in `sessions/neural_posterior_estimation.qmd`, which needs a vector of distributions to draw from and to invert rather than `~` statements.
+There are six copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `seit4l_deterministic_model` in `sessions/pmcmc.qmd`, `scripts/pmmh_setup.jl`, `seit4l_deterministic` in `scripts/generate_pmcmc_figures.jl`, which draws the deterministic fit for the day 3 review, and `PRIORS` in `sessions/neural_posterior_estimation.qmd`, which needs a vector of distributions to draw from and to invert rather than `~` statements.
+`PRIORS` in `sessions/abc.qmd` and `pmmh_seit4l_abc` in `scripts/pmmh_setup.jl` define the three of these that the ABC session estimates.
 Change one and change the rest.
-The committed chains in `data/` were generated under these priors, so a change to them means re-running `scripts/generate_pmcmc_seitl.jl` and `scripts/generate_pmcmc_seit4l.jl` and committing the new output.
+The committed chains in `data/` were generated under these priors, so a change to them means re-running `scripts/generate_pmcmc_seitl.jl`, `scripts/generate_pmcmc_seit4l.jl` and `scripts/generate_pmcmc_seit4l_abc.jl` and committing the new output.
 
 The duplication is deliberate.
 These are two sessions whose subject is what the priors say and why, so a reader who has to open a package file to find out what the model assumes has lost the thread.
@@ -180,9 +181,8 @@ description:
 8. Optionally `# Going further` and `# Next session`.
 9. `# References` last, holding the `::: {#refs}` block.
 
-Four sessions do not match points 8 and 9 today: `observation_models.qmd` has no
-`# References` section at all, `abc.qmd` ends `Going further` → `References` →
-`Next session`, `seitl.qmd` ends `References` → `Going further`, and
+Three sessions do not match points 8 and 9 today: `observation_models.qmd` has no
+`# References` section at all, `seitl.qmd` ends `References` → `Going further`, and
 `universal_differential_equations.qmd` places `Going further` before its Learning
 points box. Bring a session into line when you are editing it for another reason
 rather than making a sweep of its own.

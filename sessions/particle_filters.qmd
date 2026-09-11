@@ -1,5 +1,5 @@
 ---
-title: "Particle Filters"
+title: "Particle filters"
 format: html
 engine: julia
 order: 6

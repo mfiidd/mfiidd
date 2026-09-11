@@ -1,5 +1,5 @@
 ---
-title: "Universal Differential Equations: Learning Unknown Mechanisms"
+title: "Universal differential equations"
 subtitle: "Combining mechanistic models with machine learning"
 format: html
 engine: julia
