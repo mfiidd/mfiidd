@@ -535,7 +535,7 @@ Looking at the posterior densities above, we can see differences between the two
 There are three families of answer, and which of them applies is settled by how the model is built.
 
 **Information criteria** estimate how well a model would predict new data, with a penalty for complexity.
-The ones usually recommended, the widely applicable information criterion (WAIC) and leave-one-out cross-validation (LOO), need a likelihood term for each observation, and a stochastic model does not give you those: every day's count depends on the same random trajectory, so the particle filter estimates the likelihood of the whole series at once.
+The ones usually recommended, the widely applicable information criterion (WAIC) and leave-one-out cross-validation (LOO), need a likelihood term for each observation, and a stochastic model does not give you those: every day's count depends on the same random trajectory, so the likelihood does not split into a separate term for each day.
 The Deviance Information Criterion (DIC) needs only that whole-series likelihood.
 However, it is a rough approximation to predictive accuracy, so do interpret its results with caution.
 
@@ -801,7 +801,7 @@ The Erlang-4 distribution in SEIT4L has a coefficient of variation of 0.5 (compa
 For particle MCMC model comparison:
 
 1. **Start with posterior predictive checks** - do the models make qualitatively different predictions? This check applies whatever the model, and it is what the section above does.
-2. **Use an information criterion the model can supply** - DIC when a particle filter gives only the likelihood of the whole series, as here, and the criteria under [Going further](#other-ways-to-compare-the-models) when the likelihood splits into one term per observation, as in the deterministic sessions.
+2. **Use an information criterion the model can supply** - WAIC or LOO when the likelihood splits into one term per observation, as in the deterministic sessions, and DIC or a one-step-ahead score when it does not, as here (see [Going further](#other-ways-to-compare-the-models)).
 3. **Be cautious with Bayes factors** - they are sensitive to prior choices and computationally expensive
 
 When criteria disagree, consider what question you're actually asking: best predictions (information criteria) or most probable model (Bayes factors)?
@@ -812,7 +812,7 @@ When criteria disagree, consider what question you're actually asking: best pred
 - **Particle filters** estimate likelihoods for stochastic models by simulating many trajectories (particles) and weighting them by how well they match the data
 - **Number of particles** should be calibrated so the standard deviation of the log-likelihood estimate is [between 1 and 3](https://doi.org/10.1016/j.jeconom.2012.06.004). The required number scales with problem complexity.
 - **Stochastic vs deterministic**: stochastic models capture demographic stochasticity (important for small populations) but are much slower to fit
-- **The model's structure decides the criterion.** A particle filter estimates only the likelihood of the whole series, which leaves DIC and the posterior predictive check
+- **The model's structure decides the criterion.** A stochastic model gives no separate likelihood term for each observation, which rules out WAIC and LOO, so this session uses DIC and the posterior predictive check
 - **DIC** adds twice the effective number of parameters $p_D$ to the fit at the posterior mean. SEITL and SEIT4L have the same $p_D$, so the comparison between them comes down to fit
 - **Posterior predictive checks apply whatever the model is**, and the latent path has to come from the model for the check to have anything to fail at
 :::
