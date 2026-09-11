@@ -33,7 +33,7 @@ In this session you will:
 2. Read an ABC rejection sampler and choose a workable acceptance threshold, which is the hard part of the method
 3. Explain why ABC-MCMC stalls at a tight threshold, and how ABC-SMC reaches one
 4. Compare an ABC posterior with a likelihood-based one that has the same target, and tell the approximation apart from the choice of which parameters to fix
-5. Say how each approach responds to a single outlying observation
+5. Say what a summary statistic and a distance each do to the posterior, and why a tighter threshold cannot rescue a summary that is not sufficient
 
 # Setup
 
@@ -141,6 +141,9 @@ function simulate_seit4l_obs(R_0, D_inf, ρ)
              :α => ALPHA, :D_imm => D_IMM)
     state = copy(init_test)
     inc = [gillespie_step_seit4l!(state, θ, 1.0) for _ in 1:n_obs]
+    ## The floor matches the particle filter's observation model, where it keeps a
+    ## particle's weight finite on a day it has no cases; here it only keeps the
+    ## two models the same
     return [rand(Poisson(max(ρ * x, 1e-10))) for x in inc]
 end
 ```
@@ -925,10 +928,9 @@ And the reference table can be read at any threshold, summary or distance, where
 
 Rejection ABC does not produce chains, so chain diagnostics like R-hat have nothing to work with. ABC-SMC produces weights, and the effective sample size of those weights tracks the same problem, as above. Beyond that, assess ABC posterior quality by:
 
-- **Acceptance rate**: Very low rates (< 0.1%) suggest the threshold is too strict or the model is a poor fit. Very high rates (> 10%) suggest the threshold is too loose and the posterior is close to the prior.
 - **Visual comparison with likelihood-based posteriors**: When a likelihood is available (as in this session), run both methods on the same parameters and compare. Large discrepancies suggest either the ABC threshold is too loose or the distance metric captures different features than the likelihood. With different parameters fixed, the two are aiming at different posteriors, and the comparison below shows how far apart that alone can put them.
 - **Threshold sensitivity**: Run ABC with several thresholds. If the posterior changes substantially as you tighten the threshold, it has not yet converged, and you need a stricter threshold and more computation.
-- **Coverage of prior**: If the ABC posterior looks very similar to the prior, the threshold is too loose and the data are not informing the inference.
+- **Shrinkage against the prior**: A parameter whose shrinkage is near zero is not being informed by the data, whether because the threshold is too loose or because the summary discards what would inform it.
 - **Replicate runs**: Run ABC multiple times with different random seeds. If posteriors differ substantially between runs, you need more particles or a less strict threshold.
 :::
 
