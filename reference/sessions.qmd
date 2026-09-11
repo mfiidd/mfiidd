@@ -89,7 +89,7 @@ Tuesday 8 September: 12.00-12.30 and 13.30-14.30
     - posterior predictive distributions, predictive p-values and residuals (25 mins)
 -   Wrap up (10 mins)
 
-## Session 5: Modelling interlude — the SEITL model and stochastic simulation
+## Session 5: Modelling interlude — structure and stochasticity
 
 Tuesday 8 September: 14.30-15.15 and 15.45-17.00
 
