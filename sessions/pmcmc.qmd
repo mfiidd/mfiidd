@@ -644,11 +644,10 @@ The two models have about the same effective number of parameters, which is what
 What the four compartments change is the shape of the time spent immune, and that is what the data reward.
 
 Two caveats specific to this setting.
-Both deviances come from particle filter estimates, and both of their errors pull $p_D$ down.
-A fresh filter run at the posterior mean underestimates $\log p(y \mid \theta)$ on average, so $D(\bar{\theta})$ comes out a little high.
-The log-likelihoods saved with the chain lean the other way, because PMMH is more likely to keep a draw whose estimate came out high, so $\overline{D}$ comes out a little low.
-Together they shrink $p_D$ by roughly twice the variance of the log-likelihood estimate, so with too few particles a model looks simpler than it is.
-At 256 particles that variance, printed above, is under 0.5 for both models, which keeps the effect below one unit, but it grows as you cut the particle count.
+Both deviances come from particle filter estimates, and a filter run underestimates $\log p(y \mid \theta)$ on average, so each deviance comes out a little high.
+That applies to $\overline{D}$ as much as to $D(\bar{\theta})$: Turing recomputes the log-likelihood saved with each draw, which here means a fresh filter run, so the saved values carry the same bias as the runs at the posterior mean.
+The bias therefore largely cancels in $p_D$.
+The noise does not: a noisier estimate at the posterior mean moves DIC directly, which is why the cell averages twenty runs there, and the variance it prints shows how far a single run wanders.
 
 The larger one is that DIC is not uniquely defined for a model with latent variables [@celeux2006].
 It can be built on the likelihood with the latent path integrated out, or with the path treated as a parameter, and the two give different answers.
