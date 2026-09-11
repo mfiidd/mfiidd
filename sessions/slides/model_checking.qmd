@@ -116,7 +116,7 @@ island over eight weeks.
 
 . . .
 
-Two features make it the standard teaching example:
+Two features make it interesting for our purposes:
 
 - **Closed** — nobody arrived or left, so there is no importation to explain
   anything away
