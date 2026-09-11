@@ -13,7 +13,8 @@ using Random
 using Distributions
 using DataFrames
 using Turing
-using MCMCChains
+using FlexiChains
+using FlexiChains: Parameter
 using CSV
 using DrWatson
 using StatsBase
@@ -124,6 +125,16 @@ Write the chain to `path`, one row per retained iteration.
 save_chain_csv(chain, path) = CSV.write(path, chain_frame(chain))
 
 """
+    symchain(frames, keys)
+
+A `SymChain` from one data frame per chain, each with a column for every key in
+`keys`. The frames are stacked into the iterations × chains × parameters array that
+the FlexiChains array constructor takes.
+"""
+symchain(frames, keys) =
+    SymChain(stack([Matrix(f[:, keys]) for f in frames]; dims = 2), Tuple(Parameter.(keys)))
+
+"""
     acceptance_rate(chain)
 
 Proportion of iterations at which the sampler moved. A Metropolis chain repeats
@@ -192,11 +203,13 @@ the session reads back out of the saved CSV.
 """
 function print_diagnostics(chain, name)
     df = chain_frame(chain)
-    mcmc_chain = Chains(Matrix(df[:, PARAMETERS]), PARAMETERS)
+    mcmc_chain = symchain([df], PARAMETERS)
 
     println("\n$name summary statistics:")
     show(stdout, MIME("text/plain"), summarystats(mcmc_chain))
-    println("\n\n$name quantiles:")
-    show(stdout, MIME("text/plain"), quantile(mcmc_chain))
+    println("\n\n$name 2.5%, 50% and 97.5% quantiles:")
+    for k in PARAMETERS
+        println("  $k: ", round.(quantile(df[!, k], [0.025, 0.5, 0.975]); digits = 3))
+    end
     println()
 end

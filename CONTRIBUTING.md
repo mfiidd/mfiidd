@@ -17,7 +17,7 @@ Course materials for "Model fitting and inference for infectious disease dynamic
 
 - **Julia** (v1.12) with Turing.jl for probabilistic programming
 - **Quarto** for rendering the course website
-- Key dependencies: DifferentialEquations.jl, Distributions.jl, Plots.jl/StatsPlots.jl, MCMCChains.jl
+- Key dependencies: DifferentialEquations.jl, Distributions.jl, Plots.jl/StatsPlots.jl, FlexiChains.jl
 
 ## Development
 
