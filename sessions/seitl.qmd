@@ -121,9 +121,10 @@ You met the Tristan da Cunha outbreak in the [model checking session](model_chec
 The checks said the structure was wrong.
 This session builds one that can produce a second wave, and simulates it stochastically because 284 people are few enough for chance to matter.
 
-Two details from that account matter below.
+Three details from that account matter below.
 The ship that started it landed five islanders on 13 August: three had fallen ill during the eight-day voyage and two fell ill on landing.
-And only 312 of the 365 attacks (85%) were dated precisely enough to be in the dataset.
+Only 312 of the 365 attacks (85%) were dated precisely enough to be in the dataset.
+And the virus was influenza A/H3N2, which had emerged only three years earlier, while the island's last influenza outbreak had been A/H1N1 in 1954.
 
 ```{julia}
 # Plot daily observed incidence
