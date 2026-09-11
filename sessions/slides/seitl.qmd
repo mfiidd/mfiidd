@@ -212,7 +212,7 @@ In the practical you will
 
 - build the SEITL model, which adds the mechanism the checks asked for
 - simulate it both deterministically and stochastically
-- see which of the two changes is doing the work
+- compare deterministic and stochastic runs of the same model
 - see why the stochastic version needs different inference machinery
 
 #
