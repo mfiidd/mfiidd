@@ -111,7 +111,7 @@ Random.seed!(1234)
 
 # The outbreak, in brief
 
-You met the Tristan da Cunha outbreak in the [model checking session](model_checking.qmd) and fitted an SIR model to it: 284 islanders, 312 recorded attacks over 59 days, and a second peak three weeks in that a single wave of infection cannot produce.
+You met the Tristan da Cunha outbreak in the [model checking session](model_checking.qmd) and fitted an SIR model to it: 284 islanders, 312 recorded attacks over 59 days, and a second peak on day 32 that a single wave of infection cannot produce.
 The checks said the structure was wrong.
 This session builds one that can produce a second wave, and simulates it stochastically because 284 people are few enough for chance to matter.
 
