@@ -536,7 +536,7 @@ There are three families of answer, and which of them applies is settled by how 
 
 **Information criteria** estimate how well a model would predict new data, with a penalty for complexity.
 The ones usually recommended, the widely applicable information criterion (WAIC) and leave-one-out cross-validation (LOO), need a likelihood term for each observation on its own, and a stochastic model does not give you those: every day's count depends on the same random trajectory, so a day can only be scored given the days before it.
-The Deviance Information Criterion (DIC) needs only that whole-series likelihood.
+The Deviance Information Criterion (DIC) needs only the likelihood of the whole series, which is what the particle filter estimates.
 However, it is a rough approximation to predictive accuracy, so do interpret its results with caution.
 
 **Bayes factors** compare marginal likelihoods directly:
