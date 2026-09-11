@@ -687,7 +687,7 @@ end
 ```
 
 It stalls at a tight threshold, and the stochastic simulator is the reason.
-Run the model at one fixed parameter set and the L1 distance still moves from about 130 to about 420 between runs, because each run is a different epidemic.
+Run the model at one fixed parameter set and the L1 distance still moves between runs, because each run is a different epidemic: at the particle MCMC mean, the middle 90% of runs land between about 155 and 310.
 At a threshold near the bottom of that range a good parameter set fails the test most of the time and passes occasionally, so the chain accepts a step when it happens to draw a lucky epidemic and then cannot leave, because leaving requires another lucky epidemic from the proposed parameters.
 It is stuck on a realisation, and no proposal distribution addresses that, because the proposal is not what is being rejected.
 The exercise in [Going further](#going-further) puts numbers on it.
