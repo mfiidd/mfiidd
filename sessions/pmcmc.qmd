@@ -601,7 +601,7 @@ The three quantities are:
 
 - $D(\bar{\theta})$, the fit at the posterior mean, a single best guess at the parameters.
 - $\overline{D}$, the fit averaged over everything the posterior still considers plausible. It is minus twice the mean log-likelihood printed above.
-- $p_D$, the *effective number of parameters*: how much worse the average fit is than the fit at the mean. A tightly concentrated posterior fits about as well everywhere and gives a small $p_D$, and a diffuse one gives a large $p_D$. It need not be a whole number, and it falls below the number of parameters when the data leave some of them to the priors.
+- $p_D$, the *effective number of parameters*: how much worse the average fit is than the fit at the mean. Each parameter the data pin down adds about one, and a parameter the data leave to its prior adds close to nothing, so $p_D$ need not be a whole number and falls below the number of parameters you wrote down.
 
 The saved log-likelihoods give $\overline{D}$ directly.
 $D(\bar{\theta})$ needs fresh runs at the posterior mean, through the particle filter of the model that produced the chain:
