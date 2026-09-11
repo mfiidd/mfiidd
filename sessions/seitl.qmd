@@ -115,6 +115,10 @@ You met the Tristan da Cunha outbreak in the [model checking session](model_chec
 The checks said the structure was wrong.
 This session builds one that can produce a second wave, and simulates it stochastically because 284 people are few enough for chance to matter.
 
+Two details from that account matter below.
+The ship that started it landed five islanders on 13 August: three had fallen ill during the eight-day voyage and two fell ill on landing.
+And only 312 of the 365 attacks (85%) were dated precisely enough to be in the dataset.
+
 ```{julia}
 flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
 
@@ -172,7 +176,7 @@ $$
 
 ## Parameter values and initial state
 
-Based on the description of the outbreak above and the information below found in the literature, can you think of one or more set(s) of values for the parameters and initial state of the model?
+Based on the outbreak as recalled above (the full account is in the [model checking session](model_checking.qmd#tristan-da-cunha-outbreak)) and the information below found in the literature, can you think of one or more set(s) of values for the parameters and initial state of the model?
 
 1. The $R_0$ of influenza is commonly estimated to be around 2. However, it can be significantly larger in close-knit communities with exceptional contact configurations.
 2. Both the average latent and infectious periods for influenza have been estimated around 2 days each.
