@@ -643,7 +643,7 @@ SEIT4L comes out about seven lower, and all of the difference is fit.
 The two models have about the same effective number of parameters, which is what you would expect: they have the same six parameters, and SEIT4L's four immunity compartments share a single duration, so they add none.
 What the four compartments change is the shape of the time spent immune, and that is what the data reward.
 
-Two caveats specific to this setting.
+There are two caveats that apply to using DIC here.
 Both deviances come from particle filter estimates, and a filter run underestimates $\log p(y \mid \theta)$ on average, so each deviance comes out a little high.
 That applies to $\overline{D}$ as much as to $D(\bar{\theta})$: Turing recomputes the log-likelihood saved with each draw, which here means a fresh filter run, so the saved values carry the same bias as the runs at the posterior mean.
 The bias therefore largely cancels in $p_D$.
