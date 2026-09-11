@@ -401,7 +401,7 @@ Whatever produced your samples, you still have to check and summarise them.
 
 Note that a chain from DynamicHMC is a plain matrix, not the `FlexiChains`
 object the rest of the course works with, so you either convert it or work with
-the matrix directly. This is a small but real cost of stepping outside Turing.
+the matrix directly.
 
 # The rest of the stack
 
