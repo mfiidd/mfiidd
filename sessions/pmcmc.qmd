@@ -502,7 +502,7 @@ For the Tristan da Cunha outbreak with only 284 individuals, demographic stochas
 
 # Model comparison: SEITL vs SEIT4L
 
-In the [SEITL session](seitl.qmd), we introduced two model variants that both explain the two-wave pattern through temporary immunity:
+In the [Structure and stochasticity](seitl.qmd) session, we introduced two model variants that both explain the two-wave pattern through temporary immunity:
 
 - **SEITL**: Single T compartment with exponential duration (memoryless)
 - **SEIT4L**: Four T sub-compartments giving Erlang-4 duration (more realistic timing)

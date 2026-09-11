@@ -87,7 +87,11 @@ Plot predictions against `flu_tdc.time`, or against `collect(times)[2:end]` in a
 The initial state is `S = 279`, `I = 2`, `R = 3`, giving N = 284, the island population.
 It is the island as the ship lands, at the start of day 1: `flu_tdc_1971.csv` dates `time = 1` as 13 August, the day the ship arrived.
 Of the five islanders it brought back, three had been ill during the eight day voyage and are past their infectious period, so they start recovered; the two who fell ill on landing start infectious.
-The 312 reported cases exceed N because islanders were infected more than once, which is the observation the SEITL session is built on and the structural failure the single-wave sessions diagnose.
+The 312 reported cases exceed N because islanders were infected more than once, which is the observation the structure and stochasticity session is built on and the structural failure the single-wave sessions diagnose.
+
+The outbreak is introduced in `sessions/model_checking.qmd`, which is the first session to fit it and the one whose checks fail on it.
+`sessions/seitl.qmd` recalls it in a paragraph and moves on to the model.
+A session that needs the full story links to model checking rather than retelling it.
 
 ### Priors for the SEITL parameters
 
