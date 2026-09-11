@@ -150,12 +150,17 @@ deps = ["AbstractMCMC", "Distributions", "DocStringExtensions", "FillArrays", "L
 git-tree-sha1 = "62ddbccf0ce5c26f8ef3cebe4bedef6b1599d616"
 uuid = "5b7e9947-ddc0-4b3f-9b55-0d8042f74170"
 version = "0.8.10"
-weakdeps = ["DiffResults", "ForwardDiff", "MCMCChains", "StructArrays"]
 
     [deps.AdvancedMH.extensions]
     AdvancedMHForwardDiffExt = ["DiffResults", "ForwardDiff"]
     AdvancedMHMCMCChainsExt = "MCMCChains"
     AdvancedMHStructArraysExt = "StructArrays"
+
+    [deps.AdvancedMH.weakdeps]
+    DiffResults = "163ba53b-c6d8-5494-b064-1a9d43ac40c5"
+    ForwardDiff = "f6369f11-7733-5829-9624-2563aa707210"
+    MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
+    StructArrays = "09ab397b-f2b6-538f-b94a-2f83cf4a842a"
 
 [[deps.AdvancedVI]]
 deps = ["ADTypes", "AbstractPPL", "Accessors", "ChainRulesCore", "DiffResults", "Distributions", "DocStringExtensions", "FillArrays", "Functors", "LinearAlgebra", "LogDensityProblems", "Optimisers", "ProgressMeter", "Random", "StatsBase"]
@@ -279,12 +284,6 @@ deps = ["LinearAlgebra", "Random", "SparseArrays", "WoodburyMatrices"]
 git-tree-sha1 = "01b8ccb13d68535d73d2b0c23e39bd23155fb712"
 uuid = "13072b0f-2c55-5437-9ae7-d433b7a33950"
 version = "1.1.0"
-
-[[deps.AxisArrays]]
-deps = ["Dates", "IntervalSets", "IterTools", "RangeArrays"]
-git-tree-sha1 = "4126b08903b777c88edf1754288144a0492c05ad"
-uuid = "39de3d68-74b9-583c-8d2d-e117c070f3a9"
-version = "0.4.8"
 
 [[deps.BFloat16s]]
 deps = ["LinearAlgebra", "Printf", "Random"]
@@ -1659,11 +1658,6 @@ git-tree-sha1 = "b2d91fe939cae05960e760110b328288867b5758"
 uuid = "92d709cd-6900-40b7-9082-c6be49f344b6"
 version = "0.2.6"
 
-[[deps.IterTools]]
-git-tree-sha1 = "42d5f897009e7ff2cf88db414a389e5ed1bdd023"
-uuid = "c8e1da08-722c-5040-9ed9-7db0dc04731e"
-version = "1.10.0"
-
 [[deps.IteratorInterfaceExtensions]]
 git-tree-sha1 = "a3f24677c21f5bbe9d2a714f95dcd58337fb2856"
 uuid = "82899510-4779-5014-852e-03e436cf321d"
@@ -2259,12 +2253,6 @@ version = "1.15.9"
     Tracker = "9f7883ad-71c0-57eb-9f7f-b5c9e6d3789c"
     cuDNN = "02a925ec-e4fe-4b08-9a7e-0d78e3d38ccd"
 
-[[deps.MCMCChains]]
-deps = ["AbstractMCMC", "AxisArrays", "DataAPI", "Dates", "Distributions", "IteratorInterfaceExtensions", "KernelDensity", "LinearAlgebra", "MCMCDiagnosticTools", "MLJModelInterface", "NaturalSort", "OrderedCollections", "PrettyTables", "Random", "RecipesBase", "Statistics", "StatsBase", "StatsFuns", "TableTraits", "Tables"]
-git-tree-sha1 = "060d6bc7cf60e621dfd056ed2c1a2db1e68db0fe"
-uuid = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
-version = "7.7.0"
-
 [[deps.MCMCDiagnosticTools]]
 deps = ["AbstractFFTs", "DataAPI", "DataStructures", "Distributions", "LinearAlgebra", "MLJModelInterface", "Random", "SpecialFunctions", "Statistics", "StatsBase", "StatsFuns", "Tables"]
 git-tree-sha1 = "345bedeaf7d650f673fefa042dd8384c63de6c68"
@@ -2272,7 +2260,7 @@ uuid = "be115224-59cd-429b-ad48-344e309966f0"
 version = "0.3.19"
 
 [[deps.MFIIDD]]
-deps = ["ADTypes", "AdvancedMH", "AdvancedVI", "BoundaryValueDiffEqCore", "CSV", "CodeTracking", "ComponentArrays", "DataFrames", "DiffEqFlux", "DifferentialEquations", "Distributions", "DrWatson", "DynamicHMC", "FlexiChains", "ForwardDiff", "GeneralisedFilters", "IJulia", "JLD2", "JumpProcesses", "LanguageServer", "LogDensityProblems", "LogDensityProblemsAD", "Lux", "MCMCChains", "Optimisers", "Optimization", "OptimizationOptimJL", "OptimizationOptimisers", "Plots", "PrecompileTools", "Random", "Revise", "SSMProblems", "StatsBase", "StatsPlots", "SymbolServer", "TransformVariables", "TransformedLogDensities", "Turing", "Zygote"]
+deps = ["ADTypes", "AdvancedMH", "AdvancedVI", "BoundaryValueDiffEqCore", "CSV", "CodeTracking", "ComponentArrays", "DataFrames", "DiffEqFlux", "DifferentialEquations", "Distributions", "DrWatson", "DynamicHMC", "FlexiChains", "ForwardDiff", "GeneralisedFilters", "IJulia", "JLD2", "JumpProcesses", "LanguageServer", "LogDensityProblems", "LogDensityProblemsAD", "Lux", "Optimisers", "Optimization", "OptimizationOptimJL", "OptimizationOptimisers", "Plots", "PrecompileTools", "Random", "Revise", "SSMProblems", "StatsBase", "StatsPlots", "SymbolServer", "TransformVariables", "TransformedLogDensities", "Turing", "Zygote"]
 path = "."
 uuid = "8bea04d1-6360-4bc3-9119-b4a8429b6d36"
 version = "0.1.0"
@@ -2466,11 +2454,6 @@ deps = ["OpenLibm_jll"]
 git-tree-sha1 = "dbd2e8cd2c1c27f0b584f6661b4309609c5a685e"
 uuid = "77ba4419-2d1f-58cd-9bb1-8ffee604a2e3"
 version = "1.1.4"
-
-[[deps.NaturalSort]]
-git-tree-sha1 = "eda490d06b9f7c00752ee81cfa451efe55521e21"
-uuid = "c020b1a1-e9b0-503a-9c33-f039bfc54a85"
-version = "1.0.0"
 
 [[deps.NearestNeighbors]]
 deps = ["AbstractTrees", "Distances", "StaticArrays"]
@@ -3039,11 +3022,6 @@ deps = ["Random"]
 git-tree-sha1 = "c6ec94d2aaba1ab2ff983052cf6a606ca5985902"
 uuid = "e6cf234a-135c-5ec9-84dd-332b85af5143"
 version = "1.6.0"
-
-[[deps.RangeArrays]]
-git-tree-sha1 = "b9039e93773ddcfc828f12aadf7115b4b4d225f5"
-uuid = "b3c3ace0-ae52-54e7-9d0b-2c1406fd6b9d"
-version = "0.3.2"
 
 [[deps.Ratios]]
 deps = ["Requires"]
@@ -3805,12 +3783,15 @@ deps = ["ADTypes", "AbstractMCMC", "AbstractPPL", "Accessors", "AdvancedHMC", "A
 git-tree-sha1 = "7004b5e87c32c6b126ce9f466ea6ad05d01330ce"
 uuid = "fce5fe82-541a-59a6-adf8-730c64b5f9a0"
 version = "0.47.4"
-weakdeps = ["DynamicHMC", "MCMCChains"]
 
     [deps.Turing.extensions]
     TuringDistributionsExt = "Distributions"
     TuringDynamicHMCExt = "DynamicHMC"
     TuringMCMCChainsExt = "MCMCChains"
+
+    [deps.Turing.weakdeps]
+    DynamicHMC = "bbc10e6e-7c05-544b-b16e-64fede858acb"
+    MCMCChains = "c7f686f2-ff18-58e9-bc7b-31028e88f75d"
 
 [[deps.URIs]]
 git-tree-sha1 = "908fec9df6c5de98548ead82a468c95ccf6cd263"
