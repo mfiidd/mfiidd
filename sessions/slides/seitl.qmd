@@ -45,7 +45,7 @@ We want to do this on the basis of **observations** (data), $y$.
 ## Why the state needs its own layer
 
 In a [deterministic]{.alert} model the state is a *function* of the parameters:
-one $\theta$, one trajectory, and $x$ is not something that needs to be 
+one $\theta$, one trajectory, and $x$ is not something that needs to be
 separately inferred.
 
 . . .
