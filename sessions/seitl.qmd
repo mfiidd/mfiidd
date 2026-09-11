@@ -210,13 +210,14 @@ These are just starting points. The inference will refine them.
 # Deterministic vs stochastic simulations
 
 ::: {.callout-note}
-## Two independent modelling choices
-This session explores two separate decisions that can be combined independently:
+## Two choices in how the model runs
+The two changes above each come with a choice about how the model is written and run:
 
-1. **Simulation method**: deterministic (ODEs) vs stochastic (Gillespie) — controls whether we model individual-level randomness
-2. **Compartment durations**: exponential (SEITL) vs Erlang (SEIT4L) — controls how realistic the waiting times are
+1. **Simulation method**: deterministic (ODEs) vs stochastic (Gillespie) — the stochasticity change, which controls whether we model individual-level randomness
+2. **Compartment durations**: exponential (SEITL) vs Erlang (SEIT4L) — a refinement of the mechanism, which controls how realistic the waiting times are
 
-These are orthogonal: you can have a deterministic SEIT4L or a stochastic SEITL. We cover all four combinations below, but the key point is that each choice addresses a different biological question.
+These are orthogonal: a deterministic SEIT4L and a stochastic SEITL are both valid models.
+This session simulates three of the four combinations, leaving a stochastic SEIT4L to Going further, and each choice addresses a different biological question.
 :::
 
 Now, try to assess whether the SEITL model can reproduce the two-wave outbreak of Tristan da Cunha with your guess values for the initial state and the parameters.
@@ -279,7 +280,7 @@ end
 ```
 
 The simulator arrives as a keyword argument.
-The priors, the parameter dictionary and the Poisson observation process do not depend on how the trajectory is produced, so the two modelling choices set out above are orthogonal in the code as well as in the prose.
+The priors, the parameter dictionary and the Poisson observation process do not depend on how the trajectory is produced, so the simulation method and the compartment durations are orthogonal in the code as well as in the prose.
 
 Now let's try some parameter values based on the literature:
 
