@@ -26,7 +26,8 @@ $p(\theta \mid y)$.
 
 ## Approximate Bayesian computation
 
-Exact equality has probability zero, so nothing would ever be accepted. Two
+For continuous data exact equality has probability zero. For our 59 counts it is
+possible, but so unlikely that we would wait effectively forever. Two
 concessions, and this is where the [approximate]{.alert} comes from.
 
 [**Close, not equal.**]{.alert} Keep $\theta$ when the distance $d$ between
@@ -109,11 +110,11 @@ propagate-weight-resample structure as the particle filter.
 
 In the practical you will
 
-- implement ABC rejection sampling from scratch
+- read an ABC rejection sampler and choose its threshold
 - find a workable acceptance threshold, and see why that is the hard part
-- implement ABC-SMC and compare it against rejection sampling
-- compare the ABC posterior against the likelihood-based one
-- test how each responds to a single outlying observation
+- trace ABC-SMC and compare it against rejection sampling
+- see what a summary statistic and a distance each do to the posterior
+- compare the ABC posterior against particle MCMC on the same three parameters, and on all six
 
 #
 

@@ -18,8 +18,10 @@
 include(joinpath(@__DIR__, "pmmh_setup.jl"))
 
 using Plots
+using StatsPlots ## for the posterior density panels
 using Printf
 using LinearAlgebra: Symmetric
+using DifferentialEquations: ODEProblem, SciMLBase, Tsit5, solve ## deterministic fit
 
 ENV["GKSwstype"] = "100"  ## no display during rendering
 Random.seed!(20260908)
@@ -33,7 +35,8 @@ const IMAGE_DIR = joinpath(@__DIR__, "..", "sessions", "slides", "images")
 ##     julia --project=. scripts/generate_pmcmc_figures.jl trace
 ##
 ## With no argument every stage runs.
-const STAGES = isempty(ARGS) ? ["noise", "tradeoff", "trace"] : ARGS
+const STAGES =
+    isempty(ARGS) ? ["noise", "tradeoff", "trace", "posteriors", "trajectories"] : ARGS
 
 ## Deck figures are projected, so they need larger type than a notebook plot.
 default(
@@ -352,3 +355,131 @@ if "trace" in STAGES
     )
 end
 println("Written to ", IMAGE_DIR)
+
+# ---------------------------------------------------------------------------
+# Day 3 review: what the fit gives us
+# ---------------------------------------------------------------------------
+
+## Both figures below read the committed SEIT4L chain for the stochastic fit, so
+## they cost minutes rather than an hour of PMMH.
+const INIT_4L = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]   ## S, E, I, T1-T4, L
+
+"""
+    seit4l_deterministic(obs)
+
+The deterministic SEIT4L fit from `sessions/pmcmc.qmd`: the same priors and
+Poisson reporting as the PMMH model, with the ODE in place of the particle
+filter. `diff` of the cumulative incidence gives one value per observed day, so
+`inc[i]` is the day observation `i` counts.
+"""
+@model function seit4l_deterministic(obs)
+    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
+    α ~ Beta(2, 2)
+    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
+    ρ ~ Beta(2, 2)
+
+    params = [R_0, D_lat, D_inf, α, D_imm]
+    ## promote the initial state so ForwardDiff Duals propagate through the solve
+    u0 = eltype(params).([INIT_4L; 0.0])
+    times = 0.0:1.0:length(obs)
+    prob = ODEProblem(seit4l_ode!, u0, (times[1], times[end]), params)
+    sol = solve(prob, Tsit5(), saveat = times)
+
+    if !SciMLBase.successful_retcode(sol) || length(sol.t) != length(times)
+        Turing.@addlogprob! -Inf
+        return
+    end
+
+    inc = diff(sol[9, :])
+    obs ~ arraydist(Poisson.(max.(ρ .* inc, 1e-10)))
+end
+
+if "posteriors" in STAGES
+    println("posteriors")
+    stochastic = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
+    deterministic =
+        chain_frame(sample(seit4l_deterministic(OBS), NUTS(), 2000; progress = false))
+
+    ## same colours as the comparison in the session
+    panels = map(enumerate(PARAMETERS)) do (i, p)
+        pl = density(
+            deterministic[!, p],
+            lw = 3,
+            colour = :steelblue,
+            label = "deterministic",
+            legend = i == 1 ? :topright : false,
+            title = string(p),
+            titlefontsize = 13,
+            yticks = false,
+            ylabel = "",
+        )
+        density!(pl, stochastic[!, p], lw = 3, colour = :darkorange, label = "stochastic")
+    end
+    save_figure(
+        plot(panels..., layout = (2, 3), size = (1100, 520)),
+        "pmmh_deterministic_vs_stochastic.svg",
+    )
+
+    for p in PARAMETERS
+        @printf(
+            "  %-6s SD deterministic %.3f, stochastic %.3f\n",
+            p,
+            std(deterministic[!, p]),
+            std(stochastic[!, p])
+        )
+    end
+end
+
+if "trajectories" in STAGES
+    println("trajectories")
+    chain = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
+    n_obs = length(OBS)
+    draw(row) = Dict(p => row[p] for p in PARAMETERS)
+
+    Random.seed!(1)
+    n_rep = 200
+    ## re-simulated: a fresh latent path from the model, with no sight of the data
+    resim = map(1:n_rep) do _
+        θ = draw(chain[rand(1:nrow(chain)), :])
+        state = copy(INIT_4L)
+        [
+            rand(Poisson(max(θ[:ρ] * gillespie_step_seit4l!(state, θ, 1.0), 1e-10))) for
+            _ in 1:n_obs
+        ]
+    end
+    ## filtered: one path per filter run, each conditioned on the observations
+    filt = map(1:n_rep) do _
+        θ = draw(chain[rand(1:nrow(chain)), :])
+        [rand(Poisson(max(θ[:ρ] * x, 1e-10))) for x in filtered_incidence(θ, OBS, 256)]
+    end
+
+    function envelope!(p, sims, label, colour)
+        M = reduce(hcat, sims)
+        lo = [quantile(M[t, :], 0.025) for t in 1:size(M, 1)]
+        hi = [quantile(M[t, :], 0.975) for t in 1:size(M, 1)]
+        med = [median(M[t, :]) for t in 1:size(M, 1)]
+        plot!(
+            p,
+            1:size(M, 1),
+            med,
+            ribbon = (med .- lo, hi .- med),
+            label = label,
+            colour = colour,
+            fillalpha = 0.2,
+            linewidth = 3,
+        )
+    end
+
+    p_traj = plot(
+        xlabel = "day",
+        ylabel = "reported cases",
+        size = (1000, 500),
+        legend = :topright,
+    )
+    envelope!(p_traj, resim, "re-simulated", :darkorange)
+    envelope!(p_traj, filt, "filtered", :seagreen)
+    scatter!(p_traj, 1:n_obs, OBS, colour = :black, ms = 4, label = "observed")
+    save_figure(p_traj, "pmmh_filtered_vs_resimulated.svg")
+end

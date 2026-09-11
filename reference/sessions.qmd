@@ -157,9 +157,9 @@ Thursday 10 September: 09.45-11.00
 
 -   [Introduction](../sessions/slides/abc.qmd): likelihood-free inference, and choosing a distance instead (10 mins)
 -   [Practice](../sessions/abc.qmd):
-    - ABC rejection sampling, and finding a workable acceptance threshold (25 mins)
-    - what a summary statistic gives up (15 mins)
-    - ABC-SMC, and comparing it against rejection ABC (20 mins)
+    - ABC rejection sampling, and finding a workable acceptance threshold (20 mins)
+    - what a summary statistic and a distance give up (20 mins)
+    - ABC-SMC, and comparing it against rejection ABC and particle MCMC (20 mins)
 -   Wrap up (5 mins)
 
 

@@ -10,7 +10,7 @@ subtitle: "What we did, the bigger picture, and where to go next"
 
 ![](images/Course_outline.svg){.bigpic}
 
-## Four days
+## 3.5 days
 
 - **Monday**: priors, likelihoods, posteriors, and MCMC to sample them
 - **Tuesday**: convergence diagnostics, posterior predictive checks, and the
@@ -41,7 +41,7 @@ $p\big(d(S_y,\, S_{\text{sim}(\theta)}) < \epsilon\big)$.
 
 ![](images/inference_loop_3.svg){.bigpic}
 
-## Four choices behind one inference {.smaller}
+## Four choices {.smaller}
 
 Every fit settles four questions, whether or not you notice deciding them
 [@funk2020]. Three of them are labelled on the loop:
@@ -126,13 +126,13 @@ estimate added with `@addlogprob!`.
 - **Stan** in R, Python or Julia
 - **NumPyro** and **PyMC** in Python
 
-## When things do not work {.smaller}
+## When things don't work {.smaller}
 
 **Slow, sticky, or divergent** is often the sampler, and often fixable: retune
-the proposal, reparameterise the funnel, raise the particle count until the
+the proposal, reparameterise the model raise the particle count until the
 variance of the log-likelihood estimate is around one.
 
-**Biased, overconfident, or simply wrong** is rarely the sampler.
+**Biased, overconfident, or wrong** is not due to the sampler.
 
 - **The observation model**: Poisson on overdispersed counts gives an
   overconfident posterior, and one outlying day dominates the fit
@@ -153,13 +153,32 @@ Model problems: posterior predictive checks, predictive p-values.
 Both are necessary. A converged chain from a misspecified model looks exactly
 like a converged chain from an adequate one.
 
-## Questions to ask of your own model
+## A recipe for your own model {.smaller}
 
-- Is the process stochastic in a way that matters at your population size?
-- Can you evaluate the likelihood? Can you differentiate it?
-- How expensive is one simulation, and how many can you afford?
-- Which features of the data would an approximate method discard?
-- What would tell you the fit had failed, and would it be loud or silent?
+**1. Start with the question.** Name the quantity you need to learn and the data
+that can inform it.
+
+**2. Write the generative story.** Separate the epidemic process from the
+observation process, and decide where stochasticity belongs.
+
+**3. Simulate before fitting.** Draw parameters from the prior and run the whole
+model. If it cannot generate plausible data, revise the model or prior now.
+
+## Fit, check, revise {.smaller}
+
+**4. Choose a method that fits the model and your computational budget.**
+
+**5. Check the computation.** Use multiple runs, traces, R̂, ESS and method-specific
+warnings to establish that the algorithm explored its target.
+
+**6. Check the model.** Use posterior predictive checks and sensitivity analyses
+to ask whether the fitted model reproduces the features that matter to your
+question. If it does not, revise the model and go round again.
+
+[A workflow for infectious disease
+modelling](https://samabbott.co.uk/a-workflow-for-infectious-disease-modelling/paper.pdf)
+(Abbott et al., work in progress) sets out the full version, including how to combine data
+sources.
 
 # Where to go next
 
@@ -177,25 +196,19 @@ like a converged chain from an adequate one.
 All four are on the course site, written to be worked through on
 your own.
 
-## Further reading {.smaller}
+## Beyond the core sessions
 
-- @funk2020 sets out the four choices and four criteria, with worked
-  examples in pomp and rbi (becoming outdated).
-- @fasiolo2016 compare the method families on nonlinear state space models in
-  ecology and epidemiology.
-- @li2018 compare MCMC approaches for mechanistic epidemic models, staying inside
-  the case where the likelihood is tractable.
-- Aaron King's [Simulation-based Inference for Epidemiological
-  Dynamics](https://kingaa.github.io/sbied/) is the same territory from the
-  iterated-filtering side.
-- [Nowcasting and forecasting infectious disease
-  dynamics](https://nfidd.github.io/nfidd/) picks up where we stopped: reporting
-  delays, right truncation and evidence synthesis.
+Across the course site, **Going further** and advanced sections point to
+extensions of the methods we taught and the literature behind them.
+
+[Nowcasting and forecasting infectious disease
+dynamics](https://nfidd.github.io/nfidd/) is our course on real-time infectious
+disease modelling.
 
 ## Before you go {.smaller}
 
-- A short **feedback survey** is coming by email and linked on the course
-  website. This is the first time we have taught the material in this form, so
+- A **feedback survey** at [bit.ly/4h086oM](https://bit.ly/4h086oM), also coming
+  by email. This is the first time we have taught the material in this form, so
   please fill it in.
 - Everything here stays online and is MIT licensed. Reuse it, with attribution.
 - The [Discussion board](https://github.com/mfiidd/mfiidd/discussions) is for
