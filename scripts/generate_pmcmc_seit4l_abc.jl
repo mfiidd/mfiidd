@@ -42,8 +42,7 @@ output_path = datadir("pmcmc_seit4l_abc_chain.csv")
 println("Saving $name chain to $output_path")
 CSV.write(output_path, output)
 
-combined =
-    Chains(cat([Matrix(f[:, ABC_PARAMETERS]) for f in frames]...; dims = 3), ABC_PARAMETERS)
+combined = symchain(frames, ABC_PARAMETERS)
 println("\n$name summary statistics, across $N_CHAINS chains:")
 show(stdout, MIME("text/plain"), summarystats(combined))
 println()

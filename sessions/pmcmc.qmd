@@ -76,7 +76,8 @@ using DataFrames ## for data frames
 using Plots ## for plots
 using StatsPlots ## for statistical plots
 using Turing ## for probabilistic programming and MCMC
-using MCMCChains ## to rebuild a chain object from the saved CSVs
+using FlexiChains ## chain objects and diagnostics
+using FlexiChains: Parameter ## public, but not exported, so name it
 using AdvancedMH ## for custom MH proposals
 using CSV ## for CSV file reading
 using StatsBase ## for statistical functions
@@ -302,13 +303,21 @@ Running PMMH with RAM for good mixing takes several hours. We load pre-computed 
 ```{julia}
 # Load pre-computed SEIT4L chain with good mixing
 chain_df = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
-chain_pmcmc = Chains(Matrix(chain_df[:, [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]]),
-                     [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ])
+chain_params = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
+
+# FlexiChains builds a chain from an iterations × chains × parameters array, keeping
+# the parameters in the order given. The saved draws are a single chain
+function symchain(df, params)
+    draws = reshape(Matrix(df[:, params]), :, 1, length(params))
+    return SymChain(draws, Tuple(Parameter.(params)))
+end
+
+chain_pmcmc = symchain(chain_df, chain_params)
 ```
 
 ```{julia}
 # Display chain summary
-display(chain_pmcmc)
+summarystats(chain_pmcmc)
 ```
 
 ```{julia}
@@ -317,7 +326,7 @@ plot(chain_pmcmc)
 ```
 
 Compare these traces to the short chain above.
-The chains cross the posterior repeatedly instead of sticking for hundreds of iterations, and the summary above puts numbers on it: R-hat is 1.00 for every parameter and the smallest effective sample size is a couple of thousand of the 9,000 kept draws.
+The chains cross the posterior repeatedly instead of sticking for hundreds of iterations, and the summary above puts numbers on it: R-hat is 1.00 for every parameter, and the smallest effective sample size is around 1,400 of the 9,000 kept draws.
 
 The saved chain also records whether each draw was accepted, which is the diagnostic that says whether RAM's adaptation worked:
 
@@ -513,8 +522,7 @@ Both models were fitted using RAM with 50,000 warmup iterations, then 450,000 ke
 ```{julia}
 # Load pre-computed SEITL chain
 chain_seitl_df = CSV.read(datadir("pmcmc_seitl_chain.csv"), DataFrame)
-chain_seitl = Chains(Matrix(chain_seitl_df[:, [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]]),
-                     [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ])
+chain_seitl = symchain(chain_seitl_df, chain_params)
 ```
 
 ```{julia}
