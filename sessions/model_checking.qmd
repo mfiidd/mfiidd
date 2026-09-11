@@ -1,5 +1,5 @@
 ---
-title: "Model Checking and Validation"
+title: "Model checking and validation"
 format: html
 engine: julia
 order: 4
@@ -795,7 +795,7 @@ The next session marks a shift in the course. So far, we've focused on **inferen
 
 - How to define models and compute posteriors (Introduction)
 - How to sample from posteriors efficiently (MCMC)
-- How to verify convergence (MCMC Diagnostics)
+- How to verify convergence (MCMC diagnostics)
 - How to check if your model makes sense (this session)
 
 Now we'll build the model this session's checks asked for. Explaining the second wave requires temporary immunity, which the SEITL model adds. In addition, a population of 284 is small enough that stochastic simulation matters.

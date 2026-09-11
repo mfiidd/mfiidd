@@ -1,5 +1,6 @@
 ---
-title: "Modelling interlude: the SEITL model and stochastic simulation"
+title: "Structure and stochasticity"
+subtitle: "Modelling interlude"
 format: html
 engine: julia
 order: 5
@@ -13,7 +14,7 @@ order: 5
 
 # Introduction
 
-> **Entering the stochastic tier**: You've completed the core sessions with deterministic ODE models, and diagnosed an SIR model that could not reproduce the Tristan da Cunha outbreak. This session builds a model that can, and introduces stochastic simulation. Fitting resumes in Particle Filters.
+> **Entering the stochastic tier**: You've completed the core sessions with deterministic ODE models, and diagnosed an SIR model that could not reproduce the Tristan da Cunha outbreak. This session builds a model that can, and introduces stochastic simulation. Fitting resumes in the particle filters session.
 
 We have a model, we ran posterior predictive checks on it, and it went wrong.
 So we change something. This session is about the two changes that we'll make to our SIR model.
@@ -34,7 +35,7 @@ Whether the epidemic takes off at all, and how large the second wave is, are par
 The two changes are independent, and this session makes each of them in turn.
 Stochastic simulation costs much more to run and, as the next sessions show, far more to fit, so it is worth understanding when you need it.
 
-This session focuses on modelling rather than fitting, which returns in the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions.
+This session focuses on modelling rather than fitting, which returns in the [Particle filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions.
 It also takes the opportunity to make the model biologically more realistic, by using distributions for the time spent in each compartment that beat the exponential.
 
 # Objectives
@@ -64,10 +65,10 @@ This session marks a transition in the course. We move from general inference me
 
 The remaining sessions build on the SEITL/SEIT4L models introduced here:
 
-- [Particle Filters](particle_filters.qmd): Estimating likelihoods for stochastic models
+- [Particle filters](particle_filters.qmd): Estimating likelihoods for stochastic models
 - [Particle MCMC](pmcmc.qmd): Full Bayesian inference using particle filters
 - [Observation Models](observation_models.qmd): Comparing likelihood-based and likelihood-free inference
-- [Variational Inference](variational_inference.qmd) (optional): Fast approximate inference for real-time applications
+- [Variational Inference](variational_inference.qmd): Fast approximate inference for real-time applications
 - [Universal Differential Equations](universal_differential_equations.qmd) (optional): Learning unknown mechanisms with neural networks
 :::
 
@@ -197,7 +198,7 @@ Based on the literature above, here are reasonable starting guesses:
 These are just starting points. The inference will refine them.
 :::
 
-# Deterministic vs Stochastic simulations
+# Deterministic vs stochastic simulations
 
 ::: {.callout-note}
 ## Two independent modelling choices
@@ -554,7 +555,7 @@ Adding a Poisson draw on top of each one would widen it further, and the observa
 ::: {.callout-note}
 Just like with the deterministic model, you can use the Turing `@model` for prior predictive checks by sampling parameters from priors, without conditioning on data.
 Condition with `| (; obs = data)` when fitting, and leave the model unconditioned when simulating.
-The [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions still use Turing, with the same `@model` macro and the same `~` statements for the priors.
+The [Particle filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions still use Turing, with the same `@model` macro and the same `~` statements for the priors.
 Only the line for the observations changes.
 A deterministic simulator gives one incidence curve per parameter set, so the data can be given a distribution directly, as `obs ~ arraydist(Poisson.(lambdas))` above.
 A stochastic simulator gives a different curve every run, so there is no single curve to put inside `Poisson`, and those sessions estimate the likelihood with a particle filter and add it to the model with `@addlogprob!`.
@@ -719,7 +720,7 @@ We now have multiple mechanistic models that could explain the two-wave pattern:
 
 Both encode the same biological hypothesis (temporary immunity followed by potential reinfection), but make different assumptions about the *distribution* of time spent in temporary immunity. The original [Camacho et al. (2011)](https://doi.org/10.1098/rspb.2011.0300) paper compared these and other variants using information criteria (DIC) and found that SEIT4L provided a better fit.
 
-In the [Particle Filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions, we'll fit both models to data and compare them.
+In the [Particle filters](particle_filters.qmd) and [Particle MCMC](pmcmc.qmd) sessions, we'll fit both models to data and compare them.
 :::
 
 ## From simulation to inference: the unified Turing approach {#sec-unified-approach}

@@ -152,23 +152,23 @@ Thursday 10 September: 09.30-09.45
 
 -   [Day 3 review](../sessions/slides/day3_review.qmd): where the week has got to, from deterministic fitting to particle MCMC (15 mins)
 
-## Session 9: Approximate Bayesian Computation
+## Session 9: Approximate Bayesian computation
 
 Thursday 10 September: 09.45-11.00
 
--   [Introduction](../sessions/slides/abc.qmd): likelihood-free inference, and choosing a distance instead (15 mins)
+-   [Introduction](../sessions/slides/abc.qmd): likelihood-free inference, and choosing a distance instead (10 mins)
 -   [Practice](../sessions/abc.qmd):
-    - ABC rejection sampling, and finding a workable acceptance threshold (30 mins)
-    - ABC-SMC, and comparing it against rejection ABC (20 mins)
--   Wrap up (10 mins)
+    - ABC rejection sampling, and finding a workable acceptance threshold (20 mins)
+    - what a summary statistic and a distance give up (20 mins)
+    - ABC-SMC, and comparing it against rejection ABC and particle MCMC (20 mins)
+-   Wrap up (5 mins)
 
 
 ## Session 10: Synthesis and next steps
 
 Thursday 10 September: 11.30-12.15
 
--   [Slides](../sessions/slides/choosing_an_approach.qmd): the methods side by side, the two questions that decide between them, and what actually goes wrong (25 mins)
--   [Discussion](../sessions/closing.qmd): work through the two questions, then place your own problem, in pairs and then as a group (20 mins)
+-   [What we did, the bigger picture, and where to go next](../sessions/slides/closing.qmd) (45 mins, including the [discussion](../sessions/closing.qmd) and questions)
 
 Bring a model you actually want to fit. The discussion works best when people
 argue about real problems rather than the worked examples.
@@ -177,9 +177,9 @@ argue about real problems rather than the worked examples.
 
 Thursday 10 September: 12.15-12.30
 
--   Summary, further reading and closing discussion (15 mins)
+-   Wrap-up and feedback (15 mins)
 
-# Further material
+# Further topics
 
 Four sessions are provided for self-study rather than taught in the room. They
 build on the taught sessions and can be worked through afterwards at your own

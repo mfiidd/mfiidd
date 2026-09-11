@@ -96,7 +96,7 @@ using MFIIDD
 ```
 
 ::: {.callout-note collapse="true"}
-## SEIT4L Particle Filter Implementation
+## SEIT4L particle filter implementation
 
 Gillespie step ([`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl)):
 
@@ -152,7 +152,7 @@ init_state = Dict(
 )
 ```
 
-In the [Particle Filters session](particle_filters.qmd), we:
+In the [Particle filters session](particle_filters.qmd), we:
 
 1. Implemented the SEIT4L Gillespie simulator (`gillespie_step`)
 2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEIT4LDynamics`, `PoissonObservation`, `SEIT4LInitial`)
@@ -329,7 +329,7 @@ println("acceptance rate: ", round(100 * mean(chain_df.accepted), digits = 1), "
 That is the target RAM aims for, and it is the payoff from the warmup iterations described below.
 
 ::: {.callout-tip}
-## The case for Robust Adaptive Metropolis
+## The case for robust adaptive Metropolis
 
 With standard MH and independent proposals, mixing is poor when parameters are correlated. The sampler proposes moves that go "against" the correlation structure and gets rejected.
 

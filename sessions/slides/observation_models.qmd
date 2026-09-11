@@ -1,12 +1,29 @@
 ---
-footer: "Observation models and ABC"
-title: "Observation models and Approximate Bayesian Computation"
+footer: "Observation models"
+title: "Observation models"
 subtitle: "Model fitting and inference for infectious disease dynamics"
 ---
 
 # Observation models
 
-## The choice we have been making silently
+## What an observation model is for
+
+![](images/likelihood_data_model_dist.svg){.step}
+
+A deterministic model gives one smooth trajectory.
+The counts do not sit on it.
+
+## Two jobs
+
+The distribution around the prediction is what makes a likelihood exist.
+The likelihood gives us a distribution around the prediction.
+That way the model doesn't have to fit the data perfectly.
+
+. . .
+
+It is also where the observation process lives: under-reporting, and the variation of counts around what the model expects.
+
+## The choice we have been making so far
 
 Every likelihood in this course so far has assumed
 
@@ -16,12 +33,12 @@ where $\lambda_t$ is what the model predicts at time $t$.
 
 . . .
 
-That is a modelling **choice**, not a law. It encodes a specific claim about how
-observation works, and it has consequences.
+That is a modelling [choice]{.alert}.
+It makes a specific claim about how observation works.
 
-## What Poisson assumes
+## What we have assumed so far
 
-- The variance **equals** the mean. Expect 100 cases, expect a spread of about
+- Observations follow a Poisson distribution around true incidence. The variance **equals** the mean. With 100 cases, expect a spread of about
   $\pm 10$.
 - Observations at different times are **conditionally independent** given the
   trajectory.
@@ -29,13 +46,15 @@ observation works, and it has consequences.
 
 . . .
 
-Real surveillance data rarely obliges. Weekend effects, reporting delays,
-outbreak investigations and clustered transmission all break these assumptions.
+Weekend effects, reporting delays, outbreak investigations and clustered transmission all break these assumptions.
+
+## One parameter, so one spread
+
+![](images/observation_poisson_spread.svg)
 
 ## Overdispersion
 
-When the data are more variable than Poisson allows, the fix is an observation
-model with a free variance:
+When the data are more variable than Poisson allows, the fix is an observation model with a free variance:
 
 $$y_t \sim \text{NegativeBinomial}(\lambda_t, \phi)$$
 
@@ -44,10 +63,16 @@ $$y_t \sim \text{NegativeBinomial}(\lambda_t, \phi)$$
 - $\phi \to \infty$ recovers the Poisson
 - small $\phi$ allows a much wider spread at the same mean
 
-. . .
+##  {.center}
 
-The cost is one extra parameter. The benefit is that the model stops treating
-every unusual day as strong evidence against the trajectory.
+![](images/observation_overdispersion.svg)
+
+## What each model predicts after fitting
+
+![](images/observation_predictive_bands.svg)
+
+Both fits use the same SIR model on Tristan da Cunha.
+Only the observation model differs.
 
 ## Why it matters for inference
 
@@ -55,17 +80,23 @@ An observation model that is too tight makes the posterior too confident.
 
 . . .
 
-A day with 47 cases where the model expects 5 is near-impossible under Poisson,
-so the intervals collapse around a trajectory that never reaches it.
+Day 7 reports 47 cases where the Poisson fit predicts about five.
+That is near-impossible under Poisson, so the posterior narrows around a trajectory that never reaches it.
 
-Under a negative binomial the same day is merely unusual and the intervals widen.
-The trajectory does not move closer: a single-wave model still cannot fit a
-two-wave outbreak.
+. . .
+
+Under a negative binomial the same day is merely unusual, so the intervals widen.
+
+## The posteriors disagree about $R_0$
+
+![](images/observation_posteriors.svg)
+
+The interval widens and the estimate moves.
+$D_\mathrm{inf}$ moves too, from about 3.3 days to 6.8.
 
 ## Likelihood as a distance
 
-The negative log-likelihood of one observation, as a function of how far it sits
-from the prediction, is a **distance function**.
+The negative log-likelihood of one observation, as a function of how far it is from the prediction, is a **distance function**.
 
 . . .
 
@@ -73,17 +104,16 @@ from the prediction, is a **distance function**.
 - Negative binomial is more forgiving in the tails
 - Gaussian penalises absolute deviations symmetrically
 
-. . .
+## Three likelihoods, three distances
 
-So a different observation model is a different distance. Which invites the
-question: what if we chose the distance **directly**?
+![](images/observation_distance.svg)
 
-## Tonight's question
+The flatter the tail, the less a badly missed day costs.
+Day 7 costs the Poisson about 66 log units and the negative binomial about 8.
 
-. . .
+## Today's question
 
-Once you see the likelihood as a distance, an obvious one follows: what if we
-chose the distance [directly]{.alert}?
+Once you see the likelihood as a distance, an obvious one follows: what if we chose the distance [directly]{.alert}?
 
 . . .
 
