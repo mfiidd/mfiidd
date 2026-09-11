@@ -13,6 +13,9 @@ Run bootstrap particle filter for SEIT4L and return log-likelihood.
 - `obs`: Vector of observed daily incidence
 - `n_particles`: Number of particles
 - `init_state`: Initial state vector [S, E, I, T1, T2, T3, T4, L]
+- `threaded`: propagate the particles across threads (default `false`)
+- `nchunks`: how many blocks to split them into when `threaded` (default
+  `Threads.nthreads()`)
 
 # Returns
 - `log_likelihood`: Estimated log-likelihood
@@ -22,6 +25,8 @@ function run_particle_filter(
     obs,
     n_particles;
     init_state = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0],
+    threaded = false,
+    nchunks = Threads.nthreads(),
 )
     # Coerce init_state to Float64 so callers can pass an integer vector
     # (e.g. [279, 0, 2, ...]) without hitting SEIT4LInitial's Vector{Float64}
@@ -44,9 +49,10 @@ function run_particle_filter(
     # Create state-space model
     model = StateSpaceModel(initial, dynamics, observation)
 
-    # Run bootstrap particle filter
+    # Run bootstrap particle filter. `threaded` propagates the particles across
+    # threads; see `ThreadedBF` for what that changes about reproducibility.
     rng = default_rng()
-    algo = BF(n_particles)  # Bootstrap Filter
+    algo = threaded ? ThreadedBF(BF(n_particles); nchunks) : BF(n_particles)
     _, log_lik = GeneralisedFilters.filter(rng, model, algo, obs)
 
     return log_lik

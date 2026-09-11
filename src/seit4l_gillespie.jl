@@ -1,6 +1,30 @@
 using Random
 
 """
+Which compartment each transition takes an individual from, and which it takes
+them to, as indices into [S, E, I, T1, T2, T3, T4, L].
+
+In order: infection, becoming infectious, recovery, the three steps through
+temporary immunity, immunity waning, and immunity becoming long term.
+"""
+const SEIT4L_MOVES = ((1, 2), (2, 3), (3, 4), (4, 5), (5, 6), (6, 7), (7, 1), (7, 8))
+
+"""
+    seit4l_rates(s, βN, ϵ, ν, τ, α)
+
+The eight transition rates at state `s`, in the order of `SEIT4L_MOVES`, as a
+tuple.
+
+A tuple stays on the stack. `βN` is β divided by the population, which every
+transition conserves, so both the sum and the division happen once a day rather
+than once an event.
+"""
+@inline function seit4l_rates(s, βN, ϵ, ν, τ, α)
+    @inbounds S, E, I, T1, T2, T3, T4 = s[1], s[2], s[3], s[4], s[5], s[6], s[7]
+    return (βN * S * I, ϵ * E, ν * I, τ * T1, τ * T2, τ * T3, (1 - α) * τ * T4, α * τ * T4)
+end
+
+"""
     gillespie_step(rng, state, θ, dt=1.0)
 
 Simulate SEIT4L for `dt` time units using the Gillespie algorithm.
@@ -20,65 +44,79 @@ function gillespie_step(
     θ::Dict,
     dt::Float64 = 1.0,
 )
+    s = copy(state)
+    return s, gillespie_step!(rng, s, θ, dt)
+end
+
+"""
+    gillespie_step!(rng, state, θ, dt=1.0)
+
+Simulate SEIT4L for `dt` time units, writing the new compartments into the first
+eight elements of `state`, and return the incidence.
+
+The caller owns the vector, so the filter can advance a particle without
+allocating one. `state` may be longer than eight: the state-space interface
+passes a nine-element vector and keeps incidence in the last slot.
+"""
+function gillespie_step!(
+    rng::AbstractRNG,
+    state::AbstractVector{Float64},
+    θ::Dict,
+    dt::Float64 = 1.0,
+)
     β = θ[:R_0] / θ[:D_inf]
     ϵ = 1.0 / θ[:D_lat]
     ν = 1.0 / θ[:D_inf]
     τ = 4.0 / θ[:D_imm]
     α = θ[:α]
 
-    # Copy state for modification
-    s = copy(state)
+    # The loop below indexes without checking, so check once here: this is
+    # exported, and a SEITL state is five elements long rather than eight
+    checkbounds(state, 8)
 
-    # Stoichiometry: how each transition changes [S, E, I, T1, T2, T3, T4, L]
-    stoich = [
-        [-1, 1, 0, 0, 0, 0, 0, 0],   # S → E (infection)
-        [0, -1, 1, 0, 0, 0, 0, 0],   # E → I (becoming infectious)
-        [0, 0, -1, 1, 0, 0, 0, 0],   # I → T1 (recovery)
-        [0, 0, 0, -1, 1, 0, 0, 0],   # T1 → T2
-        [0, 0, 0, 0, -1, 1, 0, 0],   # T2 → T3
-        [0, 0, 0, 0, 0, -1, 1, 0],   # T3 → T4
-        [1, 0, 0, 0, 0, 0, -1, 0],   # T4 → S (immunity wanes)
-        [0, 0, 0, 0, 0, 0, -1, 1],    # T4 → L (long-term immunity)
-    ]
+    # Every transition conserves the population, so both the sum and the
+    # division are constants of the whole day rather than of each event
+    N = @inbounds state[1] +
+              state[2] +
+              state[3] +
+              state[4] +
+              state[5] +
+              state[6] +
+              state[7] +
+              state[8]
+    βN = β / N
 
-    function rates(s)
-        S, E, I, T1, T2, T3, T4, L = s
-        N = S + E + I + T1 + T2 + T3 + T4 + L
-        [β*S*I/N, ϵ*E, ν*I, τ*T1, τ*T2, τ*T3, (1-α)*τ*T4, α*τ*T4]
-    end
-
-    # Simulate up to `dt` time units
     t, daily_inc = 0.0, 0
-    while t < dt
-        r = rates(s)
-        total_rate = sum(r)
-        total_rate ≤ 0 && break
+    @inbounds while t < dt
+        r = seit4l_rates(state, βN, ϵ, ν, τ, α)
+        total = sum(r)
+        total ≤ 0 && break
 
-        # Time to next event
-        τ_wait = randexp(rng) / total_rate
-        t + τ_wait > dt && break
-        t += τ_wait
+        # Time to the next event, and stop if it falls beyond the interval
+        wait = randexp(rng) / total
+        t + wait > dt && break
+        t += wait
 
-        # Select which event occurs
-        cum, rnd, event = 0.0, rand(rng) * total_rate, 0
+        # Choose the event in proportion to its rate
+        u, cumulative, event = rand(rng) * total, 0.0, 8
         for i in 1:8
-            cum += r[i]
-            if rnd ≤ cum
+            cumulative += r[i]
+            if u ≤ cumulative
                 event = i
                 break
             end
         end
 
-        # Apply the transition
-        for j in 1:8
-            s[j] += stoich[event][j]
-        end
+        # Apply it: one individual leaves a compartment and joins another
+        from, to = SEIT4L_MOVES[event]
+        state[from] -= 1
+        state[to] += 1
 
-        # E → I transitions count as new cases
+        # E → I is what counts as a new case
         event == 2 && (daily_inc += 1)
     end
 
-    return s, daily_inc
+    return daily_inc
 end
 
 """
@@ -87,9 +125,5 @@ end
 In-place version for simple bootstrap filter (no RNG argument, uses global RNG).
 """
 function gillespie_step_seit4l!(state::Vector{Float64}, θ::Dict, dt::Float64 = 1.0)
-    new_state, inc = gillespie_step(Random.default_rng(), state, θ, dt)
-    for i in 1:8
-        state[i] = new_state[i]
-    end
-    return inc
+    return gillespie_step!(Random.default_rng(), state, θ, dt)
 end

@@ -2,7 +2,7 @@
 #SBATCH --job-name=pmcmc_chains
 #SBATCH --time=48:00:00   # ~15 hours per model, run back to back
 #SBATCH --mem=16G
-#SBATCH --cpus-per-task=1
+#SBATCH --cpus-per-task=4
 #SBATCH --output=pmcmc_%j.out
 #SBATCH --error=pmcmc_%j.err
 
@@ -18,6 +18,6 @@ echo "Running on node: $(hostname)"
 echo "Julia version: $(julia --version)"
 
 # Run the chain generation script
-julia --project=. scripts/generate_pmcmc_chains.jl
+julia --project=. --threads=$SLURM_CPUS_PER_TASK scripts/generate_pmcmc_chains.jl
 
 echo "Finished at $(date)"

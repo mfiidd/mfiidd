@@ -64,8 +64,12 @@ end
 # Both models are estimated with the same bootstrap filter the sessions use, from
 # GeneralisedFilters, so the saved chains are the posterior of the model the page
 # defines rather than of a second implementation that happens to live in scripts.
+# The SEIT4L chain script propagates its particles across whatever threads Julia
+# was started with. Run it with `julia --project=. --threads=auto`.
+threaded_seit4l(θ, obs, n) = run_particle_filter(θ, obs, n; threaded = true)
+
 pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter_seitl)
-pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter)
+pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, threaded_seit4l)
 
 """
     flu_observations()
@@ -124,14 +128,14 @@ function run_pmmh(
     n_samples = N_SAMPLES,
     thinning = THINNING,
 )
-    println("=" ^ 60)
+    println("="^60)
     println("Running PMMH for $name with RAM")
     println("  Particles: $N_PARTICLES")
     println("  Warmup (adaptation, discarded): $n_warmup")
     println("  Samples kept: $n_samples")
     println("  Thinning: $thinning")
     println("  Final samples: $(n_samples ÷ thinning)")
-    println("=" ^ 60)
+    println("="^60)
 
     t_start = time()
     chain_full = sample(

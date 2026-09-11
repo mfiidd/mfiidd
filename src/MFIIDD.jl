@@ -17,15 +17,17 @@ include("seitl_ssm_interface.jl")
 include("seitl_runner.jl")
 include("seit4l_gillespie.jl")
 include("seit4l_ssm_interface.jl")
+include("threaded_bootstrap_filter.jl")
 include("seit4l_runner.jl")
 
 export sir_ode!, simulate_sir
 export seitl_ode!, simulate_seitl_deterministic, simulate_seitl_stochastic
 export seit4l_ode!, simulate_seit4l_deterministic
 export generate_observations
-export gillespie_step, gillespie_step_seitl!, gillespie_step_seit4l!
+export gillespie_step, gillespie_step!, gillespie_step_seitl!, gillespie_step_seit4l!
 export run_particle_filter, run_particle_filter_seitl, filtered_incidence
 export SEIT4LDynamics, SEIT4LInitial, PoissonObservation
+export ThreadedBF
 export SEITLDynamics, SEITLInitial
 export source_for
 

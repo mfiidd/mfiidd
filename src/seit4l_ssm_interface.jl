@@ -18,9 +18,15 @@ function SSMProblems.simulate(
     prev_state;
     kwargs...,
 )
-    state = collect(prev_state[1:8])  # Extract compartments
-    new_state, daily_inc = gillespie_step(rng, state, dyn.θ)
-    return vcat(new_state, daily_inc)  # Append daily incidence
+    # One nine-element vector per particle per day: the compartments are copied
+    # in, the stepper advances them in place, and the incidence goes in the last
+    # slot. `prev_state` may be a view, so it is read element by element.
+    state = Vector{Float64}(undef, 9)
+    @inbounds for i in 1:8
+        state[i] = prev_state[i]
+    end
+    @inbounds state[9] = gillespie_step!(rng, state, dyn.θ)
+    return state
 end
 
 """
