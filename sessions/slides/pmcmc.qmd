@@ -117,19 +117,35 @@ No amount of sampling SEITL answers that: you have to fit both.
 . . .
 
 - **Posterior predictive checks**: which reproduces the features you care about?
-- **DIC**: the deviance at the posterior mean, penalised by its spread across
-  the posterior
+- **DIC**: the fit at the posterior mean, penalised by how much worse the fit is
+  on average across the posterior
 
 . . .
 
 Both ask only for the likelihood of the whole series, which is what the filter
-returns. WAIC and LOO need $p(y_i \mid \theta)$ per observation, and a shared
-stochastic trajectory leaves the observations dependent given $\theta$.
+returns.
+DIC is the criterion we can compute here, and a rough one: it approximates
+predictive accuracy less well than the criteria usually recommended, which need
+a likelihood term for each observation on its own.
 
 . . .
 
 [The criterion that is appropriate for model comparison is determined by the
 structure of the model.]{.alert}
+
+## DIC
+
+Deviance, so that smaller is a better fit:
+$D(\theta) = -2 \log p(y \mid \theta)$.
+
+$$\mathrm{DIC} = D(\bar{\theta}) + 2 p_D, \qquad p_D = \overline{D} - D(\bar{\theta})$$
+
+- $D(\bar{\theta})$: the fit at the posterior mean $\bar{\theta}$
+- $\overline{D}$: the fit averaged over the posterior
+- $p_D$: how much worse the average is than the fit at the mean, the
+  [effective number of parameters]{.alert}
+
+Lower is better, and only the difference between two models means anything.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
