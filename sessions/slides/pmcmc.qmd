@@ -126,7 +126,7 @@ Both ask only for the likelihood of the whole series, which is what the filter
 returns.
 DIC is the criterion we can compute here, and a rough one: it approximates
 predictive accuracy less well than the criteria usually recommended, which need
-a likelihood term per observation.
+a likelihood term for each observation on its own.
 
 . . .
 
