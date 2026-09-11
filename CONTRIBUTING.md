@@ -181,9 +181,8 @@ description:
 8. Optionally `# Going further` and `# Next session`.
 9. `# References` last, holding the `::: {#refs}` block.
 
-Four sessions do not match points 8 and 9 today: `observation_models.qmd` has no
-`# References` section at all, `abc.qmd` ends `Going further` → `References` →
-`Next session`, `seitl.qmd` ends `References` → `Going further`, and
+Three sessions do not match points 8 and 9 today: `observation_models.qmd` has no
+`# References` section at all, `seitl.qmd` ends `References` → `Going further`, and
 `universal_differential_equations.qmd` places `Going further` before its Learning
 points box. Bring a session into line when you are editing it for another reason
 rather than making a sweep of its own.
