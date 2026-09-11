@@ -36,9 +36,9 @@ Work through them in order, or use this map to plan your time.
 
 **Stochastic sessions** (5-6 hours) - for fitting models with demographic stochasticity:
 
-> SEITL Interlude (Susceptible–Exposed–Infectious–Temporary immunity–Long-term immunity) → Particle filters → Particle MCMC
+> Structure and stochasticity (the SEITL model: Susceptible–Exposed–Infectious–Temporary immunity–Long-term immunity) → Particle filters → Particle MCMC
 
-The Tristan da Cunha outbreak is introduced in Model Checking, where an SIR model is fitted to it and fails. The SEITL interlude builds the model that failure points to.
+The Tristan da Cunha outbreak is introduced in Model Checking, where an SIR model is fitted to it and fails. Structure and stochasticity builds the model that failure points to.
 
 **Likelihood-free sessions** (2-3 hours each) - taught on days 3 and 4:
 

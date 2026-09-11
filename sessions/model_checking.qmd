@@ -809,7 +809,7 @@ Now we'll build the model this session's checks asked for. Explaining the second
 The next session introduces new concepts (stochastic models, Gillespie algorithm, Erlang distributions), but the inference framework remains the same - you'll use everything you've learned.
 :::
 
-In the [SEITL session](seitl.qmd), we build the SEITL model with temporary immunity and simulate it stochastically. This sets up the remaining sessions where we'll fit stochastic models using particle methods.
+In the [Structure and stochasticity](seitl.qmd) session, we build the SEITL model with temporary immunity and simulate it stochastically. This sets up the remaining sessions where we'll fit stochastic models using particle methods.
 
 # References
 
