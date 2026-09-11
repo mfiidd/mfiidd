@@ -109,6 +109,12 @@ We set a random seed for reproducibility.
 Random.seed!(1234)
 ```
 
+## Load data
+
+```{julia}
+flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
+```
+
 # The outbreak, in brief
 
 You met the Tristan da Cunha outbreak in the [model checking session](model_checking.qmd) and fitted an SIR model to it: 284 islanders, 312 recorded attacks over 59 days, and a second peak on day 32 that a single wave of infection cannot produce.
@@ -120,8 +126,6 @@ The ship that started it landed five islanders on 13 August: three had fallen il
 And only 312 of the 365 attacks (85%) were dated precisely enough to be in the dataset.
 
 ```{julia}
-flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
-
 # Plot daily observed incidence
 scatter(
     flu_tdc.time, flu_tdc.obs,

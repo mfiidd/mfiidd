@@ -68,6 +68,17 @@ using StatsBase
 Random.seed!(1234)
 ```
 
+## Load data
+
+The session fits the daily case counts from the Tristan da Cunha outbreak described below.
+
+```{julia}
+# Alternatively, you can load directly from GitHub:
+# flu_tdc_url = "https://raw.githubusercontent.com/mfiidd/mfiidd/main/data/flu_tdc_1971.csv"
+# flu_tdc = CSV.read(download(flu_tdc_url), DataFrame)
+flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
+```
+
 # Tristan da Cunha outbreak
 
 ![](../figures/TdC.png)
@@ -89,15 +100,9 @@ Despite the lack of virological data, serological evidence indicates that all ep
 Among the 284 islanders, 273 (96%) experienced at least one episode of illness and 92 (32%) experienced two, which is remarkable for influenza.
 Unfortunately, only 312 of the 365 attacks (85%) are known to within a single day of accuracy and constitute the dataset reported by [Mantle & Tyrrell in 1973](http://www.ncbi.nlm.nih.gov/pmc/articles/PMC2130434/).
 
-The dataset of daily incidence can be loaded and plotted as follows:
+The daily incidence data, loaded in the setup above, look like this:
 
 ```{julia}
-# Load Tristan da Cunha data
-# Alternatively, you can load directly from GitHub:
-# flu_tdc_url = "https://raw.githubusercontent.com/mfiidd/mfiidd/main/data/flu_tdc_1971.csv"
-# flu_tdc = CSV.read(download(flu_tdc_url), DataFrame)
-flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
-
 # Display first few rows
 first(flu_tdc, 6)
 ```
