@@ -548,7 +548,7 @@ hline!(p_resid, [0], color=:black, linestyle=:dash)
 
 If residuals show a systematic trend — consistently positive or negative over certain time periods — the model is missing important temporal structure. If residuals at one time point predict residuals at the next (autocorrelation), the model dynamics are incomplete. And if the spread of residuals changes depending on the predicted value (*heteroscedasticity* — literally "different scatter"), the observation model's variance structure is probably wrong. For example, with a Poisson observation model the variance equals the mean, so residuals should be larger when predicted cases are high; if they're *much* larger than expected, the data may be overdispersed.
 
-For the SIR fit to Tristan da Cunha, you should see clear structure: positive residuals during the second wave that the SIR model can't capture.
+For the SIR fit to Tristan da Cunha, you should see clear structure: large positive residuals around the first peak, where the fit rises too late and too low, negative residuals as the first wave declines, and a smaller run of positive residuals through the second wave.
 
 ```{julia}
 # Check for autocorrelation in residuals
@@ -591,7 +591,7 @@ A model that misses a second wave is fine if you only care about the first wave'
 :::
 
 ::: {.callout-tip title="Exercise: Diagnosing the SIR failure"}
-The SIR model fails to capture the second wave in the Tristan da Cunha data. Based on the residual patterns and posterior predictive checks above:
+The SIR model fails to capture the Tristan da Cunha data: it misses both waves, settling for one flatter, later epidemic in between. Based on the residual patterns and posterior predictive checks above:
 
 1. What biological mechanism might explain a second wave after the first has subsided?
 2. What structural change to the model would be needed to accommodate this?
