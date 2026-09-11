@@ -307,12 +307,8 @@ chain_params = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
 
 # FlexiChains builds a chain from an iterations × chains × parameters array, keeping
 # the parameters in the order given. The saved draws are a single chain
-function symchain(df, params)
-    draws = reshape(Matrix(df[:, params]), :, 1, length(params))
-    return SymChain(draws, Tuple(Parameter.(params)))
-end
-
-chain_pmcmc = symchain(chain_df, chain_params)
+draws = reshape(Matrix(chain_df[:, chain_params]), :, 1, length(chain_params))
+chain_pmcmc = SymChain(draws, Tuple(Parameter.(chain_params)))
 ```
 
 ```{julia}
@@ -522,7 +518,8 @@ Both models were fitted using RAM with 50,000 warmup iterations, then 450,000 ke
 ```{julia}
 # Load pre-computed SEITL chain
 chain_seitl_df = CSV.read(datadir("pmcmc_seitl_chain.csv"), DataFrame)
-chain_seitl = symchain(chain_seitl_df, chain_params)
+draws_seitl = reshape(Matrix(chain_seitl_df[:, chain_params]), :, 1, length(chain_params))
+chain_seitl = SymChain(draws_seitl, Tuple(Parameter.(chain_params)))
 ```
 
 ```{julia}
