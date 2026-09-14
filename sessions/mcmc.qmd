@@ -832,7 +832,7 @@ These summaries give us point estimates and uncertainty, but should we trust the
 - Vihola (2012). [Robust Adaptive Metropolis Algorithm with Coerced Acceptance Rate](https://doi.org/10.1007/s11222-011-9269-5). *Statistics and Computing* 22, 997-1008. (The RAM algorithm)
 - Hoffman & Gelman (2014). [The No-U-Turn Sampler](https://jmlr.org/papers/v15/hoffman14a.html). *JMLR* 15, 1593-1623. (The NUTS algorithm)
 - Betancourt (2017). [A Conceptual Introduction to Hamiltonian Monte Carlo](https://arxiv.org/abs/1701.02434). *arXiv*. (Excellent intuition for HMC/NUTS)
-- [MCMCChains.jl](https://turinglang.org/MCMCChains.jl/stable/) - Chain analysis and diagnostics
+- [FlexiChains.jl](https://juliabayes.org/FlexiChains.jl/stable) - the chain type this course uses, and its diagnostics
 
 **Next session**: [MCMC diagnostics](mcmc_diagnostics.qmd), how to tell if your chains have converged and your results are trustworthy.
 

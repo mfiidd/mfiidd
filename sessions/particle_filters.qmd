@@ -17,7 +17,7 @@ order: 6
 
 In the previous sessions, we fitted deterministic models using MCMC. For deterministic models, computing the likelihood is straightforward: given parameters, we solve the ODEs to get a trajectory, then evaluate the probability of the data given that trajectory.
 
-But what about stochastic models? In the [SEITL session](seitl.qmd), we saw that the same parameters can produce very different trajectories due to demographic stochasticity. There's no single "expected" trajectory to compare against the data.
+But what about stochastic models? In the [Structure and stochasticity](seitl.qmd) session, we saw that the same parameters can produce very different trajectories due to demographic stochasticity. There's no single "expected" trajectory to compare against the data.
 
 This session introduces particle filters — the computational technique that makes Bayesian inference possible for stochastic models.
 
@@ -143,11 +143,11 @@ init_state = Dict(
 
 ::: {.callout-note}
 ## Why SEIT4L instead of SEITL?
-From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather than the basic SEITL (exponential temporary immunity). As we saw in the [SEITL session](seitl.qmd), the Erlang distribution gives more realistic timing for immunity loss. The original [Camacho et al. (2011)](https://doi.org/10.1098/rspb.2011.0300) paper found that SEIT4L fits the Tristan da Cunha data better. Everything below works identically with SEITL — just with fewer T sub-compartments.
+From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather than the basic SEITL (exponential temporary immunity). As we saw in the [Structure and stochasticity](seitl.qmd) session, the Erlang distribution gives more realistic timing for immunity loss. The original [Camacho et al. (2011)](https://doi.org/10.1098/rspb.2011.0300) paper found that SEIT4L fits the Tristan da Cunha data better. Everything below works identically with SEITL — just with fewer T sub-compartments.
 :::
 
 The particle filter needs to simulate many stochastic trajectories.
-We use the Gillespie algorithm introduced in the [SEITL session](seitl.qmd), adapted here for the SEIT4L model with its four T compartments.
+We use the Gillespie algorithm introduced in the [Structure and stochasticity](seitl.qmd) session, adapted here for the SEIT4L model with its four T compartments.
 The implementation below is shown from the package source rather than repeated by
 hand, so that the page and the code cannot drift apart. This is the function
 `SEIT4LDynamics` calls once per particle per day:

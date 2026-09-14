@@ -27,7 +27,7 @@ Each session opens with a short set of slides and then becomes a practical you w
 No prior Julia experience is assumed and the syntax is introduced as it is needed, including guidelines for those coming with R.
 Optional and advanced sessions are marked as such.
 
-We work with one dataset for most of the week: a two-wave influenza outbreak on [Tristan da Cunha](seitl.qmd) in 1971, in a population of 284.
+We work with one dataset for most of the week: a two-wave influenza outbreak on [Tristan da Cunha](model_checking.qmd#tristan-da-cunha-outbreak) in 1971, in a population of 284.
 It is small enough that chance matters, which is what makes the later methods necessary.
 
 # Timeline for the course
