@@ -22,14 +22,14 @@ end
 
 Dynamics for the model whose compartments are `init_state`.
 
-The jump problem is built once, here, rather than on every step. Everything it
-needs is fixed for the whole run: `θ`, the number of stages, and the population
-size, which every transition conserves. Building it per step doubled the cost of
-advancing a particle by a day.
+The jump problem is built once, here. Everything it needs is fixed for the whole
+run: `θ`, the number of stages, and the population size, which every transition
+conserves. Building it on every step doubled the cost of advancing a particle by
+a day.
 
 That makes the dynamics the owner of its random stream, so `rng` is taken here
-rather than from each `simulate` call. Seed once before building the model and
-the propagation is reproducible.
+and each `simulate` call uses it. Seed once before building the model and the
+propagation is reproducible.
 """
 SEITLDynamics(
     θ::Dict{Symbol, Float64},
@@ -67,9 +67,9 @@ end
 Initial state distribution, which is deterministic here: the island as the ship
 lands.
 
-The length of `init_state` is what selects the model. Five compartments
-`[S, E, I, T, L]` give SEITL, eight `[S, E, I, T1, T2, T3, T4, L]` give SEIT4L,
-and any other number of temporary immunity stages works the same way.
+Five compartments `[S, E, I, T, L]` give SEITL, eight
+`[S, E, I, T1, T2, T3, T4, L]` give SEIT4L, and any other number of temporary
+immunity stages works the same way.
 """
 struct SEITLInitial <: SSMProblems.StatePrior
     init_state::Vector{Float64}

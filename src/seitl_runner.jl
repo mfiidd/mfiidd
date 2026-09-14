@@ -8,9 +8,8 @@ using SSMProblems: StateSpaceModel
 
 Assemble the state-space model the two runners below both need.
 
-The number of temporary immunity stages is whatever `init_state` says, so this
-serves SEITL (`[S, E, I, T, L]`) and SEIT4L (`[S, E, I, T1, T2, T3, T4, L]`)
-alike without being told which.
+`init_state` carries the number of temporary immunity stages, so this serves
+SEITL (`[S, E, I, T, L]`) and SEIT4L (`[S, E, I, T1, T2, T3, T4, L]`) alike.
 
 `init_state` is coerced to `Float64` so callers may pass an integer vector, and
 ForwardDiff duals are stripped from `θ` because the bootstrap filter is not

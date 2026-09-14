@@ -65,11 +65,15 @@ end
 # Both models are estimated with the same bootstrap filter the sessions use, from
 # GeneralisedFilters, so the saved chains are the posterior of the model the page
 # defines rather than of a second implementation that happens to live in scripts.
-## One filter serves both models; the initial state is what says which is which
+## One filter serves both models. The initial state carries the compartment
+## count, so both are named here and neither depends on a default.
 const SEITL_INIT = [279.0, 0.0, 2.0, 3.0, 0.0]
-seitl_filter(θ, obs, n) = run_particle_filter(θ, obs, n; init_state = SEITL_INIT)
-pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, seitl_filter)
-pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, run_particle_filter)
+const SEIT4L_INIT = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
+
+filter_for(init) = (θ, obs, n) -> run_particle_filter(θ, obs, n; init_state = init)
+
+pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEITL_INIT))
+pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEIT4L_INIT))
 
 # sessions/abc.qmd estimates three of the six parameters and fixes the rest at
 # these values. The ABC posteriors there are only comparable with a likelihood
@@ -97,7 +101,7 @@ priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
         ),
     )
 
-    Turing.@addlogprob! run_particle_filter(θ, obs, n_particles)
+    Turing.@addlogprob! run_particle_filter(θ, obs, n_particles; init_state = SEIT4L_INIT)
 end
 
 """

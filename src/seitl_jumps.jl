@@ -138,7 +138,7 @@ Simulate one trajectory over `times` and return a matrix whose rows are the
 compartments at each time and a vector of the incidence between them.
 
 The whole trajectory is one `solve`, with `saveat` set to `times`, so the
-solver is entered once rather than once per day. The incidence slot
+solver is entered once for the whole run. The incidence slot
 accumulates over the run, and differencing it gives the incidence within each
 interval.
 """

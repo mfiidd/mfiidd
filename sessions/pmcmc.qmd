@@ -628,7 +628,7 @@ function dic(chain_df, run_filter)
 end
 
 Random.seed!(1)
-## One filter serves both; the initial state is what says which model it is
+## One filter serves both. Five compartments give SEITL, eight give SEIT4L.
 for (name, file, init) in (
     ("SEITL", "pmcmc_seitl_chain.csv", [279.0, 0.0, 2.0, 3.0, 0.0]),
     ("SEIT4L", "pmcmc_seit4l_chain.csv", [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]),

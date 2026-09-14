@@ -490,7 +490,7 @@ The model has the following transitions:
 ## Implementation: the transitions
 
 `simulate_seitl_stochastic` walks through the days and hands each one to `seitl_jump_step!`, which advances the state over that day and returns the cases it produced.
-The simulation itself is [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/); what the course writes down is the table above, as reactants and the changes they cause.
+[JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/) samples the transitions in the table above, written here as reactants and the changes they cause.
 The number of temporary immunity stages is read from the state, so the same description gives SEIT4L later in the session.
 
 ```{julia}

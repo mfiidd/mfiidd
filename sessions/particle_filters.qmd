@@ -148,9 +148,8 @@ From here on, we use the **SEIT4L** model (Erlang-4 temporary immunity) rather t
 
 The particle filter needs to simulate many stochastic trajectories.
 The simulation is the one introduced in the [Structure and stochasticity](seitl.qmd) session.
-Rather than an algorithm written out by hand, the model is given as a list of transitions and their rates, and [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/) samples it exactly.
-The transitions are shown from the package source rather than repeated by hand,
-so that the page and the code cannot drift apart. The number of temporary
+The model is a list of transitions and their rates, which [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/) samples exactly.
+The transitions below come from the package source, so the page and the code cannot drift apart. The number of temporary
 immunity stages is read from the state, so this one description serves SEITL and
 SEIT4L alike:
 
@@ -383,7 +382,7 @@ A few Julia features worth unpacking:
 
 - `kwargs...` at the end of a function signature means "accept any additional keyword arguments". We don't use them here, but `SSMProblems.jl` may pass extra keyword arguments depending on the filter being used, so our methods need to accept them without complaining.
 
-- `vcat(prior.init_state, 0.0)` appends `0.0` to the compartments to make the state one element longer. That last slot tracks daily incidence, because the observation process needs to see it. `collect(prev_state[1:(end - 1)])` takes everything except that slot and copies it into a plain `Vector` — some inputs arrive as views or other array-like types, and the simulator wants a concrete vector. Writing it as `end - 1` rather than a fixed 8 is what lets the same code run SEITL and SEIT4L.
+- `vcat(prior.init_state, 0.0)` appends `0.0` to the compartments to make the state one element longer. That last slot tracks daily incidence, because the observation process needs to see it. `collect(prev_state[1:(end - 1)])` takes everything except that slot and copies it into a plain `Vector` — some inputs arrive as views or other array-like types, and the simulator wants a concrete vector. Writing it as `end - 1` lets the same code run SEITL and SEIT4L.
 :::
 
 How the pieces fit together:
