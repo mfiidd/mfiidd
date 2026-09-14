@@ -27,7 +27,7 @@ function seitl_ssm(θ, init_state)
     θ_f64 = Dict{Symbol, Float64}(k => value(v) for (k, v) in θ)
     return StateSpaceModel(
         SEITLInitial(init_f64),
-        SEITLDynamics(θ_f64),
+        SEITLDynamics(θ_f64, init_f64),
         PoissonObservation(θ_f64[:ρ]),
     )
 end

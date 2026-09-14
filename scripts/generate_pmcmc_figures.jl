@@ -444,8 +444,9 @@ if "trajectories" in STAGES
     resim = map(1:n_rep) do _
         θ = draw(chain[rand(1:nrow(chain)), :])
         state = copy(INIT_4L)
+        problem = seitl_jump_problem(θ, state)
         [
-            rand(Poisson(max(θ[:ρ] * gillespie_step_seit4l!(state, θ, 1.0), 1e-10))) for
+            rand(Poisson(max(θ[:ρ] * seitl_jump_step!(problem, state, 1.0), 1e-10))) for
             _ in 1:n_obs
         ]
     end

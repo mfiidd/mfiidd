@@ -193,10 +193,13 @@ particles = [Float64[init_state[:S], init_state[:E], init_state[:I],
 trajectories = [zeros(5) for _ in 1:n_particles]
 
 # Simulate 5 days
+## Built once and reused: the transitions and rates do not change between steps
+problem = seitl_jump_problem(θ_example, particles[1])
+
 for day in 1:5
     for i in 1:n_particles
         ## advances the particle in place and returns the day's incidence
-        trajectories[i][day] = gillespie_step_seit4l!(particles[i], θ_example, 1.0)
+        trajectories[i][day] = seitl_jump_step!(problem, particles[i], 1.0)
     end
 end
 

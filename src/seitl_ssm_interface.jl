@@ -1,6 +1,7 @@
 using Random
 using Distributions
 using SSMProblems
+using JumpProcesses: JumpProblem
 
 """
 SEITL latent dynamics, for any number of temporary immunity stages.
@@ -12,9 +13,29 @@ the `k = 1` case and SEIT4L the `k = 4` case; the number of stages comes from
 the length of the state the filter is given, so one type serves both and
 nothing here needs to be told which model it is running.
 """
-struct SEITLDynamics <: SSMProblems.LatentDynamics
-    θ::Dict{Symbol, Float64}
+struct SEITLDynamics{P <: JumpProblem} <: SSMProblems.LatentDynamics
+    problem::P
 end
+
+"""
+    SEITLDynamics(θ, init_state; rng = Random.default_rng())
+
+Dynamics for the model whose compartments are `init_state`.
+
+The jump problem is built once, here, rather than on every step. Everything it
+needs is fixed for the whole run: `θ`, the number of stages, and the population
+size, which every transition conserves. Building it per step doubled the cost of
+advancing a particle by a day.
+
+That makes the dynamics the owner of its random stream, so `rng` is taken here
+rather than from each `simulate` call. Seed once before building the model and
+the propagation is reproducible.
+"""
+SEITLDynamics(
+    θ::Dict{Symbol, Float64},
+    init_state;
+    rng::AbstractRNG = Random.default_rng(),
+) = SEITLDynamics(seitl_jump_problem(θ, init_state; rng = rng))
 
 function SSMProblems.simulate(
     rng::AbstractRNG,
@@ -25,10 +46,7 @@ function SSMProblems.simulate(
 )
     ## Drop the incidence slot, leaving the compartments the simulator works on
     state = collect(prev_state[1:(end - 1)])
-    ## Built here rather than held, so the problem carries the generator the
-    ## filter is drawing from and the population size the state actually has
-    problem = seitl_jump_problem(dyn.θ, state; rng = rng)
-    return vcat(state, seitl_jump_step!(problem, state))  ## re-append incidence
+    return vcat(state, seitl_jump_step!(dyn.problem, state))  ## re-append incidence
 end
 
 """

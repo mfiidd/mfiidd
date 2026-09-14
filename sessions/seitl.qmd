@@ -487,27 +487,27 @@ The model has the following transitions:
 | T → L | $\alpha \tau T$ | T-1, L+1 |
 
 ::: {.callout-note collapse="true"}
-## Implementation: Gillespie algorithm
+## Implementation: the transitions
 
-`simulate_seitl_stochastic` walks through the days and hands each one to `gillespie_step_seitl!`, which advances the state over that day and returns the cases it produced.
-The stepper is the algorithm, and it carries the five transitions of the table above.
+`simulate_seitl_stochastic` walks through the days and hands each one to `seitl_jump_step!`, which advances the state over that day and returns the cases it produced.
+The simulation itself is [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/); what the course writes down is the table above, as reactants and the changes they cause.
+The number of temporary immunity stages is read from the state, so the same description gives SEIT4L later in the session.
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(gillespie_step_seitl!), "\n```")
+println("```julia\n", source_for(seitl_stoichiometry), "\n\n",
+        source_for(seitl_rate_constants), "\n```")
 ```
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
 
-- **Stoichiometry matrix**: Each row defines how compartments change for one transition type (e.g., `[-1, 1, 0, 0, 0]` means S decreases by 1 and E increases by 1 for infection)
-- **`rates(s)`**: Computes the current rate of each transition based on compartment sizes
-- **`gillespie_step_seitl!`**: Simulates one day by repeatedly: (1) drawing an exponential waiting time, (2) selecting which event occurs proportional to rates, (3) applying the state change
-- **`randexp(rng) / total_rate`**: Waiting time to next event follows Exp(total_rate)
-- **Event selection**: Cumulative sum trick to select event with probability proportional to its rate
-- **`event == 2`**: E→I transitions are counted as new cases (daily incidence)
-- **`rng`**: The generator is an argument, so you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
+- **Reactants and net change**: each transition says which compartments it consumes and how the state changes, so `[S => 1, I => 1]` with `[S => -1, E => 1]` is an infection
+- **Rate constants**: mass action, so the rate of a transition is its constant times the reactants present. The infection rate $\beta S I / N$ becomes the constant $\beta / N$ times $S$ times $I$, which every transition conserving $N$ makes exact
+- **`T(j)`**: the temporary immunity stages are built in a loop over `k`, which is why one description serves SEITL and SEIT4L
+- **`Inc`**: a slot in the state that no rate reads, incremented by the E → I transition, so daily incidence is read off like a compartment
+- **`rng`**: `seitl_jump_problem` takes a generator, so you can reproduce a trajectory by passing `rng = MersenneTwister(seed)`
 :::
 
 :::

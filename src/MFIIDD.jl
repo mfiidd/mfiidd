@@ -22,7 +22,6 @@ export seit4l_ode!, simulate_seit4l_deterministic
 export generate_observations
 export seitl_stoichiometry, seitl_rate_constants, seitl_transitions
 export seitl_jump_problem, seitl_jump_step!, seitl_jump_trajectory
-export gillespie_step_seitl!, gillespie_step_seit4l!
 export run_particle_filter, filtered_incidence
 export SEITLDynamics, SEITLInitial, PoissonObservation
 export source_for

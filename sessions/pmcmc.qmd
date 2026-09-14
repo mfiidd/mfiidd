@@ -206,7 +206,7 @@ Uses GeneralisedFilters for likelihood estimation.
     # Order: [S, E, I, T1, T2, T3, T4, L]
     init_state = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
     ssm = StateSpaceModel(SEITLInitial(init_state),
-                          SEITLDynamics(θ),
+                          SEITLDynamics(θ, init_state),
                           PoissonObservation(θ[:ρ]))
 
     # Run particle filter to estimate log-likelihood
@@ -690,7 +690,8 @@ function predict_seit4l(row)
     θ = Dict(:R_0 => row.R_0, :D_lat => row.D_lat, :D_inf => row.D_inf,
              :α => row.α, :D_imm => row.D_imm)
     state = copy(init_4l)
-    [rand(Poisson(max(row.ρ * gillespie_step_seit4l!(state, θ, 1.0), 1e-10)))
+    problem = seitl_jump_problem(θ, state)
+    [rand(Poisson(max(row.ρ * seitl_jump_step!(problem, state, 1.0), 1e-10)))
      for _ in 1:n_obs]
 end
 

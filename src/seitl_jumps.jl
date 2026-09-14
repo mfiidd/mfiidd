@@ -150,36 +150,3 @@ function seitl_jump_trajectory(θ::Dict, compartments::AbstractVector{<:Real}, t
     incidence = [0.0; diff(states[:, end])]
     return states[:, 1:(end - 1)], incidence
 end
-
-"""
-    gillespie_step_seitl!(rng, state, θ, dt = 1.0)
-    gillespie_step_seit4l!(state, θ, dt = 1.0)
-
-Advance `state` by `dt` days and return the incidence over that interval.
-
-These keep the names the sessions and scripts already call while the simulation
-itself is the jump formulation above: there is no separate hand-written stepper
-for each compartment count, and the number of temporary immunity stages comes
-from the length of `state`.
-"""
-function gillespie_step_seitl!(
-    rng::AbstractRNG,
-    state::AbstractVector{<:Real},
-    θ::Dict,
-    dt::Real = 1.0,
-)
-    return seitl_jump_step!(seitl_jump_problem(θ, state; rng = rng), state, dt)
-end
-
-gillespie_step_seitl!(state::AbstractVector{<:Real}, θ::Dict, dt::Real = 1.0) =
-    gillespie_step_seitl!(default_rng(), state, θ, dt)
-
-gillespie_step_seit4l!(state::AbstractVector{<:Real}, θ::Dict, dt::Real = 1.0) =
-    gillespie_step_seitl!(default_rng(), state, θ, dt)
-
-gillespie_step_seit4l!(
-    rng::AbstractRNG,
-    state::AbstractVector{<:Real},
-    θ::Dict,
-    dt::Real = 1.0,
-) = gillespie_step_seitl!(rng, state, θ, dt)

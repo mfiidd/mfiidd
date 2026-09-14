@@ -99,9 +99,9 @@ end
 
 Simulate the stochastic SEITL model using the Gillespie algorithm.
 
-Each day is advanced by `gillespie_step_seitl!`, the same stepper the particle
-filter uses, so the simulator and the filter share one description of the
-dynamics.
+Each day is advanced by `seitl_jump_step!`, over the same transitions the
+particle filter samples, so the simulator and the filter share one description
+of the dynamics.
 
 # Arguments
 - `θ`: Dict with keys :R_0, :D_lat, :D_inf, :α, :D_imm
@@ -139,12 +139,15 @@ function simulate_seitl_stochastic(
         Inc = zeros(n_days),
     )
 
+    ## Built once: θ, the stage count and the population are fixed for the run
+    problem = seitl_jump_problem(θ, state; rng = rng)
+
     for (i, t) in enumerate(times)
         results.S[i], results.E[i], results.I[i] = state[1], state[2], state[3]
         results.T[i], results.L[i] = state[4], state[5]
         if i < n_days
             dt = Float64(times[i + 1] - t)
-            results.Inc[i + 1] = gillespie_step_seitl!(rng, state, θ, dt)
+            results.Inc[i + 1] = seitl_jump_step!(problem, state, dt)
         end
     end
 
