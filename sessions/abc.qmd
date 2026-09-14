@@ -140,7 +140,8 @@ function simulate_seit4l_obs(R_0, D_inf, ρ)
     θ = Dict(:R_0 => R_0, :D_lat => D_LAT, :D_inf => D_inf,
              :α => ALPHA, :D_imm => D_IMM)
     state = copy(init_test)
-    inc = [gillespie_step_seit4l!(state, θ, 1.0) for _ in 1:n_obs]
+    problem = seitl_jump_problem(θ, state)
+    inc = [seitl_jump_step!(problem, state, 1.0) for _ in 1:n_obs]
     ## The floor matches the particle filter's observation model, where it keeps a
     ## particle's weight finite on a day it has no cases; here it only keeps the
     ## two models the same

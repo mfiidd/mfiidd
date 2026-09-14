@@ -86,7 +86,8 @@ a draw from `p(x | θ)`.
 """
 function simulate_blind()
     state = copy(init_state)
-    return [gillespie_step_seit4l!(state, θ, 1.0) for _ in 1:N_DAYS]
+    problem = seitl_jump_problem(θ, state)
+    return [seitl_jump_step!(problem, state, 1.0) for _ in 1:N_DAYS]
 end
 
 """
@@ -259,12 +260,13 @@ size after each day.
 """
 function run_filter(; resample::Bool)
     states = [copy(init_state) for _ in 1:J]
+    problem = seitl_jump_problem(θ, init_state)
     log_w = zeros(J)
     ess = zeros(N_DAYS)
 
     for t in 1:N_DAYS
         for j in 1:J
-            inc = gillespie_step_seit4l!(states[j], θ, 1.0)
+            inc = seitl_jump_step!(problem, states[j], 1.0)
             log_w[j] += logpdf(Poisson(max(θ[:ρ] * inc, 1e-10)), flu_tdc.obs[t])
         end
 
