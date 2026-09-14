@@ -99,28 +99,31 @@ using MFIIDD
 ::: {.callout-note collapse="true"}
 ## SEIT4L particle filter implementation
 
-Gillespie step ([`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl)):
+The transitions ([`src/seitl_jumps.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_jumps.jl)). Each one is a
+reaction with a rate, and the number of temporary immunity stages is read from
+the state, so the same description serves SEITL and SEIT4L:
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_gillespie.jl"), "\n```")
+println("```julia\n", source_for(seitl_stoichiometry), "\n\n",
+        source_for(seitl_rate_constants), "\n```")
 ```
 
-SSMProblems interface ([`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl)):
+SSMProblems interface ([`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl)):
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_ssm_interface.jl"), "\n```")
+println("```julia\n", source_for("seitl_ssm_interface.jl"), "\n```")
 ```
 
-Bootstrap filter runner ([`src/seit4l_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_runner.jl)):
+Bootstrap filter runner ([`src/seitl_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_runner.jl)):
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for("seit4l_runner.jl"), "\n```")
+println("```julia\n", source_for("seitl_runner.jl"), "\n```")
 ```
 :::
 
@@ -155,11 +158,11 @@ init_state = Dict(
 
 In the [Particle filters session](particle_filters.qmd), we:
 
-1. Implemented the SEIT4L Gillespie simulator (`gillespie_step`)
-2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEIT4LDynamics`, `PoissonObservation`, `SEIT4LInitial`)
+1. Wrote the SEITL transitions once, for any number of temporary immunity stages (`seitl_stoichiometry`, `seitl_rate_constants`)
+2. Defined the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface (`SEITLDynamics`, `PoissonObservation`, `SEITLInitial`)
 3. Calibrated the particle count against the SD of the log-likelihood estimate, which put the minimum acceptable count at 64
 
-All these components were loaded via `using MFIIDD` in the setup above (defined in [`src/seit4l_gillespie.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_gillespie.jl), [`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl), and [`src/seit4l_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_runner.jl)). Now we'll use them for full Bayesian inference.
+All these components were loaded via `using MFIIDD` in the setup above (defined in [`src/seitl_jumps.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_jumps.jl), [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl), and [`src/seitl_runner.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_runner.jl)). Now we'll use them for full Bayesian inference.
 
 In your own work, you should run [prior and posterior predictive checks](model_checking.qmd) when fitting models. We skip them for now to focus on the PMMH algorithm.
 
@@ -202,8 +205,8 @@ Uses GeneralisedFilters for likelihood estimation.
     # The SSMProblems interface expects a plain vector, not a Dict
     # Order: [S, E, I, T1, T2, T3, T4, L]
     init_state = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
-    ssm = StateSpaceModel(SEIT4LInitial(init_state),
-                          SEIT4LDynamics(θ),
+    ssm = StateSpaceModel(SEITLInitial(init_state),
+                          SEITLDynamics(θ, init_state),
                           PoissonObservation(θ[:ρ]))
 
     # Run particle filter to estimate log-likelihood
@@ -216,7 +219,7 @@ end
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
-- **`StateSpaceModel(...)`** - assembles the state-space model from initial distribution, dynamics, and observation components defined in [`src/seit4l_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seit4l_ssm_interface.jl).
+- **`StateSpaceModel(...)`** - assembles the state-space model from initial distribution, dynamics, and observation components defined in [`src/seitl_ssm_interface.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_ssm_interface.jl).
 - **`GeneralisedFilters.filter(...)`** - runs the bootstrap particle filter (`BF`) and returns the estimated log-likelihood. `Random.default_rng()` provides the global random number generator — this is Julia's way of passing randomness explicitly rather than relying on a hidden global state.
 - [`@addlogprob!`](https://turinglang.org/DynamicPPL.jl/stable/api/#DynamicPPL.@addlogprob!) - manually adds the particle filter's log-likelihood estimate to the model. The priors specified with `~` still contribute automatically. This is the [recommended pattern](https://github.com/TuringLang/Turing.jl/issues/2428) for integrating external likelihood estimators with Turing.
 - **Why 256 particles?** PMMH acceptance depends on the variance of the log-likelihood estimate. Using more particles reduces variance but increases computation. The calibration in the [previous session](particle_filters.qmd) put the minimum at 64, measured at a single parameter set; how noisy the estimate is depends on where in the posterior you are, so it is safer to go somewhat higher, and worth checking the count again once you have a posterior to check it against.
@@ -625,10 +628,12 @@ function dic(chain_df, run_filter)
 end
 
 Random.seed!(1)
-for (name, file, run_filter) in (
-    ("SEITL", "pmcmc_seitl_chain.csv", run_particle_filter_seitl),
-    ("SEIT4L", "pmcmc_seit4l_chain.csv", run_particle_filter),
+## One filter serves both. Five compartments give SEITL, eight give SEIT4L.
+for (name, file, init) in (
+    ("SEITL", "pmcmc_seitl_chain.csv", [279.0, 0.0, 2.0, 3.0, 0.0]),
+    ("SEIT4L", "pmcmc_seit4l_chain.csv", [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]),
 )
+    run_filter = (θ, o, n) -> run_particle_filter(θ, o, n; init_state = init)
     d = dic(CSV.read(datadir(file), DataFrame), run_filter)
     println(rpad(name, 8), "D̄ = ", round(d.D_mean, digits = 1),
             "  D(θ̄) = ", round(d.D_at_mean, digits = 1),
@@ -685,7 +690,8 @@ function predict_seit4l(row)
     θ = Dict(:R_0 => row.R_0, :D_lat => row.D_lat, :D_inf => row.D_inf,
              :α => row.α, :D_imm => row.D_imm)
     state = copy(init_4l)
-    [rand(Poisson(max(row.ρ * gillespie_step_seit4l!(state, θ, 1.0), 1e-10)))
+    problem = seitl_jump_problem(θ, state)
+    [rand(Poisson(max(row.ρ * seitl_jump_step!(problem, state, 1.0), 1e-10)))
      for _ in 1:n_obs]
 end
 
