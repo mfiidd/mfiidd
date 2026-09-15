@@ -245,10 +245,16 @@ The callback is not called during warmup, so nothing appears until the kept
 iterations begin. `run_pmmh` says so before it starts.
 """
 function progress_every(n, name, t_start, total)
+    kept_start = Ref(0.0)
     return function (rng, model, sampler, sample, state, i; kwargs...)
+        ## The callback first runs once warm-up is over, so this is when the
+        ## kept iterations began. Timing them against `t_start` instead divides
+        ## kept iterations by a span that includes warm-up, and the estimate of
+        ## the time left then comes out far too pessimistic.
+        kept_start[] == 0.0 && (kept_start[] = time())
         if i % n == 0
             elapsed = (time() - t_start) / 60
-            rate = i / elapsed
+            rate = i / max((time() - kept_start[]) / 60, eps())
             left = (total - i) / rate
             say(
                 "[$name] $i/$total kept, $(round(elapsed, digits = 1)) min elapsed, " *
