@@ -123,10 +123,35 @@ the incidence over that interval.
 `state` is modified in place. The incidence slot starts each interval at zero,
 so the value returned is the number of E → I transitions within `dt` rather
 than a running total.
+
+`alias_jump = true` lets the solver use the problem's own jump aggregation. Its
+default is `Threads.threadid() == 1`, so on any other thread the aggregation was
+deep-copied on every call, which walks all `k + 4` stoichiometry vectors and
+costs 7816 bytes a step against 1432.
+
+The copy also took the RNG, which the aggregation holds, so the problem's stream
+never advanced and every step restarted it. The task-local default is a
+singleton and survives `deepcopy` unchanged, which hides this, but a caller
+passing `Xoshiro(seed)` or `MersenneTwister(seed)` off the main thread got a
+trajectory that differed from the same seed on the main thread, because every
+step drew from the same point in the stream. The difference is silent, since the
+state still moves and the curve still looks like an epidemic. Where the first
+waiting time exceeds `dt` the state freezes instead and incidence stays at zero
+for the whole run. Aliasing keeps the stream advancing, so seeded simulation
+agrees on any thread.
+
+Nothing committed changes, for two reasons. The task-local default is a
+singleton the copy cannot reach, and the callers that do pass a seeded
+generator, in `simulate_seitl_stochastic` and the neural posterior estimation
+session, run on the main task, where aliasing was already the default.
+
+Aliasing shares the aggregation, so one `JumpProblem` must be driven by one task
+at a time. Every caller here advances one particle at a time, and threading a
+particle loop means giving each task its own problem.
 """
 function seitl_jump_step!(jump_problem, state::AbstractVector{<:Real}, dt::Real = 1.0)
     stepped = remake(jump_problem; u0 = vcat(state, 0.0), tspan = (0.0, Float64(dt)))
-    final = solve(stepped, SSAStepper()).u[end]
+    final = solve(stepped, SSAStepper(); alias_jump = true).u[end]
     state .= @view final[1:(end - 1)]
     return final[end]
 end
