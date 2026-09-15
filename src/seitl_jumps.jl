@@ -134,8 +134,12 @@ never advanced and every step restarted it. The task-local default is a
 singleton and survives `deepcopy` unchanged, which hides this, but a caller
 passing `Xoshiro(seed)` or `MersenneTwister(seed)` off the main thread got one
 trajectory repeated for the whole run. Aliasing keeps the stream advancing, so
-seeded simulation agrees on any thread, and trajectories are unchanged for the
-default RNG that every caller here uses.
+seeded simulation agrees on any thread.
+
+Nothing committed changes, for two reasons. The task-local default is a
+singleton the copy cannot reach, and the callers that do pass a seeded
+generator, in `simulate_seitl_stochastic` and the neural posterior estimation
+session, run on the main task, where aliasing was already the default.
 
 Aliasing shares the aggregation, so one `JumpProblem` must be driven by one task
 at a time. Every caller here advances one particle at a time, and threading a
