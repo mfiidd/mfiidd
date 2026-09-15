@@ -132,9 +132,13 @@ costs 7816 bytes a step against 1432.
 The copy also took the RNG, which the aggregation holds, so the problem's stream
 never advanced and every step restarted it. The task-local default is a
 singleton and survives `deepcopy` unchanged, which hides this, but a caller
-passing `Xoshiro(seed)` or `MersenneTwister(seed)` off the main thread got one
-trajectory repeated for the whole run. Aliasing keeps the stream advancing, so
-seeded simulation agrees on any thread.
+passing `Xoshiro(seed)` or `MersenneTwister(seed)` off the main thread got a
+trajectory that differed from the same seed on the main thread, because every
+step drew from the same point in the stream. The difference is silent, since the
+state still moves and the curve still looks like an epidemic. Where the first
+waiting time exceeds `dt` the state freezes instead and incidence stays at zero
+for the whole run. Aliasing keeps the stream advancing, so seeded simulation
+agrees on any thread.
 
 Nothing committed changes, for two reasons. The task-local default is a
 singleton the copy cannot reach, and the callers that do pass a seeded
