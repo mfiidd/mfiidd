@@ -27,9 +27,9 @@ tasks = [
             n_samples = 20_000,
             thinning = 5,
         )
-        frame = chain_frame(chain)
-        CSV.write(joinpath(tempdir(), "pmcmc_seit4l_abc_chain_$c.csv"), frame)
-        frame
+        ## `run_pmmh` already returns a frame
+        CSV.write(joinpath(tempdir(), "pmcmc_seit4l_abc_chain_$c.csv"), chain)
+        chain
     end for c in 1:N_CHAINS
 ]
 frames = fetch.(tasks)

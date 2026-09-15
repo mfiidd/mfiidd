@@ -201,6 +201,11 @@ function chain_frame(chain)
     df = DataFrame(chain)
     df = select(df, Not(intersect(["iteration", "iter", "chain"], names(df))))
 
+    ## Idempotent, because several call sites hand back the frame `run_pmmh`
+    ## already returned rather than a chain. A frame has nothing left to read
+    ## off, and asking it for `keys` is an error.
+    chain isa DataFrame && return df
+
     ## `DataFrame` of a FlexiChain keeps the parameters and silently drops every
     ## `Extra`, which is where the sampler statistics and the log densities live.
     ## Left as it was, the saved chains lose `accepted` and `loglikelihood`, and
