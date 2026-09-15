@@ -616,15 +616,25 @@ The three quantities are:
 - $\overline{D}$, the fit averaged over everything the posterior still considers plausible. It is minus twice the mean log-likelihood printed above.
 - $p_D$, the *effective number of parameters*: how much worse the average fit is than the fit at the mean. Each parameter the data pin down adds about one, and a parameter the data leave to its prior adds close to nothing, so $p_D$ need not be a whole number and falls below the number of parameters you wrote down.
 
-The saved log-likelihoods give $\overline{D}$ directly.
-$D(\bar{\theta})$ needs fresh runs at the posterior mean, through the particle filter of the model that produced the chain:
+Both deviances need fresh runs through the particle filter of the model that produced the chain.
+The saved log-likelihood is not the one to average for $\overline{D}$: it is the estimate that was current when the draw was recorded, and a draw is accepted partly because its estimate came out high, so the saved values sit above a fresh run by about half a log unit.
+Re-estimating over a sample of draws puts $\overline{D}$ and $D(\bar{\theta})$ on the same footing, which is what makes the filter's own bias cancel in $p_D$.
 
 ```{julia}
 ## DIC from a chain and the particle filter of the model it was fitted with
+const DIC_DRAWS = 200  ## enough for D̄ to a tenth of a deviance unit
+
 function dic(chain_df, run_filter)
-    D_mean = mean(-2 .* chain_df.loglikelihood) ## the saved estimates give D̄
-    θ_mean = Dict(p => mean(chain_df[!, p])
-                  for p in (:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ))
+    params = (:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ)
+
+    ## D̄: one fresh run at each of a sample of draws
+    rows = rand(1:nrow(chain_df), DIC_DRAWS)
+    ll_post = [
+        run_filter(Dict(p => chain_df[i, p] for p in params), flu_tdc.obs, 256) for i in rows
+    ]
+    D_mean = -2 * mean(ll_post)
+
+    θ_mean = Dict(p => mean(chain_df[!, p]) for p in params)
     ## the filter estimate is noisy, so average several runs at the posterior mean
     ll = [run_filter(θ_mean, flu_tdc.obs, 256) for _ in 1:20]
     D_at_mean = -2 * mean(ll)
@@ -655,8 +665,8 @@ What the four compartments change is the shape of the time spent immune, and tha
 
 There are two caveats that apply to using DIC here.
 Both deviances come from particle filter estimates, and a filter run underestimates $\log p(y \mid \theta)$ on average, so each deviance comes out a little high.
-That applies to $\overline{D}$ as much as to $D(\bar{\theta})$: Turing recomputes the log-likelihood saved with each draw, which here means a fresh filter run, so the saved values carry the same bias as the runs at the posterior mean.
-The bias therefore largely cancels in $p_D$.
+That applies to $\overline{D}$ as much as to $D(\bar{\theta})$, because the cell above re-estimates both with fresh runs of the same filter at the same particle count.
+The bias therefore largely cancels in $p_D$, which is why it is worth paying for those extra runs rather than averaging the log-likelihood stored with each draw.
 The noise does not: a noisier estimate at the posterior mean moves DIC directly, which is why the cell averages twenty runs there, and the variance it prints shows how far a single run wanders.
 
 The larger one is that DIC is not uniquely defined for a model with latent variables [@celeux2006].
