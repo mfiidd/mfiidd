@@ -34,14 +34,8 @@ tasks = [
 ]
 frames = fetch.(tasks)
 
-# Keep the chain index, which chain_frame drops, so R-hat can be recomputed
-# from the saved file
-output = vcat([insertcols(f, 1, :chain => c) for (c, f) in enumerate(frames)]...)
 output_path = datadir("pmcmc_seit4l_abc_chain.csv")
-println("Saving $name chain to $output_path")
-CSV.write(output_path, output)
+println("Saving $N_CHAINS $name chains to $output_path")
+save_chains_csv(frames, output_path)
 
-combined = symchain(frames, ABC_PARAMETERS)
-println("\n$name summary statistics, across $N_CHAINS chains:")
-show(stdout, MIME("text/plain"), summarystats(combined))
-println()
+print_chain_diagnostics(frames, name, ABC_PARAMETERS)
