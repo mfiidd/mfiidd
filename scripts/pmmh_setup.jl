@@ -31,6 +31,30 @@ const THINNING = 50         # → 9000 final samples
 
 const PARAMETERS = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
 const N_CHAINS = 4         # run side by side, and give R-hat
+
+"""
+Serialises printing, because chains running side by side otherwise interleave
+mid-line. Left alone, four chains printing their opening banner at once produced
+a log in which counting the warm-up notices returned three.
+"""
+const PRINTING = ReentrantLock()
+
+"""
+    say(lines...)
+
+Print `lines` as one uninterrupted block and flush.
+
+`flush` matters as much as the lock: Julia block-buffers a redirected stdout, so
+without it a batch job's log stays empty for the length of the run.
+"""
+function say(lines...)
+    lock(PRINTING) do
+        for line in lines
+            println(line)
+        end
+        flush(stdout)
+    end
+end
 const PROGRESS_EVERY = 10_000  # iterations between progress lines
 
 """
@@ -226,11 +250,10 @@ function progress_every(n, name, t_start, total)
             elapsed = (time() - t_start) / 60
             rate = i / elapsed
             left = (total - i) / rate
-            println(
-                "[$name] $i/$total kept, $(round(elapsed, digits = 1)) min elapsed, ",
+            say(
+                "[$name] $i/$total kept, $(round(elapsed, digits = 1)) min elapsed, " *
                 "$(round(rate, digits = 0))/min, about $(round(left, digits = 0)) min left",
             )
-            flush(stdout)
         end
         return nothing
     end
@@ -255,19 +278,17 @@ function run_pmmh(
     n_samples = N_SAMPLES,
     thinning = THINNING,
 )
-    println("="^60)
-    println("Running PMMH for $name with RAM")
-    println("  Particles: $N_PARTICLES")
-    println("  Warmup (adaptation, discarded): $n_warmup")
-    println("  Samples kept: $n_samples")
-    println("  Thinning: $thinning")
-    println("  Final samples: $(n_samples ÷ thinning)")
-    println("="^60)
-    println(
-        "Warming up. No progress lines until the $n_warmup warmup",
-        " iterations finish.",
+    say(
+        "="^60,
+        "Running PMMH for $name with RAM",
+        "  Particles: $N_PARTICLES",
+        "  Warmup (adaptation, discarded): $n_warmup",
+        "  Samples kept: $n_samples",
+        "  Thinning: $thinning",
+        "  Final samples: $(n_samples ÷ thinning)",
+        "="^60,
+        "Warming up. No progress lines until the $n_warmup warmup iterations finish.",
     )
-    flush(stdout)
 
     t_start = time()
     chain_full = sample(
@@ -280,14 +301,16 @@ function run_pmmh(
         callback = progress_every(PROGRESS_EVERY, name, t_start, n_samples),
     )
     t_elapsed = time() - t_start
-    println("\n$name sampling took $(round(t_elapsed/60, digits=1)) minutes")
-    println("Acceptance rate: $(round(acceptance_rate(chain_full) * 100, digits=1))%")
+    say(
+        "$name sampling took $(round(t_elapsed/60, digits=1)) minutes",
+        "$name acceptance rate: $(round(acceptance_rate(chain_full) * 100, digits=1))%",
+    )
 
     # Thin the data frame: FlexiChains, which Turing now returns by default, does
     # not support `end` inside an index, and a data frame thins the same way
     # whatever chain type the sampler produced
     chain = chain_frame(chain_full)[1:thinning:end, :]
-    println("After thinning: $(nrow(chain)) samples")
+    say("$name after thinning: $(nrow(chain)) samples")
     return chain
 end
 
