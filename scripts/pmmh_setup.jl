@@ -30,6 +30,7 @@ const N_SAMPLES = 450_000   # kept, then thinned
 const THINNING = 50         # → 9000 final samples
 
 const PARAMETERS = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
+const N_CHAINS = 4         # run side by side, and give R-hat
 const PROGRESS_EVERY = 10_000  # iterations between progress lines
 
 """
@@ -288,6 +289,77 @@ function run_pmmh(
     chain = chain_frame(chain_full)[1:thinning:end, :]
     println("After thinning: $(nrow(chain)) samples")
     return chain
+end
+
+"""
+    run_pmmh_chains(build_model, name; n_chains, n_warmup, n_samples, thinning)
+
+Run `n_chains` chains side by side and return one data frame per chain.
+
+Chains are the axis worth parallelising. They scale almost linearly, where
+threading inside one filter saturates: only propagation parallelises, and at 256
+particles the blocks are small enough that six threads return about 1.3 times
+the serial speed. Four chains also give R-hat, which one long chain cannot.
+
+`n_samples` defaults to a quarter of the single-chain total, so four chains keep
+the same 9000 draws after thinning that the session has always loaded.
+
+`build_model` is called once per chain rather than once and shared, so each
+chain gets its own model and its own likelihood store and the chains share
+nothing mutable.
+"""
+function run_pmmh_chains(
+    build_model,
+    name;
+    n_chains = N_CHAINS,
+    n_warmup = N_WARMUP,
+    n_samples = N_SAMPLES ÷ n_chains,
+    thinning = THINNING,
+)
+    println(
+        "Running $n_chains chains of $name side by side on $(Threads.nthreads()) threads",
+    )
+    flush(stdout)
+    tasks = [
+        Threads.@spawn run_pmmh(
+            build_model(),
+            "$name, chain $c";
+            n_warmup = n_warmup,
+            n_samples = n_samples,
+            thinning = thinning,
+        ) for c in 1:n_chains
+    ]
+    return fetch.(tasks)
+end
+
+"""
+    save_chains_csv(frames, path)
+
+Write every chain to `path`, one row per retained iteration, with a leading
+`chain` column so R-hat can be recomputed from the saved file.
+"""
+function save_chains_csv(frames, path)
+    output = vcat([insertcols(f, 1, :chain => c) for (c, f) in enumerate(frames)]...)
+    return CSV.write(path, output)
+end
+
+"""
+    print_chain_diagnostics(frames, name, keys = PARAMETERS)
+
+Print the across-chain summary, which carries R-hat and the effective sample
+size, then the pooled quantiles.
+"""
+function print_chain_diagnostics(frames, name, keys = PARAMETERS)
+    println("\n$name summary statistics, across $(length(frames)) chains:")
+    show(stdout, MIME("text/plain"), summarystats(symchain(frames, keys)))
+
+    pooled = vcat(frames...)
+    println("\n\n$name 2.5%, 50% and 97.5% quantiles, pooled:")
+    for k in keys
+        println("  $k: ", round.(quantile(pooled[!, k], [0.025, 0.5, 0.975]); digits = 3))
+    end
+    println()
+    return nothing
 end
 
 """

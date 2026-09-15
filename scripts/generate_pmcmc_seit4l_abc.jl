@@ -16,7 +16,6 @@ include(joinpath(@__DIR__, "pmmh_setup.jl"))
 
 Random.seed!(1234)
 
-const N_CHAINS = 4
 name = "SEIT4L, three parameters"
 
 tasks = [

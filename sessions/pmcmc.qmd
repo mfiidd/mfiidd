@@ -300,17 +300,19 @@ The particle filter gives a *noisy estimate* of the likelihood. Even at the same
 
 ::: {.callout-note}
 ## Pre-computed chains
-Running PMMH with RAM for good mixing takes several hours. We load pre-computed chains here: 50,000 warmup iterations for RAM to adapt in, then 450,000 kept and thinned by 50. See `scripts/generate_pmcmc_seit4l.jl` if you want to run it yourself.
+Running PMMH with RAM for good mixing takes several hours. We load pre-computed chains here: four chains run side by side, each with 50,000 warmup iterations for RAM to adapt in, then 112,500 kept and thinned by 50, which is 9,000 draws in total. Four chains rather than one long chain because they run in the time of one, and because R-hat compares chains that started independently. See `scripts/generate_pmcmc_seit4l.jl` if you want to run it yourself.
 :::
 
 ```{julia}
-# Load pre-computed SEIT4L chain with good mixing
+# Load the pre-computed SEIT4L chains with good mixing
 chain_df = CSV.read(datadir("pmcmc_seit4l_chain.csv"), DataFrame)
 chain_params = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
 
 # FlexiChains builds a chain from an iterations × chains × parameters array, keeping
-# the parameters in the order given. The saved draws are a single chain
-draws = reshape(Matrix(chain_df[:, chain_params]), :, 1, length(chain_params))
+# the parameters in the order given. The file holds the four chains stacked, one
+# per value of `chain`, so splitting on that column and stacking along the second
+# dimension is what lets R-hat compare separate chains
+draws = stack([Matrix(g[:, chain_params]) for g in groupby(chain_df, :chain)]; dims = 2)
 chain_pmcmc = SymChain(draws, Tuple(Parameter.(chain_params)))
 ```
 
@@ -325,7 +327,9 @@ plot(chain_pmcmc)
 ```
 
 Compare these traces to the short chain above.
-The chains cross the posterior repeatedly instead of sticking for hundreds of iterations, and the summary above puts numbers on it: R-hat is 1.00 for every parameter, and the smallest effective sample size is around 1,400 of the 9,000 kept draws.
+The chains cross the posterior repeatedly instead of sticking for hundreds of iterations, and the summary above puts numbers on it.
+Read R-hat first: it compares the variance within each of the four chains against the variance between them, so a value at 1.00 says four chains that started in different places agree about where the posterior is.
+The effective sample size then says how many independent draws the 9,000 kept ones are worth, which for a correlated chain is always fewer.
 
 The saved chain also records whether each draw was accepted, which is the diagnostic that says whether RAM's adaptation worked:
 
@@ -521,7 +525,8 @@ Both models were fitted using RAM with 50,000 warmup iterations, then 450,000 ke
 ```{julia}
 # Load pre-computed SEITL chain
 chain_seitl_df = CSV.read(datadir("pmcmc_seitl_chain.csv"), DataFrame)
-draws_seitl = reshape(Matrix(chain_seitl_df[:, chain_params]), :, 1, length(chain_params))
+draws_seitl =
+    stack([Matrix(g[:, chain_params]) for g in groupby(chain_seitl_df, :chain)]; dims = 2)
 chain_seitl = SymChain(draws_seitl, Tuple(Parameter.(chain_params)))
 ```
 
