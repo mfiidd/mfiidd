@@ -110,6 +110,7 @@ There are six copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `
 `PRIORS` in `sessions/abc.qmd` and `pmmh_seit4l_abc` in `scripts/pmmh_setup.jl` define the three of these that the ABC session estimates.
 Change one and change the rest.
 The committed chains in `data/` were generated under these priors, so a change to them means re-running `scripts/generate_pmcmc_seitl.jl`, `scripts/generate_pmcmc_seit4l.jl` and `scripts/generate_pmcmc_seit4l_abc.jl` and committing the new output.
+The deck figures under `sessions/slides/images/` are committed too, so a change also means re-running `scripts/generate_pmcmc_figures.jl`, every stage of which depends on the priors, directly or through the committed chain.
 
 The duplication is deliberate.
 These are two sessions whose subject is what the priors say and why, so a reader who has to open a package file to find out what the model assumes has lost the thread.
