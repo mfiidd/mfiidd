@@ -10,7 +10,7 @@
 # Generate both sets of PMMH chains, one model per array task.
 #
 # The two models ran back to back in a single job until a run overran the wall
-# clock. An array gives each model its own 48 hours, and the two run side by
+# clock. An array gives each model its own allocation, and the two run side by
 # side.
 #
 # Four CPUs for four chains, which is the axis that parallelises almost
