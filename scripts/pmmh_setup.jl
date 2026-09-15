@@ -71,7 +71,59 @@ end
 const SEITL_INIT = [279.0, 0.0, 2.0, 3.0, 0.0]
 const SEIT4L_INIT = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
 
-filter_for(init) = (θ, obs, n) -> run_particle_filter(θ, obs, n; init_state = init)
+"""
+    remembering(filter)
+
+Wrap a particle filter so a repeated evaluation of the same parameters returns
+the estimate already drawn for them.
+
+Turing evaluates the model twice per iteration: once for the proposal, and again
+for the current state when it records the draw. The second evaluation runs the
+whole particle filter and never reaches the acceptance ratio, so it doubles the
+cost of a chain for nothing. Serving it from store takes the SEITL chain from
+71.8 to 40.2 ms an iteration.
+
+Two entries, evicting the least recently used, because the calls alternate
+proposal, current, proposal, current. A single entry is evicted by the proposal
+just before the current state is asked for again, which recovers only a quarter
+of the work instead of half.
+
+Returning the stored estimate is what pseudo-marginal MCMC asks for in any case.
+The acceptance ratio keeps the estimate drawn when a state was accepted, so
+serving that same number again makes the recorded log-density agree with the one
+the chain actually used, where a fresh call reports a second, unrelated draw.
+
+`filter_for` builds one of these per model, so each chain has its own store and
+concurrent chains share nothing. `pmmh_seit4l_abc` calls the filter directly and
+is deliberately left alone, since its four chains run in spawned tasks.
+"""
+function remembering(filter)
+    seen = Vector{NTuple{6, Float64}}()
+    drawn = Vector{Float64}()
+    return function (θ, obs, n)
+        key = (θ[:R_0], θ[:D_lat], θ[:D_inf], θ[:α], θ[:D_imm], θ[:ρ])
+        i = findfirst(==(key), seen)
+        if i !== nothing  ## move the hit to the end, so it is not the next evicted
+            value = drawn[i]
+            deleteat!(seen, i)
+            deleteat!(drawn, i)
+            push!(seen, key)
+            push!(drawn, value)
+            return value
+        end
+        value = filter(θ, obs, n)
+        push!(seen, key)
+        push!(drawn, value)
+        if length(seen) > 2
+            popfirst!(seen)
+            popfirst!(drawn)
+        end
+        return value
+    end
+end
+
+filter_for(init) =
+    remembering((θ, obs, n) -> run_particle_filter(θ, obs, n; init_state = init))
 
 pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEITL_INIT))
 pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEIT4L_INIT))
