@@ -14,6 +14,7 @@ include("sir_model.jl")
 include("seitl_model.jl")
 include("seitl_jumps.jl")
 include("seitl_ssm_interface.jl")
+include("threaded_bootstrap_filter.jl")
 include("seitl_runner.jl")
 
 export sir_ode!, simulate_sir
@@ -24,6 +25,7 @@ export seitl_stoichiometry, seitl_rate_constants, seitl_transitions
 export seitl_jump_problem, seitl_jump_step!, seitl_jump_trajectory
 export run_particle_filter, filtered_incidence
 export SEITLDynamics, SEITLInitial, PoissonObservation
+export ThreadedBF, BlockedDynamics
 export source_for
 
 """
