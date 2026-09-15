@@ -125,12 +125,21 @@ so the value returned is the number of E → I transitions within `dt` rather
 than a running total.
 
 `alias_jump = true` lets the solver use the problem's own jump aggregation. Its
-default is `Threads.threadid() == 1`, so on any other thread the aggregation is
+default is `Threads.threadid() == 1`, so on any other thread the aggregation was
 deep-copied on every call, which walks all `k + 4` stoichiometry vectors and
-costs 7816 bytes a step against 1432. Each caller here owns its own
-`JumpProblem` and advances one particle at a time, so there is nothing to share
-and nothing to copy. Results are unchanged: trajectories come out bit-identical
-either way.
+costs 7816 bytes a step against 1432.
+
+The copy also took the RNG, which the aggregation holds, so the problem's stream
+never advanced and every step restarted it. The task-local default is a
+singleton and survives `deepcopy` unchanged, which hides this, but a caller
+passing `Xoshiro(seed)` or `MersenneTwister(seed)` off the main thread got one
+trajectory repeated for the whole run. Aliasing keeps the stream advancing, so
+seeded simulation agrees on any thread, and trajectories are unchanged for the
+default RNG that every caller here uses.
+
+Aliasing shares the aggregation, so one `JumpProblem` must be driven by one task
+at a time. Every caller here advances one particle at a time, and threading a
+particle loop means giving each task its own problem.
 """
 function seitl_jump_step!(jump_problem, state::AbstractVector{<:Real}, dt::Real = 1.0)
     stepped = remake(jump_problem; u0 = vcat(state, 0.0), tspan = (0.0, Float64(dt)))
