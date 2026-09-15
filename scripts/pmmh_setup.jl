@@ -14,7 +14,7 @@ using Distributions
 using DataFrames
 using Turing
 using FlexiChains
-using FlexiChains: Parameter
+using FlexiChains: Extra, Parameter
 using CSV
 using DrWatson
 using StatsBase
@@ -84,12 +84,8 @@ its resampling step errors on Dual-valued weights.
         :ρ => ForwardDiff.value(ρ),
     )
 
-    ## `:=` records the estimate as a tracked quantity, so it reaches the saved
-    ## chain. Turing no longer emits a `loglikelihood` column of its own for a
-    ## model whose likelihood arrives through `@addlogprob!`, and the model
-    ## comparison in sessions/pmcmc.qmd needs the per-draw estimate for DIC.
-    loglikelihood := particle_filter(θ, obs, n_particles)
-    Turing.@addlogprob! loglikelihood
+    log_lik = particle_filter(θ, obs, n_particles)
+    Turing.@addlogprob! log_lik
 end
 
 # Both models are estimated with the same bootstrap filter the sessions use, from
@@ -183,8 +179,7 @@ priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
         ),
     )
 
-    loglikelihood := run_particle_filter(θ, obs, n_particles; init_state = SEIT4L_INIT)
-    Turing.@addlogprob! loglikelihood
+    Turing.@addlogprob! run_particle_filter(θ, obs, n_particles; init_state = SEIT4L_INIT)
 end
 
 """
@@ -204,7 +199,18 @@ into internal fields whose layout is not part of the API.
 """
 function chain_frame(chain)
     df = DataFrame(chain)
-    return select(df, Not(intersect(["iteration", "iter", "chain"], names(df))))
+    df = select(df, Not(intersect(["iteration", "iter", "chain"], names(df))))
+
+    ## `DataFrame` of a FlexiChain keeps the parameters and silently drops every
+    ## `Extra`, which is where the sampler statistics and the log densities live.
+    ## Left as it was, the saved chains lose `accepted` and `loglikelihood`, and
+    ## sessions/pmcmc.qmd needs the first for the acceptance rate and the second
+    ## for DIC. The chain itself carries them, so they are read off here.
+    for key in keys(chain)
+        key isa FlexiChains.Extra || continue
+        df[!, key.name] = vec(chain[key])
+    end
+    return df
 end
 
 """
@@ -320,9 +326,7 @@ function run_pmmh(
     # Thin the data frame: FlexiChains, which Turing now returns by default, does
     # not support `end` inside an index, and a data frame thins the same way
     # whatever chain type the sampler produced
-    full = chain_frame(chain_full)
-    full.accepted = moved(full)  ## per iteration, before thinning drops 49 in 50
-    chain = full[1:thinning:end, :]
+    chain = chain_frame(chain_full)[1:thinning:end, :]
     say("$name after thinning: $(nrow(chain)) samples")
     return chain
 end
@@ -377,28 +381,6 @@ Write every chain to `path`, one row per retained iteration, with a leading
 function save_chains_csv(frames, path)
     output = vcat([insertcols(f, 1, :chain => c) for (c, f) in enumerate(frames)]...)
     return CSV.write(path, output)
-end
-
-"""
-    moved(frame)
-
-Whether the sampler moved at each retained iteration.
-
-A Metropolis chain repeats the previous parameter vector whenever a proposal is
-rejected, so a row that differs from the one before it was an accepted move.
-The first row has nothing to compare against and counts as a move.
-
-Must be taken on the unthinned chain. Thinning keeps every fiftieth draw, and
-consecutive kept draws differ almost always, so the same comparison applied
-after thinning reports an acceptance rate near 100% whatever the sampler did.
-
-Saved per draw because the sampler's own acceptance flag does not reach the
-chain through `externalsampler`, and sessions/pmcmc.qmd reports the rate RAM
-reached.
-"""
-function moved(frame)
-    x = frame[!, :R_0]
-    return [true; x[2:end] .!= x[1:(end - 1)]]
 end
 
 """
