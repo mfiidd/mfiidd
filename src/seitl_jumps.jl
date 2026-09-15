@@ -123,10 +123,18 @@ the incidence over that interval.
 `state` is modified in place. The incidence slot starts each interval at zero,
 so the value returned is the number of E → I transitions within `dt` rather
 than a running total.
+
+`alias_jump = true` lets the solver use the problem's own jump aggregation. Its
+default is `Threads.threadid() == 1`, so on any other thread the aggregation is
+deep-copied on every call, which walks all `k + 4` stoichiometry vectors and
+costs 7816 bytes a step against 1432. Each caller here owns its own
+`JumpProblem` and advances one particle at a time, so there is nothing to share
+and nothing to copy. Results are unchanged: trajectories come out bit-identical
+either way.
 """
 function seitl_jump_step!(jump_problem, state::AbstractVector{<:Real}, dt::Real = 1.0)
     stepped = remake(jump_problem; u0 = vcat(state, 0.0), tspan = (0.0, Float64(dt)))
-    final = solve(stepped, SSAStepper()).u[end]
+    final = solve(stepped, SSAStepper(); alias_jump = true).u[end]
     state .= @view final[1:(end - 1)]
     return final[end]
 end
