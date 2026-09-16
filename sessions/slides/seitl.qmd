@@ -1,8 +1,35 @@
 ---
-footer: "Putting it all together"
-title: "Putting it all together"
+footer: "Structure and stochasticity"
+title: "Structure and stochasticity"
 subtitle: "Stochastic models and the state-space view"
 ---
+
+# Where we left off
+
+## The checks failed
+
+![](images/model_checking_posterior_predictive.svg)
+
+An SIR model fitted to Tristan da Cunha. Too small, too late, too few.
+
+## So we change something
+
+The parameters are not the problem. [Two]{.alert} changes to the SIR model:
+
+. . .
+
+1. **Add a mechanism.** SIR cannot infect anyone twice, and 92 islanders were.
+   No $R_0$ repairs a structure that forbids it.
+
+. . .
+
+2. **Add stochasticity.** The ODE treats 284 people as a smooth quantity.
+   At that size, chance decides how big the second wave is — or whether there is
+   one.
+
+. . .
+
+They are independent. This session makes each in turn.
 
 # The state-space view
 
@@ -18,7 +45,8 @@ We want to do this on the basis of **observations** (data), $y$.
 ## Why the state needs its own layer
 
 In a [deterministic]{.alert} model the state is a *function* of the parameters:
-one $\theta$, one trajectory, and $x$ is not something to be inferred.
+one $\theta$, one trajectory, and $x$ is not something that needs to be
+separately inferred.
 
 . . .
 
@@ -30,24 +58,13 @@ every time, so the state has a *distribution*, $p(x \mid \theta)$.
 That extra layer, between the parameters and the data, is what the rest of this
 session is about.
 
-## Hierarchical model
+## Three layers
 
 ![](images/bhm.png){.step .tall}
 
 Parameters, then states, then observations: each layer depends on the one above.
-Such a model is called a **Bayesian hierarchical model**, or, when the states
-form a time series, a **state-space model**.
-
-## The same three layers, on a real problem {.smaller}
-
-![](images/DAG.png){.step .tall}
-
-Influenza transmission in the UK: parameters at the top, a stochastic epidemic in
-the middle, several data streams at the bottom. Larger than ours, same structure.
-
-::: {.cite}
-Baguelin et al. (2013)
-:::
+When the states form a time series, a model with this structure is called a
+**state-space model**.
 
 ## Combining the probabilities
 
@@ -107,32 +124,13 @@ $$p(x, \theta \mid y) = p(\theta \mid y)\, p(x \mid \theta, y)$$
 
 # The model we will fit
 
-## Tristan da Cunha, 1971
+## The island
 
 ![](images/TdC.png){.step}
 
 ::: {.cite}
-The most remote inhabited island in the world: 284 people, one ship every few
-months.
+284 people, one ship every few months.
 :::
-
-## An outbreak in a closed population {.smaller}
-
-An influenza-like illness arrived with a visiting ship and infected most of the
-island over eight weeks.
-
-. . .
-
-Two features make it the standard teaching example:
-
-- **Closed** — nobody arrived or left, so there is no importation to explain
-  anything away
-- **Two waves** — the epidemic subsided and then came back, in a population with
-  no new susceptibles
-
-. . .
-
-That second wave is the whole problem. A simple SIR model cannot produce it.
 
 ## SEITL
 
@@ -141,7 +139,7 @@ That second wave is the whole problem. A simple SIR model cannot produce it.
 . . .
 
 **T** is temporary immunity, and only a fraction $\alpha$ goes on to **L**,
-long-term immunity. The rest return to susceptible — and can drive a second wave.
+long-term immunity. The rest return to susceptible and can drive a second wave.
 
 ## Two independent choices {.smaller}
 
@@ -161,7 +159,7 @@ practical does both so you can see the difference.
 
 ## Why stochastic, here
 
-With 284 people, chance is not a rounding error.
+With 284 people, random events play a relatively large role.
 
 . . .
 
@@ -171,8 +169,7 @@ With 284 people, chance is not a rounding error.
 
 . . .
 
-Demographic noise scales roughly as $1/\sqrt{N}$. On an island of 284 it is a
-first-order effect, and it is why the rest of the course needs heavier machinery.
+Demographic noise scales roughly as $1/\sqrt{N}$.
 
 ## Simulating it: Gillespie {.smaller}
 
@@ -188,7 +185,7 @@ one at a time.
 
 . . .
 
-Exact, and slow. Every infection and recovery is an individual event.
+Exact, but slow. Every infection and recovery is an individual event.
 
 ## SEIT4L: why four compartments {.smaller}
 
@@ -213,9 +210,9 @@ roughly the average duration.
 
 In the practical you will
 
-- meet the Tristan da Cunha influenza outbreak
-- build the SEITL model, which adds a latent state to the SIR structure
+- build the SEITL model, which adds the mechanism the checks asked for
 - simulate it both deterministically and stochastically
+- compare deterministic and stochastic runs of the same model
 - see why the stochastic version needs different inference machinery
 
 #

@@ -1,52 +1,83 @@
 ---
-footer: "Approximate Bayesian Computation"
-title: "Approximate Bayesian Computation"
-subtitle: "Inference when you cannot write down a likelihood"
+footer: "Approximate Bayesian computation"
+title: "Approximate Bayesian computation"
+subtitle: "Inference by simulation"
 ---
 
-# Yesterday's question
+## What if you cannot write down a likelihood?
 
-## A likelihood is a distance function
+Imagine a model you can simulate but cannot score. Run it and out comes a
+dataset. Ask how probable *your* dataset was under it, and there is no formula to
+evaluate.
 
-. . .
+Reporting delays, weekend effects, behaviour that responds to the epidemic: each
+is simple to simulate, and together they have no density you can write.
 
-Poisson, negative binomial, Gaussian: each one scores how far the data sit from
-the prediction. Choosing a likelihood is choosing a [distance]{.alert}.
+The likelihood is still there. The simulator [is]{.alert} $p(y \mid \theta)$ —
+you simply cannot evaluate it.
 
-. . .
+## Draw, simulate, compare
 
-So why not choose the distance **directly**?
+Draw $\theta$ from the prior. Simulate a dataset. Keep $\theta$ if the simulation
+came out [exactly equal to the data]{.alert}.
 
-. . .
+Nothing has been approximated. The $\theta$ you keep are draws from
+$p(\theta \mid y)$.
 
-And what do you do when you cannot write a likelihood down at all?
+## Approximate Bayesian computation
 
-# Approximate Bayesian Computation
+For continuous data exact equality has probability zero. For our 59 counts it is
+possible, but so unlikely that we would wait effectively forever. Two
+concessions, and this is where the [approximate]{.alert} comes from.
 
-## Motivation
+[**Close, not equal.**]{.alert} Keep $\theta$ when the distance $d$ between
+simulation and data comes in under a tolerance $\epsilon$.
 
-- ABC **approximates** the likelihood using a set of summary statistics $S$.
+[**Summaries, not the whole dataset.**]{.alert} Over 59 days even "close" almost
+never happens, so compare summary statistics $S$ instead.
 
-- A summary statistic is
-  - something that is **easy** to calculate and approximates the likelihood
-  - e.g. final size, number of peaks, height or timing of peaks
+$$p(\text{data} \mid \theta) \approx
+p\big(d(S_\text{data},\, S_{\text{sim}(\theta)}) < \epsilon\big)$$
 
-- The idea of **sufficient** summary statistics: to be exact, we would need
-  summary statistics that give the *same* result as the likelihood.
-
-## The approximation {.smaller}
-
-$$p(\text{data} \mid \theta) \approx p\big(d(S_\text{data},\, S_{\text{sim}(\theta)}) < \epsilon\big)$$
-
-- $S$: summary statistics
-- $d$: distance, e.g. absolute distance
-- $\epsilon$: acceptance window
-
-. . .
+##  {.center}
 
 ![](images/abc_method.png){.step .tall}
 
-## Rejection ABC {.smaller}
+## Choosing summary statistics
+
+[**How many.**]{.alert} All of them must land inside $\epsilon$ at once, so
+acceptance falls off fast as you add more. Three or four is usual.
+
+[**Whether they move with $\theta$.**]{.alert} One that barely responds shrinks
+the acceptance region and tells you nothing.
+
+[**What scale they are on.**]{.alert} Weight each by its spread under the prior
+predictive, or the largest one drowns out the rest.
+
+## Sufficient summary statistics
+
+A summary is [sufficient]{.alert} if it tells you everything the data say about
+$\theta$. Then $p(\theta \mid S(y))$ **is** $p(\theta \mid y)$.
+
+For a model like ours there is no such summary short of the whole dataset.
+
+| | removed by |
+|---|---|
+| the threshold $\epsilon$ | letting $\epsilon \to 0$ |
+| the summary $S$ | nothing |
+
+## Choosing $\epsilon$
+
+**Too tight** and you reject almost everything. The acceptance rate collapses and
+you wait forever for a handful of samples.
+
+**Too loose** and you accept almost everything, including parameters that fit
+badly. In the limit you are sampling the [prior]{.alert}.
+
+There is no free lunch here: $\epsilon$ trades accuracy against compute, and you
+cannot tell from inside the algorithm whether you have chosen well.
+
+## Rejection ABC
 
 The simplest version, and the one you will write:
 
@@ -55,79 +86,35 @@ The simplest version, and the one you will write:
 3. Compute the distance $d$ between simulation and data
 4. Keep $\theta^*$ if $d < \epsilon$, otherwise discard it
 
-. . .
-
-Repeat until you have enough. The kept parameters approximate the posterior.
-
-. . .
+Repeat until you have enough samples. The kept parameters approximate the
+posterior.
 
 No likelihood anywhere. Just a simulator, a distance, and a threshold.
 
-## Everything hangs on $\epsilon$
-
-. . .
-
-**Too tight** and you reject almost everything. The acceptance rate collapses and
-you wait forever for a handful of samples.
-
-. . .
-
-**Too loose** and you accept almost everything, including parameters that fit
-badly. In the limit you are sampling the [prior]{.alert}.
-
-. . .
-
-There is no free lunch here: $\epsilon$ trades accuracy against compute, and you
-cannot tell from inside the algorithm whether you have chosen well.
-
-## ABC-SMC {.smaller}
+## ABC-SMC
 
 Rejection ABC draws every parameter from the prior, however hopeless.
 ABC-SMC walks the threshold down in stages instead.
-
-. . .
 
 1. Run rejection ABC at a loose $\epsilon_1$
 2. Perturb the accepted particles to propose for the next round
 3. Tighten to $\epsilon_2 < \epsilon_1$ and repeat
 
-. . .
-
 Each generation starts from parameters already known to be reasonable, so a tight
 threshold becomes reachable.
 
-. . .
-
 The catch: particles need weighting to stay unbiased, which is the same
 propagate-weight-resample structure as the particle filter.
-
-## Is there a correct observation model?
-
-. . .
-
-No. There is only a choice, and the choice is part of the model.
-
-. . .
-
-- A **likelihood** is a distance you committed to in advance, and it comes with a
-  probabilistic interpretation.
-- An **ABC distance** is a distance you chose openly, and it works when the
-  likelihood is intractable.
-
-. . .
-
-Either way, be explicit about the choice and check whether your conclusions
-survive a different one.
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}
 
 In the practical you will
 
-- implement ABC rejection sampling from scratch
+- read an ABC rejection sampler and choose its threshold
 - find a workable acceptance threshold, and see why that is the hard part
-- implement ABC-SMC and compare it against rejection sampling
-- compare the ABC posterior against the likelihood-based one
-- test how each responds to a single outlying observation
+- trace ABC-SMC and compare it against rejection sampling
+- see what a summary statistic and a distance each do to the posterior
+- compare the ABC posterior against particle MCMC on the same three parameters, and on all six
 
 #
 

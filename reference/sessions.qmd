@@ -17,9 +17,9 @@ hours is not good for anyone.
 
 **Monday 7 September**
 
-Monday 7 September: 09.00-09.30
+Monday 7 September: 08.30-09.30
 
--   Registration
+-   Registration at the Hub, LSHTM main building, Keppel Street
 
 Monday 7 September: 09.30-09.45
 
@@ -66,7 +66,7 @@ Monday 7 September: 14.00-15.15 and 15.45-17.00
 
 Tuesday 8 September: 09.30-09.45
 
--   Day 1 review (15 mins)
+-   [Day 1 review](../sessions/slides/day1_review.qmd) (15 mins)
 
 ## Session 3: MCMC diagnostics
 
@@ -84,23 +84,24 @@ Tuesday 8 September: 12.00-12.30 and 13.30-14.30
 
 -   [Introduction](../sessions/slides/model_checking.qmd): the Bayesian workflow, prior and posterior predictive checks (25 mins)
 -   [Practice](../sessions/model_checking.qmd):
-    - prior predictive checks, and what vague priors actually imply (30 mins)
+    - meeting the Tristan da Cunha outbreak, and what the attack totals already say (10 mins)
+    - prior predictive checks, and what vague priors actually imply (20 mins)
     - posterior predictive distributions, predictive p-values and residuals (25 mins)
 -   Wrap up (10 mins)
 
-## Session 5: Modelling interlude — Tristan da Cunha and the SEITL model
+## Session 5: Modelling interlude — structure and stochasticity
 
 Tuesday 8 September: 14.30-15.15 and 15.45-17.00
 
 -   [Introduction](../sessions/slides/seitl.qmd): the state-space view, and why stochastic models need different machinery (20 mins)
 -   [Practice](../sessions/seitl.qmd):
-    - meeting the Tristan da Cunha outbreak and building the SEITL model (45 mins)
+    - building the SEITL model the failed checks call for (45 mins)
     - simulating it deterministically and stochastically, and comparing (45 mins)
 -   Wrap up (10 mins)
 
 Tuesday 8 September: 19.00
 
--   Course dinner
+-   Course dinner at [Antalya](https://antalyarestaurant.co.uk/), [103-105 Southampton Row, Holborn, WC1B 4HH](https://www.google.com/maps/search/?api=1&query=Antalya%20Restaurant%2C%20103-105%20Southampton%20Row%2C%20London%20WC1B%204HH)
 
 # Day 3: Particle-based methods and observation models
 
@@ -108,7 +109,7 @@ Tuesday 8 September: 19.00
 
 Wednesday 9 September: 09.30-09.45
 
--   Day 2 review (15 mins)
+-   [Day 2 review](../sessions/slides/day2_review.qmd) (15 mins)
 
 ## Session 6: Particle filters
 
@@ -151,23 +152,23 @@ Thursday 10 September: 09.30-09.45
 
 -   [Day 3 review](../sessions/slides/day3_review.qmd): where the week has got to, from deterministic fitting to particle MCMC (15 mins)
 
-## Session 9: Approximate Bayesian Computation
+## Session 9: Approximate Bayesian computation
 
 Thursday 10 September: 09.45-11.00
 
--   [Introduction](../sessions/slides/abc.qmd): likelihood-free inference, and choosing a distance instead (15 mins)
+-   [Introduction](../sessions/slides/abc.qmd): likelihood-free inference, and choosing a distance instead (10 mins)
 -   [Practice](../sessions/abc.qmd):
-    - ABC rejection sampling, and finding a workable acceptance threshold (30 mins)
-    - ABC-SMC, and comparing it against rejection ABC (20 mins)
--   Wrap up (10 mins)
+    - ABC rejection sampling, and finding a workable acceptance threshold (20 mins)
+    - what a summary statistic and a distance give up (20 mins)
+    - ABC-SMC, and comparing it against rejection ABC and particle MCMC (20 mins)
+-   Wrap up (5 mins)
 
 
 ## Session 10: Synthesis and next steps
 
 Thursday 10 September: 11.30-12.15
 
--   [Slides](../sessions/slides/choosing_an_approach.qmd): the methods side by side, the two questions that decide between them, and what actually goes wrong (25 mins)
--   [Discussion](../sessions/closing.qmd): work through the two questions, then place your own problem, in pairs and then as a group (20 mins)
+-   [What we did, the bigger picture, and where to go next](../sessions/slides/closing.qmd) (45 mins, including the [discussion](../sessions/closing.qmd) and questions)
 
 Bring a model you actually want to fit. The discussion works best when people
 argue about real problems rather than the worked examples.
@@ -176,9 +177,9 @@ argue about real problems rather than the worked examples.
 
 Thursday 10 September: 12.15-12.30
 
--   Summary, further reading and closing discussion (15 mins)
+-   Wrap-up and feedback (15 mins)
 
-# Further material
+# Further topics
 
 Four sessions are provided for self-study rather than taught in the room. They
 build on the taught sessions and can be worked through afterwards at your own

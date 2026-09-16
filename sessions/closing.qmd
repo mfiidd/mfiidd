@@ -3,14 +3,14 @@ title: "Synthesis and next steps"
 subtitle: "Closing session"
 format: html
 engine: julia
-order: 15
+order: 10
 ---
 
 ::: {.callout-note appearance="simple"}
 **Estimated time**: 20 minutes
 :::
 
-[Slides](slides/choosing_an_approach.qmd)
+[Slides](slides/closing.qmd)
 
 # Introduction
 
@@ -79,7 +79,7 @@ Question 4 decides whether any of this is feasible at all. A model that takes a 
 
 # Where to go next
 
-Four optional sessions sit above this one in the sidebar, and each stands on its own:
+Four further topics sit below this one in the sidebar, and each stands on its own:
 
 - [Variational inference](variational_inference.qmd) replaces sampling with an optimisation, for when you need an answer quickly. It needs only the MCMC session as background.
 - [Neural posterior estimation](neural_posterior_estimation.qmd) trains a network to map data straight to a posterior, amortising the cost across many datasets.

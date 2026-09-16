@@ -17,7 +17,7 @@ Course materials for "Model fitting and inference for infectious disease dynamic
 
 - **Julia** (v1.12) with Turing.jl for probabilistic programming
 - **Quarto** for rendering the course website
-- Key dependencies: DifferentialEquations.jl, Distributions.jl, Plots.jl/StatsPlots.jl, MCMCChains.jl
+- Key dependencies: DifferentialEquations.jl, Distributions.jl, Plots.jl/StatsPlots.jl, FlexiChains.jl
 
 ## Development
 
@@ -87,7 +87,34 @@ Plot predictions against `flu_tdc.time`, or against `collect(times)[2:end]` in a
 The initial state is `S = 279`, `I = 2`, `R = 3`, giving N = 284, the island population.
 It is the island as the ship lands, at the start of day 1: `flu_tdc_1971.csv` dates `time = 1` as 13 August, the day the ship arrived.
 Of the five islanders it brought back, three had been ill during the eight day voyage and are past their infectious period, so they start recovered; the two who fell ill on landing start infectious.
-The 312 reported cases exceed N because islanders were infected more than once, which is the observation the SEITL session is built on and the structural failure the single-wave sessions diagnose.
+The 312 reported cases exceed N because islanders were infected more than once, which is the observation the structure and stochasticity session is built on and the structural failure the single-wave sessions diagnose.
+
+The outbreak is introduced in `sessions/model_checking.qmd`, which is the first session to fit it and the one whose checks fail on it.
+`sessions/seitl.qmd` recalls it in a paragraph and moves on to the model.
+A session that needs the full story links to model checking rather than retelling it.
+
+### Priors for the SEITL parameters
+
+Every session that puts a prior on the SEITL or SEIT4L parameters uses the same one:
+
+```julia
+R_0 ~ truncated(Normal(3.0, 2.0), lower=1.0)
+D_lat ~ truncated(Normal(2.0, 1.0), lower=0.5)
+D_inf ~ truncated(Normal(3.0, 2.0), lower=0.5)
+α ~ Beta(2, 2)
+D_imm ~ truncated(Normal(15.0, 10.0), lower=1.0)
+ρ ~ Beta(2, 2)
+```
+
+There are six copies: `seitl_model` in `sessions/seitl.qmd`, `pmmh_seit4l` and `seit4l_deterministic_model` in `sessions/pmcmc.qmd`, `scripts/pmmh_setup.jl`, `seit4l_deterministic` in `scripts/generate_pmcmc_figures.jl`, which draws the deterministic fit for the day 3 review, and `PRIORS` in `sessions/neural_posterior_estimation.qmd`, which needs a vector of distributions to draw from and to invert rather than `~` statements.
+`PRIORS` in `sessions/abc.qmd` and `pmmh_seit4l_abc` in `scripts/pmmh_setup.jl` define the three of these that the ABC session estimates.
+Change one and change the rest.
+The committed chains in `data/` were generated under these priors, so a change to them means re-running `scripts/generate_pmcmc_seitl.jl`, `scripts/generate_pmcmc_seit4l.jl` and `scripts/generate_pmcmc_seit4l_abc.jl` and committing the new output.
+The deck figures under `sessions/slides/images/` are committed too, so a change also means re-running `scripts/generate_pmcmc_figures.jl`, every stage of which depends on the priors, directly or through the committed chain.
+
+The duplication is deliberate.
+These are two sessions whose subject is what the priors say and why, so a reader who has to open a package file to find out what the model assumes has lost the thread.
+The only way to share them across `@model` definitions is a DynamicPPL submodel used as `to_submodel(seitl_priors(), false)`, which trades six readable `~` statements for one line of machinery the course never introduces, and which the neural posterior estimation session could not use anyway.
 
 ## House style
 
@@ -159,9 +186,8 @@ description:
 8. Optionally `# Going further` and `# Next session`.
 9. `# References` last, holding the `::: {#refs}` block.
 
-Four sessions do not match points 8 and 9 today: `observation_models.qmd` has no
-`# References` section at all, `abc.qmd` ends `Going further` → `References` →
-`Next session`, `seitl.qmd` ends `References` → `Going further`, and
+Three sessions do not match points 8 and 9 today: `observation_models.qmd` has no
+`# References` section at all, `seitl.qmd` ends `References` → `Going further`, and
 `universal_differential_equations.qmd` places `Going further` before its Learning
 points box. Bring a session into line when you are editing it for another reason
 rather than making a sweep of its own.

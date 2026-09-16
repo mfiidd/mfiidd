@@ -1,12 +1,13 @@
 ---
-title: "Beyond Turing: the wider Julia ecosystem"
+title: "Beyond Turing"
+subtitle: "The wider Julia ecosystem"
 format: html
 engine: julia
 order: 14
 ---
 
 ::: {.callout-note appearance="simple"}
-**Estimated time**: 1-1.5 hours | **Optional session** | **Requires**: MCMC
+**Estimated time**: 1-1.5 hours | **Requires**: MCMC
 :::
 
 # Introduction
@@ -55,6 +56,7 @@ using Random ## for random numbers
 using Plots ## for plots
 using StatsPlots ## for statistical plots
 using DrWatson ## for datadir()
+using MFIIDD ## the course package, which holds the SIR implementation
 ```
 
 # The log-density is all you need
@@ -91,23 +93,12 @@ they do the second.
 # From manual log-posterior to standard interface
 
 In the introduction, we wrote a function that simulates the SIR model and returns
-the log-likelihood:
+the log-likelihood.
+The equations themselves are `sir_ode!` from [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl), which arrived with `using MFIIDD` above:
 
 ```{julia}
 # The synthetic epidemic from the introduction session
 epi1 = CSV.read(datadir("epi1_synthetic.csv"), DataFrame)
-
-function sir_ode!(du, u, p, t)
-    R_0, D_inf = p
-    β = R_0 / D_inf
-    ν = 1.0 / D_inf
-    S, I, R = u
-    N = S + I + R
-
-    du[1] = -β * S * I / N
-    du[2] = β * S * I / N - ν * I
-    du[3] = ν * I
-end
 
 function simulate_and_loglik(R_0, D_inf, data; init_state = [999.0, 1.0, 0.0], tspan = (0.0, 30.0))
     prob = ODEProblem(sir_ode!, init_state, tspan, [R_0, D_inf])
@@ -408,9 +399,9 @@ Whatever produced your samples, you still have to check and summarise them.
 - [PosteriorDB](https://github.com/sethaxen/PosteriorDB.jl) provides reference
   posteriors, which are useful for checking that an implementation is correct.
 
-Note that a chain from DynamicHMC is a plain matrix rather than an `MCMCChains`
-object, so you either convert it or work with the matrix directly. This is a
-small but real cost of stepping outside Turing.
+Note that a chain from DynamicHMC is a plain matrix, not the `FlexiChains`
+object the rest of the course works with, so you either convert it or work with
+the matrix directly.
 
 # The rest of the stack
 
@@ -423,7 +414,7 @@ have already been using without necessarily noticing:
   differentiating through a solver, which is what makes gradient-based fitting of
   ODE models possible
 - [JumpProcesses.jl](https://docs.sciml.ai/JumpProcesses/stable/) for stochastic
-  simulation of the kind we hand-coded in the [SEITL session](seitl.qmd)
+  simulation of the kind we hand-coded in the [Structure and stochasticity](seitl.qmd) session
 
 # When to reach outside Turing
 
