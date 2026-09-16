@@ -607,7 +607,8 @@ Resampling only reweights particles that already exist, so it needs no transitio
 Resampling cures the degeneracy described above, but it is a random step in its own right and adds variance of its own.
 `BF(n_particles)` resamples at every step, which is what every result in this session and the next one uses.
 A `threshold` of `0.5` resamples only once the effective sample size falls below half the particles, which is the common alternative.
-Which of the two is steadier depends on the model and the particle count, so it is worth measuring rather than assuming: on this model at 64 particles they come out about the same.
+At the parameters the calibration cell uses, resampling only below the threshold roughly halves the spread of the log-likelihood estimate at 64 particles, which is worth more than it sounds: the calibration table shows what buying the same reduction with more particles would cost.
+Which setting wins depends on the model and the particle count, so it is worth measuring on your own problem rather than carrying either default across.
 Substituting `BF(n_particles; threshold = 0.5, resampler = GeneralisedFilters.Multinomial())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, qualified because the runner imports `BF` and not the resamplers, and `threshold = 0.0`, which never resamples at all, puts the degeneracy back so you can see what it costs.
 
 **Exploiting structure.**
