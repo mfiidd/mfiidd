@@ -353,7 +353,7 @@ This is unbiased in expectation, meaning if we run the particle filter many time
 
 # Implementing the state-space model interface
 
-For production use, we define the model using the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface. This separates the model from the filtering algorithm, so you can swap in different filtering methods (bootstrap, guided, auxiliary) without rewriting the model. It also integrates with Turing.jl for the Particle MCMC in the [next session](pmcmc.qmd).
+For production use, we define the model using the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface. This separates the model from the filtering algorithm, so you can swap in a different filter without rewriting the model, within the limits of what the model can do: `Going further` below sets out which of the family a simulate-only model can actually use. It also integrates with Turing.jl for the Particle MCMC in the [next session](pmcmc.qmd).
 
 A state-space model has three components:
 
@@ -597,15 +597,16 @@ A Gillespie simulator can be sampled from, but its transition density cannot be 
 **Why the bootstrap filter.**
 `BF` is not a separate algorithm from the general particle filter `PF`.
 It is `PF` with the proposal set to the model's own dynamics, so the proposal and the dynamics cancel out of the importance weight and the weights reduce to the observation density alone.
-That cancellation is also what makes it the filter available here, because it is the one member of the family that never has to evaluate the transition density.
-A proposal that looks at the observation before propagating would spread the weights less, and `AuxiliaryParticleFilter` would reweight by a look-ahead score, but both need that density and both stop at a `MethodError` on `SSMProblems.distribution`.
+That cancellation is also what makes it the filter to reach for here, because it never has to evaluate the transition density.
+A proposal that looks at the observation before propagating would spread the weights less, but forming its importance weight needs that density, so a guided proposal stops at a `MethodError` on `SSMProblems.distribution`.
+`AuxiliaryParticleFilter` reweights by a look-ahead score instead, and whether it runs depends on how that score is formed: `MeanPredictive` and `ModePredictive` evaluate the density and fail the same way, while `DrawPredictive` draws a step forward by simulation and runs here.
 
 **What you can vary.**
 Resampling only reweights particles that already exist, so it needs no transition density and this axis stays open.
 `BF` takes a `resampler` and a `threshold`.
 Resampling cures the degeneracy described above, but it is a random step in its own right and adds variance of its own, so doing it at every step is rarely what you want.
 A `threshold` of `0.5` resamples only once the effective sample size falls below half the particles, which is the usual compromise between the two.
-Substituting `BF(n_particles; threshold = 0.5, resampler = Multinomial())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, and `threshold = 0.0`, which never resamples at all, puts the degeneracy back so you can see what it costs.
+Substituting `BF(n_particles; threshold = 0.5, resampler = GeneralisedFilters.Multinomial())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, qualified because the runner imports `BF` and not the resamplers, and `threshold = 0.0`, which never resamples at all, puts the degeneracy back so you can see what it costs.
 
 **Exploiting structure.**
 `KalmanFilter` computes the likelihood exactly for linear Gaussian models, returning the same number every run rather than a noisy estimate.
