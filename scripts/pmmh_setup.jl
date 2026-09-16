@@ -399,22 +399,3 @@ function print_chain_diagnostics(frames, name, keys = PARAMETERS)
     println()
     return nothing
 end
-
-"""
-    print_diagnostics(chain, name)
-
-Print the posterior summary and credible intervals, from the same six columns
-the session reads back out of the saved CSV.
-"""
-function print_diagnostics(chain, name)
-    df = chain_frame(chain)
-    mcmc_chain = symchain([df], PARAMETERS)
-
-    println("\n$name summary statistics:")
-    show(stdout, MIME("text/plain"), summarystats(mcmc_chain))
-    println("\n\n$name 2.5%, 50% and 97.5% quantiles:")
-    for k in PARAMETERS
-        println("  $k: ", round.(quantile(df[!, k], [0.025, 0.5, 0.975]); digits = 3))
-    end
-    println()
-end
