@@ -219,13 +219,6 @@ function chain_frame(chain)
 end
 
 """
-    save_chain_csv(chain, path)
-
-Write the chain to `path`, one row per retained iteration.
-"""
-save_chain_csv(chain, path) = CSV.write(path, chain_frame(chain))
-
-"""
     symchain(frames, keys)
 
 A `SymChain` from one data frame per chain, each with a column for every key in

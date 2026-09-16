@@ -520,7 +520,7 @@ Which model better explains the data? We fit both and compare.
 
 The SEITL model uses the same structure as SEIT4L, but with a single T compartment instead of four. The implementation follows the same pattern we used for SEIT4L: a Gillespie simulator for stochastic dynamics, a bootstrap particle filter to estimate the likelihood, and a Turing `@model` that adds the log-likelihood via `@addlogprob!`. Since the code structure is identical, we load pre-computed chains rather than repeating the implementation. See `scripts/generate_pmcmc_seitl.jl` if you want to examine the full code.
 
-Both models were fitted using RAM with 50,000 warmup iterations, then 450,000 kept and thinned by 50:
+Both models were fitted using RAM as four chains each, with 50,000 warmup iterations per chain, then 112,500 kept per chain and thinned by 50:
 
 ```{julia}
 # Load pre-computed SEITL chain
@@ -613,7 +613,7 @@ which is the same as $\overline{D} + p_D$.
 The three quantities are:
 
 - $D(\bar{\theta})$, the fit at the posterior mean, a single best guess at the parameters.
-- $\overline{D}$, the fit averaged over everything the posterior still considers plausible. It is minus twice the mean log-likelihood printed above.
+- $\overline{D}$, the fit averaged over everything the posterior still considers plausible. It is minus twice the mean log-likelihood over the posterior, re-estimated below rather than read off the draws, for the reason given after the cell.
 - $p_D$, the *effective number of parameters*: how much worse the average fit is than the fit at the mean. Each parameter the data pin down adds about one, and a parameter the data leave to its prior adds close to nothing, so $p_D$ need not be a whole number and falls below the number of parameters you wrote down.
 
 Both deviances need fresh runs through the particle filter of the model that produced the chain.
@@ -622,7 +622,7 @@ Re-estimating over a sample of draws puts $\overline{D}$ and $D(\bar{\theta})$ o
 
 ```{julia}
 ## DIC from a chain and the particle filter of the model it was fitted with
-const DIC_DRAWS = 200  ## enough for D̄ to a tenth of a deviance unit
+const DIC_DRAWS = 200  ## D̄ to about a third of a deviance unit
 
 function dic(chain_df, run_filter)
     params = (:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ)
@@ -846,7 +846,7 @@ When criteria disagree, consider what question you're actually asking: best pred
 
 ## Multiple chains and diagnostics
 
-For production PMMH, you should run multiple chains and check convergence:
+The saved chains were generated this way. Turing will run them for you in one call:
 
 ```julia
 # Run multiple chains in parallel
@@ -865,7 +865,7 @@ summarystats(chain_multi)
 ```
 
 Use the same diagnostics (R̂ < 1.1, ESS > 100) as for standard MCMC.
-Run it with four chains and compare their R̂ against the single chain fitted above.
+This is what the saved chains do, which is why the summary at the top of this session could report R̂ at all: it compares four chains that started independently.
 One chain can look perfectly healthy on its own trace and still have missed a region of the posterior, which is the failure only several chains started apart can show you.
 
 ## Alternative: Manual proposal tuning
@@ -887,7 +887,7 @@ chain = sample(model_pmmh, MH(Σ), 5000)
 
 This requires choosing proposal variances for each parameter - too large gives low acceptance, too small gives slow exploration. In practice, RAM is easier because it learns the covariance structure automatically.
 
-Try it and compare the acceptance rate against the 23.6% RAM reached above.
+Try it and compare the acceptance rate against the one RAM reached above.
 Matching that by hand takes several attempts, and the six variances above are only a starting point rather than a tuned answer.
 
 ## Particle Gibbs {#particle-gibbs}
