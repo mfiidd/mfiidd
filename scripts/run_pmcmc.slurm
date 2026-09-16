@@ -1,23 +1,38 @@
 #!/bin/bash
 #SBATCH --job-name=pmcmc_chains
-#SBATCH --time=48:00:00   # ~15 hours per model, run back to back
+#SBATCH --array=0-1
+#SBATCH --time=48:00:00
 #SBATCH --mem=16G
-#SBATCH --cpus-per-task=1
-#SBATCH --output=pmcmc_%j.out
-#SBATCH --error=pmcmc_%j.err
+#SBATCH --cpus-per-task=4
+#SBATCH --output=pmcmc_%A_%a.out
+#SBATCH --error=pmcmc_%A_%a.err
 
-# Julia is installed via juliaup on the cluster, so it is already on PATH
+# Generate both sets of PMMH chains, one model per array task.
+#
+# The two models ran back to back in a single job until a run overran the wall
+# clock. An array gives each model its own allocation, and the two run side by
+# side.
+#
+# Four CPUs for four chains, which is the axis that parallelises almost
+# linearly. Threading inside a single filter saturates instead, because only
+# propagation parallelises and at 256 particles the blocks are small: six
+# threads return about 1.3 times the serial speed for SEITL and 1.6 for SEIT4L.
+# With more CPUs to spare, `run_particle_filter(...; threaded = true)` can take
+# the extra.
+#
+# Julia is installed via juliaup on the cluster, so it is already on PATH.
 
-# Change to project directory
-cd $SLURM_SUBMIT_DIR
-# Or use absolute path:
-# cd /path/to/mfiidd.julia
+set -euo pipefail
 
-echo "Starting PMMH chain generation at $(date)"
+MODELS=(seitl seit4l)
+MODEL=${MODELS[$SLURM_ARRAY_TASK_ID]}
+
+cd "$SLURM_SUBMIT_DIR"
+
+echo "Starting $MODEL PMMH chain generation at $(date)"
 echo "Running on node: $(hostname)"
 echo "Julia version: $(julia --version)"
 
-# Run the chain generation script
-julia --project=. scripts/generate_pmcmc_chains.jl
+julia --project=. --threads="$SLURM_CPUS_PER_TASK" "scripts/generate_pmcmc_${MODEL}.jl"
 
-echo "Finished at $(date)"
+echo "Finished $MODEL at $(date)"

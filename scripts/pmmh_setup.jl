@@ -14,7 +14,7 @@ using Distributions
 using DataFrames
 using Turing
 using FlexiChains
-using FlexiChains: Parameter
+using FlexiChains: Extra, Parameter
 using CSV
 using DrWatson
 using StatsBase
@@ -30,6 +30,32 @@ const N_SAMPLES = 450_000   # kept, then thinned
 const THINNING = 50         # → 9000 final samples
 
 const PARAMETERS = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
+const N_CHAINS = 4         # run side by side, and give R-hat
+
+"""
+Serialises printing, because chains running side by side otherwise interleave
+mid-line. Left alone, four chains printing their opening banner at once produced
+a log in which counting the warm-up notices returned three.
+"""
+const PRINTING = ReentrantLock()
+
+"""
+    say(lines...)
+
+Print `lines` as one uninterrupted block and flush.
+
+`flush` matters as much as the lock: Julia block-buffers a redirected stdout, so
+without it a batch job's log stays empty for the length of the run.
+"""
+function say(lines...)
+    lock(PRINTING) do
+        for line in lines
+            println(line)
+        end
+        flush(stdout)
+    end
+end
+const PROGRESS_EVERY = 10_000  # iterations between progress lines
 
 """
     pmmh(obs, n_particles, particle_filter)
@@ -70,7 +96,59 @@ end
 const SEITL_INIT = [279.0, 0.0, 2.0, 3.0, 0.0]
 const SEIT4L_INIT = [279.0, 0.0, 2.0, 3.0, 0.0, 0.0, 0.0, 0.0]
 
-filter_for(init) = (θ, obs, n) -> run_particle_filter(θ, obs, n; init_state = init)
+"""
+    remembering(filter)
+
+Wrap a particle filter so a repeated evaluation of the same parameters returns
+the estimate already drawn for them.
+
+Turing evaluates the model twice per iteration: once for the proposal, and again
+for the current state when it records the draw. The second evaluation runs the
+whole particle filter and never reaches the acceptance ratio, so it doubles the
+cost of a chain for nothing. Serving it from store takes the SEITL chain from
+71.8 to 40.2 ms an iteration.
+
+Two entries, evicting the least recently used, because the calls alternate
+proposal, current, proposal, current. A single entry is evicted by the proposal
+just before the current state is asked for again, which recovers only a quarter
+of the work instead of half.
+
+Returning the stored estimate is what pseudo-marginal MCMC asks for in any case.
+The acceptance ratio keeps the estimate drawn when a state was accepted, so
+serving that same number again makes the recorded log-density agree with the one
+the chain actually used, where a fresh call reports a second, unrelated draw.
+
+`filter_for` builds one of these per model, so each chain has its own store and
+concurrent chains share nothing. That holds for chains in spawned
+tasks too, because each task builds its own model.
+"""
+function remembering(filter)
+    seen = Vector{NTuple{6, Float64}}()
+    drawn = Vector{Float64}()
+    return function (θ, obs, n)
+        key = (θ[:R_0], θ[:D_lat], θ[:D_inf], θ[:α], θ[:D_imm], θ[:ρ])
+        i = findfirst(==(key), seen)
+        if i !== nothing  ## move the hit to the end, so it is not the next evicted
+            value = drawn[i]
+            deleteat!(seen, i)
+            deleteat!(drawn, i)
+            push!(seen, key)
+            push!(drawn, value)
+            return value
+        end
+        value = filter(θ, obs, n)
+        push!(seen, key)
+        push!(drawn, value)
+        if length(seen) > 2
+            popfirst!(seen)
+            popfirst!(drawn)
+        end
+        return value
+    end
+end
+
+filter_for(init) =
+    remembering((θ, obs, n) -> run_particle_filter(θ, obs, n; init_state = init))
 
 pmmh_seitl(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEITL_INIT))
 pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEIT4L_INIT))
@@ -82,12 +160,12 @@ const ABC_FIXED = Dict(:D_lat => 2.0, :α => 0.5, :D_imm => 13.0)
 const ABC_PARAMETERS = [:R_0, :D_inf, :ρ]
 
 """
-    pmmh_seit4l_abc(obs, n_particles)
+    pmmh_seit4l_abc(obs, n_particles, particle_filter = filter_for(SEIT4L_INIT))
 
 PMMH model for the SEIT4L parameters the ABC session estimates, with the same
 priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
 """
-@model function pmmh_seit4l_abc(obs, n_particles)
+@model function pmmh_seit4l_abc(obs, n_particles, particle_filter = filter_for(SEIT4L_INIT))
     R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
     D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
     ρ ~ Beta(2, 2)
@@ -101,7 +179,7 @@ priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
         ),
     )
 
-    Turing.@addlogprob! run_particle_filter(θ, obs, n_particles; init_state = SEIT4L_INIT)
+    Turing.@addlogprob! particle_filter(θ, obs, n_particles)
 end
 
 """
@@ -121,15 +199,24 @@ into internal fields whose layout is not part of the API.
 """
 function chain_frame(chain)
     df = DataFrame(chain)
-    return select(df, Not(intersect(["iteration", "iter", "chain"], names(df))))
+    df = select(df, Not(intersect(["iteration", "iter", "chain"], names(df))))
+
+    ## Idempotent, because several call sites hand back the frame `run_pmmh`
+    ## already returned rather than a chain. A frame has nothing left to read
+    ## off, and asking it for `keys` is an error.
+    chain isa DataFrame && return df
+
+    ## `DataFrame` of a FlexiChain keeps the parameters and silently drops every
+    ## `Extra`, which is where the sampler statistics and the log densities live.
+    ## Left as it was, the saved chains lose `accepted` and `loglikelihood`, and
+    ## sessions/pmcmc.qmd needs the first for the acceptance rate and the second
+    ## for DIC. The chain itself carries them, so they are read off here.
+    for key in keys(chain)
+        key isa FlexiChains.Extra || continue
+        df[!, key.name] = vec(chain[key])
+    end
+    return df
 end
-
-"""
-    save_chain_csv(chain, path)
-
-Write the chain to `path`, one row per retained iteration.
-"""
-save_chain_csv(chain, path) = CSV.write(path, chain_frame(chain))
 
 """
     symchain(frames, keys)
@@ -154,6 +241,40 @@ function acceptance_rate(chain)
 end
 
 """
+    progress_every(n, name, t_start, total)
+
+A callback that prints one line every `n` kept iterations.
+
+`sample` can show a progress meter, but it writes to stderr and repaints in
+place, so a batch job redirecting its output to a file records nothing useful.
+`flush` matters as much as the `println`: Julia block-buffers a redirected
+stdout, so without it the lines sit unwritten for the length of the run.
+
+The callback is not called during warmup, so nothing appears until the kept
+iterations begin. `run_pmmh` says so before it starts.
+"""
+function progress_every(n, name, t_start, total)
+    kept_start = Ref(0.0)
+    return function (rng, model, sampler, sample, state, i; kwargs...)
+        ## The callback first runs once warm-up is over, so this is when the
+        ## kept iterations began. Timing them against `t_start` instead divides
+        ## kept iterations by a span that includes warm-up, and the estimate of
+        ## the time left then comes out far too pessimistic.
+        kept_start[] == 0.0 && (kept_start[] = time())
+        if i % n == 0
+            elapsed = (time() - t_start) / 60
+            rate = i / max((time() - kept_start[]) / 60, eps())
+            left = (total - i) / rate
+            say(
+                "[$name] $i/$total kept, $(round(elapsed, digits = 1)) min elapsed, " *
+                "$(round(rate, digits = 0))/min, about $(round(left, digits = 0)) min left",
+            )
+        end
+        return nothing
+    end
+end
+
+"""
     run_pmmh(model, name; n_warmup, n_samples, thinning)
 
 Sample `model` with Robust Adaptive Metropolis, reporting the acceptance rate of
@@ -172,14 +293,17 @@ function run_pmmh(
     n_samples = N_SAMPLES,
     thinning = THINNING,
 )
-    println("="^60)
-    println("Running PMMH for $name with RAM")
-    println("  Particles: $N_PARTICLES")
-    println("  Warmup (adaptation, discarded): $n_warmup")
-    println("  Samples kept: $n_samples")
-    println("  Thinning: $thinning")
-    println("  Final samples: $(n_samples ÷ thinning)")
-    println("="^60)
+    say(
+        "="^60,
+        "Running PMMH for $name with RAM",
+        "  Particles: $N_PARTICLES",
+        "  Warmup (adaptation, discarded): $n_warmup",
+        "  Samples kept: $n_samples",
+        "  Thinning: $thinning",
+        "  Final samples: $(n_samples ÷ thinning)",
+        "="^60,
+        "Warming up. No progress lines until the $n_warmup warmup iterations finish.",
+    )
 
     t_start = time()
     chain_full = sample(
@@ -189,34 +313,89 @@ function run_pmmh(
         num_warmup = n_warmup,
         check_model = false,
         progress = true,
+        callback = progress_every(PROGRESS_EVERY, name, t_start, n_samples),
     )
     t_elapsed = time() - t_start
-    println("\n$name sampling took $(round(t_elapsed/60, digits=1)) minutes")
-    println("Acceptance rate: $(round(acceptance_rate(chain_full) * 100, digits=1))%")
+    say(
+        "$name sampling took $(round(t_elapsed/60, digits=1)) minutes",
+        "$name acceptance rate: $(round(acceptance_rate(chain_full) * 100, digits=1))%",
+    )
 
     # Thin the data frame: FlexiChains, which Turing now returns by default, does
     # not support `end` inside an index, and a data frame thins the same way
     # whatever chain type the sampler produced
     chain = chain_frame(chain_full)[1:thinning:end, :]
-    println("After thinning: $(nrow(chain)) samples")
+    say("$name after thinning: $(nrow(chain)) samples")
     return chain
 end
 
 """
-    print_diagnostics(chain, name)
+    run_pmmh_chains(build_model, name; n_chains, n_warmup, n_samples, thinning)
 
-Print the posterior summary and credible intervals, from the same six columns
-the session reads back out of the saved CSV.
+Run `n_chains` chains side by side and return one data frame per chain.
+
+Chains are the axis worth parallelising. They scale almost linearly, where
+threading inside one filter saturates: only propagation parallelises, and at 256
+particles the blocks are small enough that six threads return about 1.3 times
+the serial speed for SEITL and 1.6 for SEIT4L. Four chains also give R-hat, which one long chain cannot.
+
+`n_samples` defaults to a quarter of the single-chain total, so four chains keep
+the same 9000 draws after thinning that the session has always loaded.
+
+`build_model` is called once per chain rather than once and shared, so each
+chain gets its own model and its own likelihood store and the chains share
+nothing mutable.
 """
-function print_diagnostics(chain, name)
-    df = chain_frame(chain)
-    mcmc_chain = symchain([df], PARAMETERS)
+function run_pmmh_chains(
+    build_model,
+    name;
+    n_chains = N_CHAINS,
+    n_warmup = N_WARMUP,
+    n_samples = N_SAMPLES ÷ n_chains,
+    thinning = THINNING,
+)
+    println(
+        "Running $n_chains chains of $name side by side on $(Threads.nthreads()) threads",
+    )
+    flush(stdout)
+    tasks = [
+        Threads.@spawn run_pmmh(
+            build_model(),
+            "$name, chain $c";
+            n_warmup = n_warmup,
+            n_samples = n_samples,
+            thinning = thinning,
+        ) for c in 1:n_chains
+    ]
+    return fetch.(tasks)
+end
 
-    println("\n$name summary statistics:")
-    show(stdout, MIME("text/plain"), summarystats(mcmc_chain))
-    println("\n\n$name 2.5%, 50% and 97.5% quantiles:")
-    for k in PARAMETERS
-        println("  $k: ", round.(quantile(df[!, k], [0.025, 0.5, 0.975]); digits = 3))
+"""
+    save_chains_csv(frames, path)
+
+Write every chain to `path`, one row per retained iteration, with a leading
+`chain` column so R-hat can be recomputed from the saved file.
+"""
+function save_chains_csv(frames, path)
+    output = vcat([insertcols(f, 1, :chain => c) for (c, f) in enumerate(frames)]...)
+    return CSV.write(path, output)
+end
+
+"""
+    print_chain_diagnostics(frames, name, keys = PARAMETERS)
+
+Print the across-chain summary, which carries R-hat and the effective sample
+size, then the pooled quantiles.
+"""
+function print_chain_diagnostics(frames, name, keys = PARAMETERS)
+    println("\n$name summary statistics, across $(length(frames)) chains:")
+    show(stdout, MIME("text/plain"), summarystats(symchain(frames, keys)))
+
+    pooled = vcat(frames...)
+    println("\n\n$name 2.5%, 50% and 97.5% quantiles, pooled:")
+    for k in keys
+        println("  $k: ", round.(quantile(pooled[!, k], [0.025, 0.5, 0.975]); digits = 3))
     end
     println()
+    return nothing
 end

@@ -588,8 +588,8 @@ scatter!(p_pair, pmcmc_three.R_0[1:8:end], pmcmc_three.ρ[1:8:end], color = INK,
 
 ::: {.callout-tip title="What to look for" collapse="true"}
 Matching the total exactly does not rescue it.
-Its posterior puts $R_0$ near 4.5 against 6.0 on the full series, and $\rho$ near 0.79 against 0.65.
-It barely moves $D_\mathrm{inf}$ off its prior: it removes about 6% of the prior's variance, where the full series removes nearly 80%.
+Its posterior puts $R_0$ near 4.8 against 6.0 on the full series, and $\rho$ near 0.79 against 0.65.
+It barely moves $D_\mathrm{inf}$ off its prior: it removes about 4% of the prior's variance, where the full series removes nearly 80%.
 
 The scatter shows why.
 Many epidemics produce 312 cases: a small $R_0$ with a high reporting rate, a larger one with a lower rate.
@@ -978,18 +978,18 @@ Where the two chains differ from each other, the difference is the choice of whi
 :::
 
 ::: {.callout-tip title="Solution" collapse="true"}
-ABC sits below the chain on the same three parameters for $R_0$, 6.2 against 7.1, and every ABC interval is wider, most of all that of $\rho$, which is about twice as wide.
+ABC sits below the chain on the same three parameters for $R_0$, 6.3 against 7.2, and every ABC interval is wider, most of all that of $\rho$, which is about twice as wide.
 That is the approximation.
-At a threshold of 150 ABC still keeps simulations that miss the data by a wide margin, and the closest of the 200,000 table draws came no nearer than 117.
+At a threshold of 150 ABC still keeps simulations that miss the data by a wide margin, and the closest of the 200,000 table draws came no nearer than 121.
 The L1 distance decides which of those it keeps, where particle MCMC weighs every path by the Poisson likelihood, and $R_0$ has nearly stopped moving between 165 and 150, so that gap will not close cheaply.
 
-The two particle MCMC chains differ most on $D_\mathrm{inf}$: 2.14 when the latent period is estimated, and 1.35 when it is fixed at 2.
-The six-parameter chain puts $D_\mathrm{lat}$ at 1.33, and what the daily counts constrain is how quickly the epidemic moves, which depends on the two periods together.
+The two particle MCMC chains differ most on $D_\mathrm{inf}$: 2.12 when the latent period is estimated, and 1.38 when it is fixed at 2.
+The six-parameter chain puts $D_\mathrm{lat}$ at 1.34, and what the daily counts constrain is how quickly the epidemic moves, which depends on the two periods together.
 Their sum is about 3.4 in both chains, so fixing $D_\mathrm{lat}$ at 2, longer than the data prefer, pulls $D_\mathrm{inf}$ down to keep the sum, and $R_0$ moves up with it.
 $\rho$ barely moves.
 
 Against the six-parameter chain alone, ABC's $D_\mathrm{inf}$ of 1.6 looks too short, and ABC would take the blame for a gap that fixing $D_\mathrm{lat}$ created.
-Against the chain with the same target it is slightly longer, by about 0.25.
+Against the chain with the same target it is slightly longer, by about 0.2.
 An approximate posterior needs a reference with the same target before you can tell its errors apart from your modelling choices.
 :::
 

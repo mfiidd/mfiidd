@@ -5,9 +5,8 @@
 # Run with:
 #   julia --project=. --threads=4 --heap-size-hint=4G scripts/generate_pmcmc_seit4l_abc.jl
 #
-# Takes about an hour and a half on four threads of an Intel Mac mini at 256
-# particles. Four independent
-# chains are run so that R-hat can be computed across them. The heap size hint
+# Takes about three quarters of an hour on four threads at 256 particles. Four
+# independent chains are run so that R-hat can be computed across them. The heap size hint
 # keeps the four filters' garbage in check on a laptop, and each chain is written
 # to the temporary directory as soon as it finishes, so a run stopped part way
 # keeps the chains that completed.
@@ -16,7 +15,6 @@ include(joinpath(@__DIR__, "pmmh_setup.jl"))
 
 Random.seed!(1234)
 
-const N_CHAINS = 4
 name = "SEIT4L, three parameters"
 
 tasks = [
@@ -28,21 +26,15 @@ tasks = [
             n_samples = 20_000,
             thinning = 5,
         )
-        frame = chain_frame(chain)
-        CSV.write(joinpath(tempdir(), "pmcmc_seit4l_abc_chain_$c.csv"), frame)
-        frame
+        ## `run_pmmh` already returns a frame
+        CSV.write(joinpath(tempdir(), "pmcmc_seit4l_abc_chain_$c.csv"), chain)
+        chain
     end for c in 1:N_CHAINS
 ]
 frames = fetch.(tasks)
 
-# Keep the chain index, which chain_frame drops, so R-hat can be recomputed
-# from the saved file
-output = vcat([insertcols(f, 1, :chain => c) for (c, f) in enumerate(frames)]...)
 output_path = datadir("pmcmc_seit4l_abc_chain.csv")
-println("Saving $name chain to $output_path")
-CSV.write(output_path, output)
+println("Saving $N_CHAINS $name chains to $output_path")
+save_chains_csv(frames, output_path)
 
-combined = symchain(frames, ABC_PARAMETERS)
-println("\n$name summary statistics, across $N_CHAINS chains:")
-show(stdout, MIME("text/plain"), summarystats(combined))
-println()
+print_chain_diagnostics(frames, name, ABC_PARAMETERS)
