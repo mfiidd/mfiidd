@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=pmcmc_abc
-#SBATCH --time=04:00:00   # four chains in parallel, around half an hour
+#SBATCH --time=04:00:00   # four chains in parallel, around three quarters of an hour
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
 #SBATCH --output=pmcmc_abc_%j.out

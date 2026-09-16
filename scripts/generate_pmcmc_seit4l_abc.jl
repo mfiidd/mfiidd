@@ -5,9 +5,8 @@
 # Run with:
 #   julia --project=. --threads=4 --heap-size-hint=4G scripts/generate_pmcmc_seit4l_abc.jl
 #
-# Takes about an hour and a half on four threads of an Intel Mac mini at 256
-# particles. Four independent
-# chains are run so that R-hat can be computed across them. The heap size hint
+# Takes about three quarters of an hour on four threads at 256 particles. Four
+# independent chains are run so that R-hat can be computed across them. The heap size hint
 # keeps the four filters' garbage in check on a laptop, and each chain is written
 # to the temporary directory as soon as it finishes, so a run stopped part way
 # keeps the chains that completed.
