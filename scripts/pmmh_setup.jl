@@ -118,8 +118,8 @@ The acceptance ratio keeps the estimate drawn when a state was accepted, so
 serving that same number again makes the recorded log-density agree with the one
 the chain actually used, where a fresh call reports a second, unrelated draw.
 
-`filter_for` and `abc_filter` build one of these per model, so each chain has its
-own store and concurrent chains share nothing. That holds for chains in spawned
+`filter_for` builds one of these per model, so each chain has its own store and
+concurrent chains share nothing. That holds for chains in spawned
 tasks too, because each task builds its own model.
 """
 function remembering(filter)
@@ -159,16 +159,13 @@ pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEIT4L_INIT))
 const ABC_FIXED = Dict(:D_lat => 2.0, :α => 0.5, :D_imm => 13.0)
 const ABC_PARAMETERS = [:R_0, :D_inf, :ρ]
 
-abc_filter() =
-    remembering((θ, obs, n) -> run_particle_filter(θ, obs, n; init_state = SEIT4L_INIT))
-
 """
-    pmmh_seit4l_abc(obs, n_particles)
+    pmmh_seit4l_abc(obs, n_particles, particle_filter = filter_for(SEIT4L_INIT))
 
 PMMH model for the SEIT4L parameters the ABC session estimates, with the same
 priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
 """
-@model function pmmh_seit4l_abc(obs, n_particles, particle_filter = abc_filter())
+@model function pmmh_seit4l_abc(obs, n_particles, particle_filter = filter_for(SEIT4L_INIT))
     R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
     D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
     ρ ~ Beta(2, 2)
