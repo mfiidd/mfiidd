@@ -91,7 +91,7 @@ The source file of this session is located at `sessions/seitl.qmd`.
 using Random ## for random numbers
 using Distributions ## for probability distributions
 using DifferentialEquations ## for differential equations
-# JumpProcesses.jl is an alternative for stochastic simulation - we implement Gillespie manually here
+using JumpProcesses ## samples the jump model exactly, by Gillespie's direct method
 using DataFrames ## for data frames
 using Plots ## for plots
 using StatsPlots ## for statistical plots
