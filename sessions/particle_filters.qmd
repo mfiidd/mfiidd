@@ -602,14 +602,17 @@ A proposal that looks at the observation before propagating would spread the wei
 `AuxiliaryParticleFilter` reweights by a look-ahead score instead. How that score is formed determines whether it can be used: `MeanPredictive` and `ModePredictive` evaluate the density and fail the same way, while `DrawPredictive` draws a step forward by simulation and runs here.
 
 **What you can vary.**
-Resampling only reweights particles that already exist, so it needs no transition density and this axis stays open.
+Resampling only duplicates and discards particles that already exist, so it proposes no new state, needs no transition density, and this axis stays open.
 `BF` takes a `resampler` and a `threshold`.
 Resampling cures the degeneracy described above, but it is a random step in its own right and adds variance of its own.
 `BF(n_particles)` resamples at every step, which is what every result in this session and the next one uses.
 A `threshold` of `0.5` resamples only once the effective sample size falls below half the particles, which is the common alternative.
 At the parameters the calibration cell uses, resampling only below the threshold roughly halves the spread of the log-likelihood estimate at 64 particles, which is worth more than it sounds: the calibration table shows what buying the same reduction with more particles would cost.
 Which setting wins depends on the model and the particle count, so it is worth measuring on your own problem rather than carrying either default across.
-Substituting `BF(n_particles; threshold = 0.5, resampler = GeneralisedFilters.Multinomial())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, qualified because the runner imports `BF` and not the resamplers, and `threshold = 0.0`, which never resamples at all, puts the degeneracy back so you can see what it costs.
+Substituting `BF(n_particles; threshold = 0.5, resampler = GeneralisedFilters.Systematic())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, qualified because the runner imports `BF` and not the resamplers.
+`Systematic` is already the default, so that substitution moves the threshold and nothing else.
+The resampler is a second experiment and not a free one: `Multinomial` roughly doubles the spread at these parameters, so vary one at a time or the two effects will be read as one.
+`threshold = 0.0`, which never resamples at all, puts the degeneracy back so you can see what it costs.
 
 **Exploiting structure.**
 `KalmanFilter` computes the likelihood exactly for linear Gaussian models, returning the same number every run rather than a noisy estimate.
