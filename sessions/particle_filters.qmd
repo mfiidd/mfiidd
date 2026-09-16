@@ -78,7 +78,7 @@ using DrWatson
 
 ## Load the course package
 
-This loads the `MFIIDD` course package, which provides the helper functions used throughout — including the SEIT4L Gillespie simulator and the SSMProblems interface, both shown in the main text below.
+This loads the `MFIIDD` course package, which provides the helper functions used throughout — including the SEIT4L jump simulator and the SSMProblems interface, both shown in the main text below.
 
 ```{julia}
 using MFIIDD
@@ -139,7 +139,7 @@ init_state = Dict(
 )
 ```
 
-## The Gillespie simulator
+## The jump simulator
 
 ::: {.callout-note}
 ## Why SEIT4L instead of SEITL?
@@ -353,7 +353,7 @@ This is unbiased in expectation, meaning if we run the particle filter many time
 
 # Implementing the state-space model interface
 
-For production use, we define the model using the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface. This separates the model from the filtering algorithm, so you can swap in a different filter without rewriting the model, within the limits of what the model can do: `Going further` below sets out which of the family a simulate-only model can actually use. It also integrates with Turing.jl for the Particle MCMC in the [next session](pmcmc.qmd).
+For production use, we define the model using the [SSMProblems.jl](https://turinglang.org/SSMProblems.jl/SSMProblems/dev/) interface. This separates the model from the filtering algorithm, so you can swap in a different filter without rewriting the model, within the limits of what the model can do: [Going further](#going-further) below sets out which of the family a simulate-only model can actually use. It also integrates with Turing.jl for the Particle MCMC in the [next session](pmcmc.qmd).
 
 A state-space model has three components:
 
@@ -401,13 +401,13 @@ The `run_particle_filter` function assembles the SSM components and runs the boo
 println("```julia\n", source_for("seitl_runner.jl"), "\n```")
 ```
 
-This ties everything together: the initial state, Gillespie dynamics, and Poisson observations form a `StateSpaceModel`, which the bootstrap filter (`BF`) processes to estimate the log-likelihood.
+This ties everything together: the initial state, jump dynamics, and Poisson observations form a `StateSpaceModel`, which the bootstrap filter (`BF`) processes to estimate the log-likelihood.
 
 ::: {.callout-tip collapse="true"}
 ## Code explainer
 
 - `StateSpaceModel(initial, dynamics, observation)` is a constructor from `SSMProblems.jl` that bundles the three SSM components into a single object. Constructors in Julia look like function calls with the type's name — there's no explicit `new` keyword as in Python or Java.
-- `BF(n_particles)` constructs a *Bootstrap Filter* object from `GeneralisedFilters.jl`. The bootstrap filter is the simplest particle filter variant: it propagates particles using the model's own dynamics, weights them by the observation likelihood, and resamples. Choosing a different filter means changing this argument alone, although which filters a model supports depends on what its dynamics can do, which the `Going further` section takes up.
+- `BF(n_particles)` constructs a *Bootstrap Filter* object from `GeneralisedFilters.jl`. The bootstrap filter is the simplest particle filter variant: it propagates particles using the model's own dynamics, weights them by the observation likelihood, and resamples. A different filter can be chosen by changing this argument, although not all models can use all filters. This is further explored in the [Going further](#going-further) section below.
 - `GeneralisedFilters.filter(rng, model, algo, obs)` returns a tuple of `(particles_at_final_time, log_likelihood)`. We ignore the particles with `_` and keep only the log-likelihood estimate, which is what MCMC will eventually need.
 - `Random.default_rng()` returns Julia's shared global RNG. If you seed it with `Random.seed!(n)` at the start of the session, every call that uses this RNG becomes reproducible.
 :::
@@ -591,15 +591,15 @@ over and look at the spread.
 
 # Going further
 
-`GeneralisedFilters.jl` provides a family of algorithms behind the interface used above, and what a model can do decides which of them are open to it.
-A Gillespie simulator can be sampled from, but its transition density cannot be evaluated, and the dynamics defined above implement `simulate` and nothing else.
+`GeneralisedFilters.jl` provides a family of algorithms behind the interface used above. Which filter can be used depends on the simulation model used.
+A jump simulator can be sampled from, but its transition density cannot be evaluated, and the dynamics defined above implement `simulate` and nothing else.
 
 **Why the bootstrap filter.**
 `BF` is not a separate algorithm from the general particle filter `PF`.
 It is `PF` with the proposal set to the model's own dynamics, so the proposal and the dynamics cancel out of the importance weight and the weights reduce to the observation density alone.
 That cancellation is also what makes it the filter to reach for here, because it never has to evaluate the transition density.
 A proposal that looks at the observation before propagating would spread the weights less, but forming its importance weight needs that density, so a guided proposal stops at a `MethodError` on `SSMProblems.distribution`.
-`AuxiliaryParticleFilter` reweights by a look-ahead score instead, and whether it runs depends on how that score is formed: `MeanPredictive` and `ModePredictive` evaluate the density and fail the same way, while `DrawPredictive` draws a step forward by simulation and runs here.
+`AuxiliaryParticleFilter` reweights by a look-ahead score instead. How that score is formed determines whether it can be used: `MeanPredictive` and `ModePredictive` evaluate the density and fail the same way, while `DrawPredictive` draws a step forward by simulation and runs here.
 
 **What you can vary.**
 Resampling only reweights particles that already exist, so it needs no transition density and this axis stays open.
@@ -611,7 +611,7 @@ Substituting `BF(n_particles; threshold = 0.5, resampler = GeneralisedFilters.Mu
 **Exploiting structure.**
 `KalmanFilter` computes the likelihood exactly for linear Gaussian models, returning the same number every run rather than a noisy estimate.
 `RBPF` pairs an outer particle filter with an exact inner filter, spending particles only on the part of a model that is not linear and Gaussian.
-Neither fits a Gillespie compartmental model, but both are worth knowing before reaching for particles.
+Neither fits a jump compartmental model, but both are worth knowing before reaching for particles.
 
 **Filters inside other algorithms.**
 A filter can be conditioned on a reference trajectory through `ref_state`, which is what particle Gibbs needs, and that much works with a simulate-only model.
