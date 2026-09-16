@@ -846,7 +846,7 @@ When criteria disagree, consider what question you're actually asking: best pred
 
 ## Multiple chains and diagnostics
 
-The saved chains were generated this way. Turing will run them for you in one call:
+The saved chains are four chains run side by side, which is where their R̂ comes from. Turing will run several for you in one call:
 
 ```julia
 # Run multiple chains in parallel
