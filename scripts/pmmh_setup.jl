@@ -118,9 +118,9 @@ The acceptance ratio keeps the estimate drawn when a state was accepted, so
 serving that same number again makes the recorded log-density agree with the one
 the chain actually used, where a fresh call reports a second, unrelated draw.
 
-`filter_for` builds one of these per model, so each chain has its own store and
-concurrent chains share nothing. `pmmh_seit4l_abc` calls the filter directly and
-is deliberately left alone, since its four chains run in spawned tasks.
+`filter_for` and `abc_filter` build one of these per model, so each chain has its
+own store and concurrent chains share nothing. That holds for chains in spawned
+tasks too, because each task builds its own model.
 """
 function remembering(filter)
     seen = Vector{NTuple{6, Float64}}()
@@ -159,13 +159,16 @@ pmmh_seit4l(obs, n_particles) = pmmh(obs, n_particles, filter_for(SEIT4L_INIT))
 const ABC_FIXED = Dict(:D_lat => 2.0, :α => 0.5, :D_imm => 13.0)
 const ABC_PARAMETERS = [:R_0, :D_inf, :ρ]
 
+abc_filter() =
+    remembering((θ, obs, n) -> run_particle_filter(θ, obs, n; init_state = SEIT4L_INIT))
+
 """
     pmmh_seit4l_abc(obs, n_particles)
 
 PMMH model for the SEIT4L parameters the ABC session estimates, with the same
 priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
 """
-@model function pmmh_seit4l_abc(obs, n_particles)
+@model function pmmh_seit4l_abc(obs, n_particles, particle_filter = abc_filter())
     R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
     D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
     ρ ~ Beta(2, 2)
@@ -179,7 +182,7 @@ priors on them as `pmmh` and the others fixed at `ABC_FIXED`.
         ),
     )
 
-    Turing.@addlogprob! run_particle_filter(θ, obs, n_particles; init_state = SEIT4L_INIT)
+    Turing.@addlogprob! particle_filter(θ, obs, n_particles)
 end
 
 """
@@ -337,7 +340,7 @@ Run `n_chains` chains side by side and return one data frame per chain.
 Chains are the axis worth parallelising. They scale almost linearly, where
 threading inside one filter saturates: only propagation parallelises, and at 256
 particles the blocks are small enough that six threads return about 1.3 times
-the serial speed. Four chains also give R-hat, which one long chain cannot.
+the serial speed for SEITL and 1.6 for SEIT4L. Four chains also give R-hat, which one long chain cannot.
 
 `n_samples` defaults to a quarter of the single-chain total, so four chains keep
 the same 9000 draws after thinning that the session has always loaded.

@@ -50,7 +50,8 @@ Run the bootstrap particle filter and return the estimated log-likelihood.
 
 Threading pays from a few hundred particles upwards, and only once the jump
 aggregation is aliased; see `seitl_jump_step!`. On six threads at 256 particles
-it runs at about 1.7 times the serial speed.
+it runs at about 1.6 times the serial speed for SEIT4L and 1.3 for SEITL, which has
+fewer compartments and so less work to spread.
 """
 function run_particle_filter(
     θ,

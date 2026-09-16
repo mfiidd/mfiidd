@@ -16,7 +16,8 @@
 # Four CPUs for four chains, which is the axis that parallelises almost
 # linearly. Threading inside a single filter saturates instead, because only
 # propagation parallelises and at 256 particles the blocks are small: six
-# threads return about 1.3 times the serial speed. With more CPUs to spare,
+# threads return about 1.3 times the serial speed for SEITL and 1.6 for SEIT4L.
+# With more CPUs to spare,
 # `run_particle_filter(...; threaded = true)` can take the extra.
 #
 # Julia is installed via juliaup on the cluster, so it is already on PATH.
