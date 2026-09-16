@@ -50,7 +50,7 @@ PMMH combines particle filters with MCMC, making it computationally demanding. F
 - **Full inference**: 10,000 iterations takes ~30-60 minutes; we use pre-computed chains for the main analysis
 - **Short test runs**: the demonstration below runs 500 warmup iterations and 500 kept ones, so budget roughly twice what 500 iterations alone would cost
 
-The pre-computed chains (loaded from `data/`) were generated with 500,000 iterations over several hours.
+The pre-computed chains (loaded from `data/`) were generated as four chains of 162,500 iterations each, run side by side over several hours.
 :::
 
 # Setup
@@ -329,7 +329,7 @@ plot(chain_pmcmc)
 Compare these traces to the short chain above.
 The chains cross the posterior repeatedly instead of sticking for hundreds of iterations, and the summary above puts numbers on it.
 Read R-hat first: it compares the variance within each of the four chains against the variance between them, so a value at 1.00 says four chains that started in different places agree about where the posterior is.
-The effective sample size then says how many independent draws the 9,000 kept ones are worth, which for a correlated chain is always fewer.
+The effective sample size then says how many independent draws the 9,000 kept ones are worth, which for a correlated chain is always fewer: here the worst parameter is $D_\mathrm{inf}$ at about 2,400, and $\rho$, which the data pin down hardest, is worth over 8,000.
 
 The saved chain also records whether each draw was accepted, which is the diagnostic that says whether RAM's adaptation worked:
 
@@ -597,7 +597,7 @@ println("mean log-likelihood, SEITL:  ", round(mean(seitl_ll), digits = 2))
 println("mean log-likelihood, SEIT4L: ", round(mean(seit4l_ll), digits = 2))
 ```
 
-SEIT4L is ahead by about three and a half log-likelihood units, more than the
+SEIT4L is ahead by about three log-likelihood units, more than the
 spread of either chain, so this is not sampling noise.
 That agrees with [Camacho et al. (2011)](https://doi.org/10.1098/rspb.2011.0300),
 who preferred SEIT4L.
