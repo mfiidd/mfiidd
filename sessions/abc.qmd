@@ -588,8 +588,8 @@ scatter!(p_pair, pmcmc_three.R_0[1:8:end], pmcmc_three.ρ[1:8:end], color = INK,
 
 ::: {.callout-tip title="What to look for" collapse="true"}
 Matching the total exactly does not rescue it.
-Its posterior puts $R_0$ near 4.5 against 6.0 on the full series, and $\rho$ near 0.79 against 0.65.
-It barely moves $D_\mathrm{inf}$ off its prior: it removes about 6% of the prior's variance, where the full series removes nearly 80%.
+Its posterior puts $R_0$ near 4.8 against 6.0 on the full series, and $\rho$ near 0.79 against 0.65.
+It barely moves $D_\mathrm{inf}$ off its prior: it removes about 4% of the prior's variance, where the full series removes nearly 80%.
 
 The scatter shows why.
 Many epidemics produce 312 cases: a small $R_0$ with a high reporting rate, a larger one with a lower rate.
