@@ -329,7 +329,7 @@ plot(chain_pmcmc)
 Compare these traces to the short chain above.
 The chains cross the posterior repeatedly instead of sticking for hundreds of iterations, and the summary above puts numbers on it.
 Read R-hat first: it compares the variance within each of the four chains against the variance between them, so a value at 1.00 says four chains that started in different places agree about where the posterior is.
-The effective sample size then says how many independent draws the 9,000 kept ones are worth, which for a correlated chain is always fewer: here the worst parameter is $D_\mathrm{inf}$ at about 2,400, and $\rho$, which the data pin down hardest, is worth over 8,000.
+The effective sample size then says how many independent draws the 9,000 kept ones are worth, which for a correlated chain is always fewer: here the worst parameter is $D_\mathrm{lat}$ at about 1,800, and $\rho$, which the data pin down hardest, is worth over 8,000.
 
 The saved chain also records whether each draw was accepted, which is the diagnostic that says whether RAM's adaptation worked:
 
