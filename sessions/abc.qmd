@@ -980,7 +980,7 @@ Where the two chains differ from each other, the difference is the choice of whi
 ::: {.callout-tip title="Solution" collapse="true"}
 ABC sits below the chain on the same three parameters for $R_0$, 6.3 against 7.2, and every ABC interval is wider, most of all that of $\rho$, which is about twice as wide.
 That is the approximation.
-At a threshold of 150 ABC still keeps simulations that miss the data by a wide margin, and the closest of the 200,000 table draws came no nearer than 117.
+At a threshold of 150 ABC still keeps simulations that miss the data by a wide margin, and the closest of the 200,000 table draws came no nearer than 121.
 The L1 distance decides which of those it keeps, where particle MCMC weighs every path by the Poisson likelihood, and $R_0$ has nearly stopped moving between 165 and 150, so that gap will not close cheaply.
 
 The two particle MCMC chains differ most on $D_\mathrm{inf}$: 2.12 when the latent period is estimated, and 1.38 when it is fixed at 2.

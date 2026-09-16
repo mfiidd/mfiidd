@@ -479,13 +479,14 @@ plot(plts..., layout=(2, 3), size=(950, 520))
 ## What to look for
 
 Expect broad agreement in location, and expect the widths to disagree.
-On this run the NPE posterior is wider than PMMH for five of the six parameters, by 8% to 38%, and for `R_0` the two widths match to within a few percent.
+On this run the NPE posterior is wider than PMMH for five of the six parameters, by 10% to 56%, and narrower for `D_imm`.
 
 That is a property of this run.
 The mass-covering argument in the comparison with variational inference holds only at the optimum, and a flow trained on a finite budget can just as easily come out too narrow; benchmarks find that it often does [@hermans2022].
 
 Widths are only half of it.
-`R_0` is the parameter whose width matches PMMH best and whose *centre* agrees with it worst: the NPE median is 5.16 against PMMH's 6.25, about one PMMH posterior standard deviation low, and the two modes are visibly apart in that panel.
+`R_0` shows why the two are worth reading separately: its width sits within 15% of PMMH's, while its centre is about half a PMMH posterior standard deviation low, the NPE median being 5.59 against PMMH's 6.25, and the two modes are visibly apart in that panel.
+`ρ` makes the same point from the other side, agreeing least well on centre while being the widest of the six.
 So a matching width tells you nothing about where an interval sits, and the next section flags `R_0` as well.
 
 Read the weakly identified parameters differently from the well identified ones.
@@ -637,7 +638,7 @@ scatter!(pl, tt, YOBS, c=:black, ms=3, label="observed")
 
 Amortisation stops at the parameters.
 The flow returns $\theta$ in milliseconds and will keep doing so for any dataset, and it says nothing about the latent path: each of the two hundred trajectories above cost its own particle filter run, at the 256 particles the [PMMH session](pmcmc.qmd) settled on.
-That is still a bargain beside PMMH, which runs a filter at *every* iteration — half a million of them for the committed chain — merely to arrive at $\theta$.
+That is still a bargain beside PMMH, which runs a filter at *every* iteration — about 650,000 of them across the committed chains — merely to arrive at $\theta$.
 Here the filter runs once per trajectory you actually want, and only if you want one.
 
 ::: {.callout-warning}
