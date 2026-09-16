@@ -514,7 +514,7 @@ Which model better explains the data? We fit both and compare.
 
 ## Fitting SEITL for comparison
 
-The SEITL model uses the same structure as SEIT4L, but with a single T compartment instead of four. The implementation follows the same pattern we used for SEIT4L: a Gillespie simulator for stochastic dynamics, a bootstrap particle filter to estimate the likelihood, and a Turing `@model` that adds the log-likelihood via `@addlogprob!`. Since the code structure is identical, we load pre-computed chains rather than repeating the implementation. See `scripts/generate_pmcmc_seitl.jl` if you want to examine the full code.
+The SEITL model uses the same structure as SEIT4L, but with a single T compartment instead of four. The implementation follows the same pattern we used for SEIT4L: a jump simulator for stochastic dynamics, a bootstrap particle filter to estimate the likelihood, and a Turing `@model` that adds the log-likelihood via `@addlogprob!`. Since the code structure is identical, we load pre-computed chains rather than repeating the implementation. See `scripts/generate_pmcmc_seitl.jl` if you want to examine the full code.
 
 Both models were fitted using RAM with 50,000 warmup iterations, then 450,000 kept and thinned by 50:
 

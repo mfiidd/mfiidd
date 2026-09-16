@@ -129,7 +129,7 @@ If you found the VI session's framing natural — pick a family, optimise until 
 
 # The simulator
 
-We reuse the priors and the Gillespie simulator from the PMMH session, which fitted the same SEIT4L model.
+We reuse the priors and the jump simulator from the PMMH session, which fitted the same SEIT4L model.
 
 ```{julia}
 const PNAMES = [:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]
