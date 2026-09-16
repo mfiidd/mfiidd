@@ -52,7 +52,7 @@ Every fit settles four questions, whether or not you notice deciding them
    frequentist
 4. **The software**: a package, a language, or code of your own
 
-To fit SEIT4L we picked a stochastic model, a jump simulator, pMCMC, and
+To fit SEIT4L we picked a stochastic model, a Gillespie simulator, pMCMC, and
 Julia with Turing.jl.
 
 ## How to choose?

@@ -607,11 +607,11 @@ Resampling only duplicates and discards particles that already exist, so it prop
 Resampling cures the degeneracy described above, but it is a random step in its own right and adds variance of its own.
 `BF(n_particles)` resamples at every step, which is what every result in this session and the next one uses.
 A `threshold` of `0.5` resamples only once the effective sample size falls below half the particles, which is the common alternative.
-At the parameters the calibration cell uses, resampling only below the threshold roughly halves the spread of the log-likelihood estimate at 64 particles, which is worth more than it sounds: the calibration table shows what buying the same reduction with more particles would cost.
+At the parameters the calibration cell uses, resampling only below the threshold cuts the spread of the log-likelihood estimate at 64 particles to about a third, which is worth more than it sounds: the calibration table shows what buying the same reduction with more particles would cost.
 Which setting wins depends on the model and the particle count, so it is worth measuring on your own problem rather than carrying either default across.
 Substituting `BF(n_particles; threshold = 0.5, resampler = GeneralisedFilters.Systematic())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, qualified because the runner imports `BF` and not the resamplers.
 `Systematic` is already the default, so that substitution moves the threshold and nothing else.
-The resampler is a second experiment and not a free one: `Multinomial` roughly doubles the spread at these parameters, so vary one at a time or the two effects will be read as one.
+The resampler is a second experiment and not a free one: against the default, `Multinomial` roughly doubles the spread, so vary one at a time or the two effects will be read as one.
 `threshold = 0.0`, which never resamples at all, puts the degeneracy back so you can see what it costs.
 
 **Exploiting structure.**
