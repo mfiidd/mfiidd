@@ -496,8 +496,8 @@ In our runs, we typically see:
 
 - **4-16 particles**: SD in the tens or worse, far too noisy for reliable inference
 - **32 particles**: SD around 7, still outside the target range
-- **64 particles**: SD around 2, the first count inside it
-- **128-512 particles**: SD below 1, falling slowly while the cost keeps rising
+- **64 particles**: SD around 3, at the edge of the target range
+- **128-512 particles**: SD around 1 or below, falling slowly while the cost keeps rising
 
 Your numbers will differ, and at the low counts they differ a lot, which is why the cell above averages over 200 runs rather than a handful.
 :::
@@ -607,7 +607,7 @@ Resampling only duplicates and discards particles that already exist, so it prop
 Resampling cures the degeneracy described above, but it is a random step in its own right and adds variance of its own.
 `BF(n_particles)` resamples at every step, which is what every result in this session and the next one uses.
 A `threshold` of `0.5` resamples only once the effective sample size falls below half the particles, which is the common alternative.
-At the parameters the calibration cell uses, resampling only below the threshold cuts the spread of the log-likelihood estimate at 64 particles to about a third, which is worth more than it sounds: the calibration table shows what buying the same reduction with more particles would cost.
+At the parameters the calibration cell uses, resampling only below the threshold brings the spread at 64 particles down to roughly what doubling the particle count gives, and at about half the cost of doubling.
 Which setting wins depends on the model and the particle count, so it is worth measuring on your own problem rather than carrying either default across.
 Substituting `BF(n_particles; threshold = 0.5, resampler = GeneralisedFilters.Systematic())` for `BF(n_particles)` in the runner turns that argument into something you can measure with the calibration cell, qualified because the runner imports `BF` and not the resamplers.
 `Systematic` is already the default, so that substitution moves the threshold and nothing else.
