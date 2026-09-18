@@ -21,6 +21,8 @@ There is a growing demand for fitting mechanistic models to infectious disease d
 
 This is an annual short course, taught over four days at the London School of Hygiene & Tropical Medicine. The [session timetable](reference/sessions.qmd) shows how the week runs.
 
+Interested in attending the 2027 edition at LSHTM? [Register your interest](https://www.lshtm.ac.uk/study/courses/short-courses/infectious-diseases-dynamics) on the LSHTM course page to receive updates.
+
 Everything the course uses is here, so you can work through it on your own. You are welcome to use the material in your own teaching too. Tell us how you got on, or ask about anything in the sessions, on the [Discussion board](https://github.com/mfiidd/mfiidd/discussions). If you find something wrong in the material, [open an issue](https://github.com/mfiidd/mfiidd/issues) so it can be fixed.
 
 All materials here are provided under the permissive [MIT License](https://github.com/mfiidd/mfiidd/blob/main/LICENSE).
