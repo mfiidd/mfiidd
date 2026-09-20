@@ -7,63 +7,105 @@ order: 13
 ---
 
 ::: {.callout-note appearance="simple"}
-**Estimated time**: 2-3 hours | **Advanced session** | **Requires**: Comfort with ODE-based models (e.g. [the first session](introduction.qmd)) and basic familiarity with neural networks (what layers and activation functions are)
+**Estimated time**: 2-3 hours | **Advanced session** | **Requires**: The Tristan da Cunha outbreak from [model checking](model_checking.qmd) and [SEITL](seitl.qmd), and basic familiarity with neural networks (what layers and activation functions are)
 :::
 
 # Introduction
 
-> **Do this session if** you want to discover unknown mechanisms from data using neural networks, or you have dynamics that simple parametric models can't capture. Assumes basic familiarity with neural networks.
+> **Do this session if** one function in your model is unknown, it depends on a quantity the model tracks between measurements, and you want to learn its shape while keeping the mechanism you trust.
 
 ::: {.callout-note collapse="true"}
 ## Coming from R?
-UDEs rely on differentiable programming — automatic differentiation through ODE solvers and neural networks — which is not practically available in R. The Julia ecosystem (SciML, Lux.jl) is currently the most mature platform for this kind of work. If you are an R user, this session is still worth reading for the concepts, but the code cannot be straightforwardly translated.
+UDEs rely on differentiable programming: automatic differentiation through a mechanistic model with a neural network inside it.
+R has neural network libraries and R has differential equation solvers, but nothing that differentiates through the two together, which leaves the training loop in this session without a practical R translation.
+The Julia ecosystem (SciML, Lux.jl) is currently the most mature platform for this kind of work.
+The concepts transfer, and the session is worth reading for them.
 :::
 
-We discuss when UDEs are appropriate (and when simpler methods suffice) in [When to use UDEs](#when-to-use-udes).
+## The second wave, and what the course has assumed about it
 
-## From model comparison to model discovery
+Of the 284 islanders on Tristan da Cunha in 1971, 273 had an attack of influenza and 92 had two, inside 59 days [@mantle1973].
+The [SEITL session](seitl.qmd) explains that second wave with a compartment: after recovery you sit in T for a while, and you leave it either back to susceptible or on to lasting immunity.
+The [pMCMC session](pmcmc.qmd) then compares two shapes for the time spent in T.
 
-In the [pMCMC session](pmcmc.qmd), we formally compared two mechanistic models for the Tristan da Cunha two-wave outbreak: SEITL and SEIT4L. Both encode the same biological hypothesis - temporary immunity followed by potential reinfection - but with different assumptions about timing. The original study compared them with an information criterion and found SEIT4L (Erlang-distributed immunity) the better fit.
+That compartment is a placeholder for immunology nobody measured.
+Camacho et al. [-@camacho2011] compared six mechanisms for the same outbreak and found two that the case data support equally well: a window of susceptibility that opens after recovery, and an all-or-nothing response in which some islanders acquire no lasting protection at all.
+Their closing recommendation is that separating the two needs immunological data on individuals, which Mantle and Tyrrell's record lacks.
 
-But what if we *didn't know* the mechanism? What if we were seeing a two-wave pattern for the first time and had no theory to guide us?
+This session takes that recommendation literally.
+We replace the compartment with antibody, make protection a function of it, and ask what data would identify that function.
 
-We might hypothesise alternative explanations:
+## Protection as a function of antibody
 
-- **Behavioural relaxation**: People resumed normal contact patterns after the first wave
-- **Waning vigilance**: Initial precautions (isolation, reduced gatherings) were abandoned
-- **Population structure**: Different groups (households, age groups) infected at different times
+Two things protect you after an infection, and they arrive at different times.
+The cellular response acts early and fades over a fortnight.
+The antibody response builds over days to weeks and then holds, and how high it climbs varies between people: some mount a strong response, others little [@amanna2007; @kucharski2015].
 
-All of these would manifest as *time-varying transmission* β(t) rather than structural changes to the compartmental model.
+Between the two lies a window in which a person has lost the early protection and has yet to gain the humoral kind.
+Islanders whose antibody peaks low stay in that state.
+Both of Camacho's surviving mechanisms fall out of the same picture: a delayed climb is the window hypothesis, a low peak is the all-or-nothing one.
 
-**Universal Differential Equations (UDEs)** combine mechanistic differential equations with neural networks to learn unknown functions from data. In our case, we'll ask: "What transmission pattern β(t) would a simple SIR model need to explain these dynamics?"
+The curve that decides both is protection as a function of antibody titre, and its shape is unknown.
+Estimates exist for influenza from challenge and field data [@coudeville2010], with 1:40 the conventional half-protective titre, and their uncertainty is wide.
 
-Beyond this, UDEs can discover missing terms in equations which, with careful interpretation, can amount to learning unknown mechanisms (see [Going further](#going-further)).
+## The model
 
-## The UDE approach
+Infections spread by the renewal equation the earlier sessions use, with generation interval $w$ and reproduction number $R_0$:
 
-We keep the **known** epidemiological structure, but let a neural network learn the **unknown** parts:
-```
-dS/dt = -β(t) * S * I / N   # ← Learn β(t) from data!
-dI/dt = +β(t) * S * I / N - γ * I
-dR/dt = +γ * I
-```
+$$
+\lambda(t) = \frac{R_0}{N} \sum_{s} w_s \, \text{infections}(t - s).
+$$
 
-Replace the unknown β with a **neural network** that respects constraints:
-```
-β(t) = NeuralNetwork([I/N, t])  # Must be non-negative
-```
+An islander infected $\tau$ days ago has log2 antibody titre
 
-What does "replace β with a neural network" actually mean? Instead of writing `β = 0.5` (a fixed number) or even `β(t) = β₀ * (1 + sin(t))` (a parametric function we specify), we let the neural network *learn* the function from data. The network takes inputs (current prevalence, time) and outputs a transmission rate. During training, we adjust the network's internal weights so that the resulting epidemic trajectory matches observed data. The network is just a flexible function approximator - we're not assuming any particular form for how β varies, we're letting the data tell us.
+$$
+A_c(\tau) = a_c \left(1 - e^{-\tau / r}\right),
+$$
+
+where $a_c$ is the peak their response reaches and $r$ is the time the response takes to build.
+Their susceptibility to reinfection combines the two kinds of protection:
+
+$$
+s_c(\tau) = \underbrace{\left(1 - e^{-(\tau/16)^4}\right)}_{\text{early protection has faded}} \times \underbrace{\Bigl(1 - \sigma\bigl(A_c(\tau)\bigr)\Bigr)}_{\text{antibody has yet to protect}} .
+$$
+
+Infections on day $t$ come from the never-infected and from everyone whose susceptibility has returned:
+
+$$
+\text{infections}(t) = \lambda(t)\left[S(t) + \sum_{c}\sum_{d < t} n_{c,d}(t)\, s_c(t - d)\right].
+$$
+
+Two kinds of data arrive.
+Each infection is dated with probability $\rho$, giving Poisson counts, and a serosurvey measures log2 titres with noise of 0.5.
+
+Everything above is supplied except $\sigma$, the protection curve, which this session learns.
+
+## Why this needs a UDE
+
+A **universal differential equation** (UDE) keeps the mechanism and replaces an unknown term with a neural network [@rackauckas2020].
+Here the network supplies $\sigma$.
+
+The input to $\sigma$ is the titre an islander has on the day they are exposed, which the model computes from their infection date and the antibody curve.
+A serosurvey measures titres on the days blood is drawn, and the exposures happen on all the other days.
+Because the titre at exposure depends on the antibody parameters, and the infections depend on $\sigma$ evaluated at that titre, the function and the epidemic have to be fitted together.
+
+::: {.callout-warning}
+## The question is which data identify which part
+
+The protection curve enters the model through a composition: the case data see susceptibility as a function of time since infection, which is $\sigma$ evaluated along the antibody curve.
+Cases alone therefore constrain the composition rather than either piece.
+Much of this session is about which data break that apart, and the answer decides what a study would have to collect.
+:::
 
 # Objectives
 
-By the end of this session, you will:
+By the end of this session, you will be able to:
 
-1. Use UDEs to *discover* transmission patterns from data
-2. Apply appropriate likelihood functions (Poisson) for count data
-3. Interpret learned β(t) in terms of possible mechanisms
-4. Understand when UDEs are useful vs. when simpler models suffice
-5. Appreciate the challenges of learning from sparse data (59 points)
+1. Replace an assumed compartment with a mechanism whose unknown part is a function of a measurable quantity
+2. Fit a neural network inside that mechanism to two data streams at once
+3. Recognise a likelihood that is flat in the direction you care about, and say what it means
+4. Show that a second data stream identifies the mechanism, and that the timing of its collection decides whether it does
+5. Say what the real Tristan da Cunha record could and could not support
 
 # Setup
 
@@ -71,693 +113,360 @@ By the end of this session, you will:
 #| echo: false
 #| include: false
 
-ENV["GKSwstype"] = "100"  # Suppress plot windows during render
+ENV["GKSwstype"] = "100" ## suppress plot windows during render
 ```
 
 ```{julia}
-using DifferentialEquations
-using Distributions
-using DataFrames
+using MFIIDD ## the course package, which holds the model below
 using CSV
-using Plots
-using Random
-using LinearAlgebra
+using DataFrames
 using DrWatson
-using Lux  # Modern neural network framework (https://lux.csail.mit.edu/)
-using ComponentArrays
-using Optimization
-using OptimizationOptimisers
-using Optimisers  # For Adam optimizer
-
-Random.seed!(1234)
+using Plots
+using Statistics
 ```
 
-# Load Tristan da Cunha data
+::: {.callout-note collapse="true"}
+## The model, in code
+
+The renewal step, the antibody curve, the two kinds of protection, and the two
+likelihoods are in the course package.
 
 ```{julia}
-flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
+#| echo: false
+#| output: asis
 
-scatter(
-    flu_tdc.time, flu_tdc.obs,
-    xlabel = "Time (days)", ylabel = "Daily incidence",
-    label = "Observed cases", markersize = 4, color = :red,
-    title = "Tristan da Cunha 1971: Two waves?",
-    legend = :topright
-)
-vspan!([25, 35], alpha=0.2, color=:blue, label="Second wave?")
+println("```julia\n", source_for("tdc_serology.jl"), "\n```")
 ```
-
-::: {.callout-important title="TdC is a pedagogical example, not an ideal UDE dataset"}
-The Tristan da Cunha dataset has only 59 data points. As we note in [When to use UDEs](#when-to-use-udes), UDEs really benefit from hundreds to thousands of observations — for 59 points, simpler approaches such as Gaussian processes or splines are likely more appropriate. We use TdC here because it is familiar from earlier sessions and its two-wave pattern poses an interesting modelling challenge, not because it is a good candidate for UDEs in practice. Keep this limitation in mind when interpreting results.
 :::
 
-::: {.callout-note title="Skipped step: synthetic data validation"}
-In a real analysis you should **always** validate a UDE on synthetic data first — generate observations from a known β(t), train the UDE, and check that it recovers the true function. This confirms the method works before you apply it to data where the truth is unknown. We skip this step here for time, but see [Going further → Validation with synthetic data](#validation-with-synthetic-data) for an outline.
-:::
+## The outbreak
 
-Notice the two distinct periods of transmission:
-
-- **First wave** (days 4-12): Sharp peak reaching ~47 cases/day
-- **Trough** (days 13-24): Near-zero transmission
-- **Second wave** (days 25-35): Smaller resurgence, peak ~12 cases/day
-
-**Question**: What transmission pattern β(t) would produce this? Can we learn it from the data?
-
-UDEs use gradient-based optimisation rather than Bayesian inference, so the prior/posterior predictive workflow from [Model Checking](model_checking.qmd) doesn't directly apply. In practice, you should still validate UDE predictions against held-out data and check sensitivity to initialisation (as we do [below](#practical-challenges)).
-
-# Baseline: SIR with constant β
-
-First, let's establish what a constant transmission rate gives us:
+We generate the island's epidemic with a protection curve that switches on over a narrow range of titres, and which we then set aside until the end.
 
 ```{julia}
-"""
-Standard SIR model with constant transmission.
-"""
-function sir_constant_beta(du, u, p, t)
-    S, I, R = u
-    β, γ = p
-    N = S + I + R
+run = outbreak(ANTIBODY_RISE, true_protection)
+cases = report_cases(run.infections)
+days = 0:TDC_DAYS
 
-    du[1] = -β * S * I / N
-    du[2] = β * S * I / N - γ * I
-    du[3] = γ * I
-end
-
-# Literature-informed values for influenza (R_0 ≈ 2.5, D_inf ≈ 2 days)
-R_0_guess = 2.5
-D_inf_guess = 2.0
-γ_guess = 1.0 / D_inf_guess
-β_guess = R_0_guess * γ_guess
-## The island as the ship lands, at the start of day 1. Of the five islanders it
-## brought back, three had been ill during the eight day voyage and are past their
-## infectious period, so they start recovered; the two who fell ill on landing
-## start infectious. N = 284, the island population
-u0 = [279.0, 2.0, 3.0]
-tspan = (0.0, maximum(flu_tdc.time))
-
-## `times` starts at 0.0, the left edge of the first observation day, because the
-## incidence over that day is S(0) - S(1) and there is no way to form it without a
-## point at 0. Differencing the 60 saved values then gives one incidence per
-## observed day, already lined up with the days the observations count
-times = [0.0; flu_tdc.time]
-
-prob_constant = ODEProblem(sir_constant_beta, u0, tspan, [β_guess, γ_guess])
-sol_constant = solve(prob_constant, Tsit5(), saveat=times)
-
-# Extract incidence
-S_values = sol_constant[1, :]
-incidence_constant = -diff(S_values)  ## 59 daily values from the 60 grid points
-
-# Plot
-plot(flu_tdc.time, incidence_constant, label="Constant β", linewidth=2)
-scatter!(flu_tdc.time, flu_tdc.obs, label="Observed",
-         markersize=4, color=:red,
-         xlabel="Time (days)", ylabel="Cases",
-         title="Baseline: Can we do better?")
+println("infections ", round(Int, sum(run.infections)), ", of which second infections ",
+    round(Int, sum(run.second)))
+println("dated cases ", sum(cases), " (the record has 312 from 365 attacks, 92 of them second)")
+println("first peak ", maximum(cases[1:20]), " on day ", argmax(cases[1:20]),
+    "; second wave peaks at ", maximum(cases[26:end]), " on day ", argmax(cases[26:end]) + 25)
 ```
 
-**Question**: The fit isn't perfect. Could a time-varying β(t) do better?
-
-# UDE approach: learn β(t) with a neural network
-
-## Step 1: Define the neural network
-
-We'll use a small network - remember, we only have 59 data points!
-
 ```{julia}
-# The time normalisation used by the network's second input. It is a constant of
-# the problem, so it is defined here rather than carried in the parameter vector.
-const TMAX = maximum(times)
-
-# Network architecture: 2 inputs → 8 hidden → 1 output
-# Total parameters: ~33 (keeps training fast)
-
-rng = Random.default_rng()
-Random.seed!(rng, 1234)
-
-# Define network structure - small for fast ForwardDiff autodiff
-nn_architecture = Chain(
-    Dense(2 => 8, tanh),       # Input: [I/N, t/TMAX]
-    Dense(8 => 1, softplus)     # Output: β > 0 (softplus ensures positivity)
-)
-
-# Initialise parameters
-p_nn, st_nn = Lux.setup(rng, nn_architecture)
-p_nn = ComponentArray(p_nn)  # Convert to ComponentArray for optimization
-
-println("Neural network parameters: ", length(p_nn))
-println("Data points: ", length(flu_tdc.obs))
-println("Ratio: ", round(length(flu_tdc.obs) / length(p_nn), digits=2), " data points per parameter")
+plot(days, cases, linewidth = 2, label = "dated cases", xlabel = "Day",
+    ylabel = "Cases", title = "An island-shaped outbreak")
+plot!(days, TDC_REPORTING .* run.second, linewidth = 2, label = "second infections")
 ```
 
-::: {.callout-tip collapse="true"}
-## Code explainer
-- [`Chain(...)`](https://lux.csail.mit.edu/stable/api/Lux/layers#Lux.Chain) - combines multiple neural network layers in sequence. Input flows through each layer in order.
-- [`Dense(in => out, activation)`](https://lux.csail.mit.edu/stable/api/Lux/layers#Lux.Dense) - a fully-connected layer with `in` inputs, `out` outputs, and an activation function applied element-wise.
-- `tanh` - activation function that squashes values to [-1, 1]. Helps learn smooth functions and keeps gradients bounded.
-- [`softplus`](https://en.wikipedia.org/wiki/Softplus) - defined as log(1 + exp(x)), ensures outputs are always positive. Smoother than ReLU at zero.
-- [`Lux.setup(rng, model)`](https://lux.csail.mit.edu/stable/api/Lux/utilities#Lux.setup) - initialises the neural network parameters `p` and state `st`. Lux separates parameters from architecture for functional programming.
-- [`ComponentArray`](https://jonniedie.github.io/ComponentArrays.jl/stable/) - wraps nested parameter structures into a flat array while preserving named access. Needed for gradient-based optimisation.
-:::
+The second wave is made of people who have already had influenza once.
+In this simulated island they are the weak responders, whose antibody peaks below any protective level, and they amount to a third of the population.
 
-A few things to note about this architecture (expand the code explainer above for definitions of each function):
+## The serosurvey
 
-- **Why 8 hidden units?** It's a balance: more units = more flexibility but more parameters to learn from limited data. With 59 data points, we keep the network small.
-
-- **Why softplus output?** It ensures β is always positive — transmission rates can't be negative.
-
-- **Why 2 inputs?** We feed the network both prevalence (I/N) and normalised time (t/TMAX). This lets β depend on both "how bad is the epidemic right now" and "what day is it" — capturing both behavioural responses to prevalence and time-dependent changes like weekends or policy changes.
-
-- **Parameter count**: The first layer has 2×8 weights + 8 biases = 24 parameters. The second has 8×1 weights + 1 bias = 9 parameters. Total: 33 parameters for 59 data points — roughly 2 data points per parameter. In a standard neural network, this would be a recipe for overfitting, but in a UDE the network output has to flow through an ODE solver and produce a physically plausible epidemic trajectory. The network can't just memorise noise because arbitrary weight values would produce nonsensical dynamics (Rackauckas et al. 2020).
-
-## Step 2: Define UDE with learned β(t)
+Eighty islanders give blood twice, on day 20 and at the end of the outbreak.
+Their infection dates come from the case record, so each sample gives a titre at a known time since infection.
 
 ```{julia}
-"""
-SIR model where β is learned by neural network.
-β = NN([I/N, t/TMAX]) predicts transmission rate.
-"""
-function sir_ude!(du, u, p, t)
-    S, I, R = u
-    N = S + I + R
-    γ = γ_guess  # Fixed here for simplicity; in practice you'd estimate γ jointly
+sera = draw_sera(run.cohort, ANTIBODY_RISE)
+tau = [sample[3] - sample[2] for sample in sera]
+titres = [sample[4] for sample in sera]
 
-    # Neural network predicts β(t, I)
-    # Inputs: prevalence (I/N) and normalised time (t/TMAX). Both γ and TMAX are
-    # constants of the problem rather than things to be learned, so they are
-    # closed over here rather than carried in the parameter vector, which would
-    # hand them to the optimiser.
-    nn_input = [I/N, t/TMAX]
+scatter(tau, titres, markersize = 3, alpha = 0.6, label = "",
+    xlabel = "Days since infection", ylabel = "log2 titre",
+    title = "What the serosurvey sees")
+```
 
-    # Evaluate neural network
-    β_learned, _ = nn_architecture(nn_input, p.nn_params, st_nn)
-    β = β_learned[1]  # Extract scalar
+The first bleed catches people while their antibody is still climbing, and the second finds them at their peak.
+Two clouds appear at the top and bottom of the plot, which are the strong and weak responders.
 
-    # Standard SIR dynamics with learned β
-    du[1] = -β * S * I / N
-    du[2] = β * S * I / N - γ * I
-    du[3] = γ * I
+# Learning the protection curve
+
+The network takes a log2 titre and returns protection between zero and one.
+
+```{julia}
+#| output: false
+
+network = protection_network()
+p_init, network_state = protection_weights(network)
+
+protection_from(p) = titre -> network_protection(titre, p, network, network_state)
+
+## the case series alone, at the antibody rise time we assume
+cases_only(p, rise) = -case_loglik(outbreak(rise, protection_from(p)).infections, cases)
+
+## the case series and the serosurvey together
+with_sera(p, rise) = cases_only(p, rise) - sero_loglik(sera, rise)
+```
+
+```{julia}
+p_cases, history = train_protection(p -> cases_only(p, ANTIBODY_RISE), p_init)
+println("network parameters: ", length(p_init))
+println("loss on the case series: ", round(cases_only(p_cases, ANTIBODY_RISE), digits = 1))
+for titre in (3.0, 5.0, 7.0)
+    println("  protection at log2 titre ", titre, ": learned ",
+        round(network_protection(titre, p_cases, network, network_state), digits = 2),
+        ", true ", round(true_protection(titre), digits = 2))
 end
 ```
 
-## Step 3: Prediction and loss function
+```{julia}
+titre_grid = range(0, 9, length = 200)
+learned(p) = [network_protection(t, p, network, network_state) for t in titre_grid]
+
+plot(titre_grid, true_protection.(titre_grid), linewidth = 3, color = :black,
+    label = "True protection", xlabel = "log2 titre", ylabel = "Protection",
+    title = "Fitted to the case series, with the antibody rise assumed correctly")
+plot!(titre_grid, learned(p_cases), linewidth = 2, label = "Learned")
+```
+
+Given the right antibody curve, the case series recovers the shape of the protection curve: flat and low while titres are small, climbing steeply around a titre of 5 to 6.
+That result rests on an assumption we have no business making.
+
+# The likelihood is flat where it matters
+
+The antibody rise time was handed to the fit.
+Change it and the network compensates, because the cases only ever see the product of the two.
+The profile below refits the network at each assumed rise time, with the case series alone and with the sera added.
 
 ```{julia}
-# Built once and reused; training calls this a few thousand times
-ude_prob = ODEProblem(sir_ude!, u0, tspan, ComponentArray{Float64}(nn_params = p_nn))
+profile = CSV.read(datadir("tdc_protection_profile.csv"), DataFrame)
+losses = unique(profile[:, [:rise, :data, :loss]])
+unstack(losses, :rise, :data, :loss)
+```
 
-"""
-Predict incidence using current UDE parameters.
-"""
-function predict_ude(p_all)
-    # Promote u0 to the parameter element type so ForwardDiff Duals
-    # propagate through the ODE solve into the loss; without this the
-    # solver returns a plain Float64 trajectory and gradient extraction
-    # trips a Lux/ComponentArrays edge case.
-    T = eltype(p_all)
-    u0_promoted = T.(u0)
-    prob_ude = remake(ude_prob, u0 = u0_promoted, p = p_all)
-    sol_ude = solve(prob_ude, Tsit5(), saveat=times, dense=false)
-
-    # `retcode` is a SciMLBase enum, not a Symbol: comparing it against
-    # `:Success` is true even for a successful solve, which would send every
-    # prediction to NaN and flatten the loss.
-    if !SciMLBase.successful_retcode(sol_ude)
-        return fill(T(NaN), length(times) - 1)
-    end
-
-    S_pred = sol_ude[1, :]
-
-    return -diff(S_pred)  ## 59 daily values from the 60 grid points
+```{julia}
+plot(xlabel = "Assumed antibody rise time (days)", ylabel = "Loss",
+    title = "What each dataset can say about the rise time")
+for (label, marker) in (("cases", :circle), ("final sera", :diamond), ("serial sera", :square))
+    rows = sort(losses[losses.data .== label, :], :rise)
+    plot!(rows.rise, rows.loss, linewidth = 2, marker = marker, label = label)
 end
+vline!([ANTIBODY_RISE], linestyle = :dash, color = :grey, label = "truth")
+```
 
-"""
-Loss function using Poisson negative log-likelihood.
-"""
-function loss_ude(p_all, _)
-    pred = predict_ude(p_all)
+The case series is flat.
+Across a fourfold range of rise times the loss moves by about one unit, and its lowest point sits at the far end from the truth.
+The fits behind those points disagree completely about immunology.
 
-    # Return large loss if ODE solver failed (pred contains NaN)
-    any(isnan, pred) && return eltype(pred)(1e10)
+```{julia}
+#| output: false
 
-    # Poisson negative log-likelihood (clamp predictions to avoid log(negative))
-    ε = 1e-6
-    obs = flu_tdc.obs
-    pred_safe = max.(pred, ε)
-    nll = sum(pred_safe .- obs .* log.(pred_safe))
-
-    return nll
+function weights_for(rise, label)
+    rows = sort(profile[(profile.rise .== rise) .& (profile.data .== label), :], :index)
+    p = copy(p_init)
+    p .= rows.value
+    return p
 end
 ```
 
-Why Poisson and not sum of squared errors? As we learned in the [observation models session](observation_models.qmd), choosing a likelihood is really choosing a distance metric. SSE treats all residuals equally — a mismatch of 10 cases at the peak (expected ~40) counts the same as at the tail (expected ~2). Poisson NLL instead penalises *relative* errors, so predicting 0 when 5 cases occurred is heavily penalised. This forces the model to explain the second wave, where counts are small but non-zero.
+```{julia}
+plot(titre_grid, true_protection.(titre_grid), linewidth = 3, color = :black,
+    label = "True protection", xlabel = "log2 titre", ylabel = "Protection",
+    title = "Five fits to the same case series")
+for rise in unique(profile.rise)
+    plot!(titre_grid, learned(weights_for(rise, "cases")), linewidth = 1.5,
+        linestyle = :dash, label = "rise = $rise days")
+end
+plot!()
+```
 
-As discussed above, the ODE structure constrains the network — the learned β(t) has to produce a valid epidemic trajectory, which limits what the weights can do.
+Every curve in that figure fits the epidemic. They disagree about whether protection begins at a titre of 2 or of 7, which is the difference between an island that was mostly immune and one that was mostly exposed.
 
 ::: {.callout-important}
-## Set realistic expectations before training
+## A flat likelihood is an answer
 
-Training UDEs is hard, especially with limited data like ours (59 points, 33 parameters). You should expect:
-
-- **Variability**: Different random seeds give different β(t) curves. This reflects genuine uncertainty.
-- **Imperfect fits**: The SIR structure may not be able to capture two waves regardless of β(t) - this is informative, not failure.
-- **Sensitivity to hyperparameters**: Results can change with different learning rates or network sizes.
-
-If training produces NaN values, reduce the learning rate. If the loss doesn't decrease, try different initialisation. See [Practical challenges](#practical-challenges) for detailed troubleshooting.
+The case data identify susceptibility as a function of time since infection.
+Splitting that into an antibody curve and a protection curve needs a second kind of measurement.
+Fitting harder, or with a more flexible network, leaves the profile as flat as it was, because the flat direction belongs to the data and the model rather than to the optimiser.
 :::
 
-## Step 4: Train the UDE
+# What a serosurvey adds
 
-Training means finding network weights that minimise the loss function. This requires computing gradients of the loss with respect to all 33 parameters - a task handled by automatic differentiation (autodiff).
-
-```{julia}
-# The network weights are the only things being optimised. Lux initialises them
-# in Float32; the ODE state is Float64, so promote them to match and avoid a
-# mixed-precision solve.
-p_all = ComponentArray{Float64}(nn_params = p_nn)
-
-println("Starting UDE training...")
-println("="^60)
-
-# Initial loss (before any training)
-println("Initial loss: ", round(loss_ude(p_all, nothing), digits=2))
-
-# Set up optimisation with ForwardDiff for gradient computation
-opt_func = OptimizationFunction(loss_ude, Optimization.AutoForwardDiff())
-opt_prob = OptimizationProblem(opt_func, p_all, nothing)
-
-# Train using Adam optimiser — store loss history for convergence check
-loss_history = Float64[]
-
-println("\nTraining with Adam optimiser (10,000 iterations)...")
-@time result = solve(opt_prob, Optimisers.Adam(0.01), maxiters=10_000,
-                     callback = (state, l) -> begin
-                         push!(loss_history, l)
-                         if state.iter % 1000 == 0
-                             println("  Iter $(state.iter): loss = $(round(l, digits=2))")
-                         end
-                         return false
-                     end)
-```
-
-::: {.callout-tip collapse="true"}
-## Code explainer
-- [`OptimizationFunction(loss, ad_backend)`](https://docs.sciml.ai/Optimization/stable/) - wraps a loss function with automatic differentiation for gradient computation.
-- `Optimization.AutoForwardDiff()` - uses [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/) for forward-mode automatic differentiation. Efficient when the number of parameters is small (~33 here). For larger networks, reverse-mode (Zygote.jl) would be faster.
-- [`Adam(learning_rate)`](https://fluxml.ai/Optimisers.jl/stable/api/#Optimisers.Adam) - adaptive gradient descent optimiser that adjusts per-parameter learning rates and uses momentum.
-- `callback` - function called after each iteration. Returns `true` to stop early, `false` to continue. Useful for monitoring progress.
-:::
+The sera speak about the antibody curve, which is the part the cases leave open.
+Let each dataset pick its own rise time, and compare the protection curves that follow.
 
 ```{julia}
-
-println("\n" * "="^60)
-println("Final loss: ", round(result.objective, digits=2))
-
-p_trained = result.u
-```
-
-Always check the loss curve, and be honest with yourself about what it shows.
-
-Ours drops steeply over the first ten iterations, rebounds, then descends slowly and unevenly before flattening out. Running to 10,000 iterations gets the loss to within about three and a half units of where 40,000 leaves it, so this is close enough to converged to interpret.
-Stopping early here would have been actively misleading rather than merely imprecise: at 500 iterations the loss is around -340 and the fitted trajectory peaks at about 11 cases, which is a different qualitative answer from the one below.
-
-The middle of the curve is worth a second glance too. Progress slows enough around iterations 50 to 200 to look like a plateau, and stopping there would have given a much worse fit while appearing converged.
-
-```{julia}
-plot(loss_history, xlabel="Iteration", ylabel="Loss",
-     label="Training loss", linewidth=2,
-     title="Convergence check")
-```
-
-A few things to understand about this training process:
-
-Automatic differentiation computes exact gradients of the loss with respect to parameters. We use [ForwardDiff.jl](https://juliadiff.org/ForwardDiff.jl/stable/), which is efficient for small networks like ours (33 parameters).
-
-**The Adam optimiser** is a gradient descent variant that adapts learning rates for each parameter and uses momentum to smooth updates. The learning rate (0.01) controls step size: too large and training becomes unstable; too small and convergence is slow. Adam is widely used for neural network training because it works well across many problems without much tuning.
-
-**What to expect**: the loss should fall steadily and substantially. Do not expect it to fall by orders of magnitude here, and do not use that as your check: a Poisson negative log-likelihood is not bounded below by zero, and ours goes from about +476 to about -460, so ratios of it mean nothing. Watch the shape instead. A loss that sits exactly flat means no gradient is reaching the parameters, which is a bug rather than a converged fit; `NaN` usually means the learning rate is too high; and a curve still falling steeply at the end means run for longer.
-
-## Step 5: Compare results
-
-```{julia}
-# Get UDE predictions
-pred_ude = predict_ude(p_trained)
-
-# Plot comparison
-plot(flu_tdc.time, incidence_constant, label="Constant β", linewidth=2,
-     xlabel="Time (days)", ylabel="Cases",
-     title="UDE vs Constant β")
-plot!(flu_tdc.time, pred_ude, label="UDE (learned β)", linewidth=2)
-scatter!(flu_tdc.time, flu_tdc.obs, label="Observed",
-         markersize=4, color=:red)
-```
-
-**Key question**: what did the UDE buy, and what did it pay?
-
-The constant-β baseline nearly matches the height of the first peak, about 40
-against an observed 47, and then collapses to nothing by day 15. It has one wave
-to give and it spends it on the first.
-
-The UDE reaches a similar peak, around 41, and then keeps generating cases through
-days 20 to 50, where the data really do have them and the baseline has none. Over
-that window it produces about 90 cases against the 104 observed. A time-varying β
-lets one model do both, which is the whole claim of the approach and the
-reason to prefer it here.
-
-The loss is doing the work that makes the tail matter. Predicting *nothing* on a
-day when cases occurred is close to unbounded under a log-likelihood, so the forty
-days the baseline abandons cost it more than anything it gains at the peak. Swap in
-sum of squared errors and the incentive reverses: an empty tail is cheap and a
-missed peak is not, so the fit stops bothering with the second wave.
-
-## Step 6: Visualise learned β(t)
-
-What transmission pattern did the network learn? Since the network takes both prevalence (I/N) and time as inputs, we need to evaluate it along the actual epidemic trajectory — the β(t) the ODE solver used during integration, not at some arbitrary fixed prevalence.
-
-```{julia}
-# Solve the trained UDE at high resolution to get the trajectory
-prob_trained = ODEProblem(sir_ude!, u0, tspan, p_trained)
-sol_trained = solve(prob_trained, Tsit5(), dense=true)
-
-# Evaluate β along the actual trajectory
-t_plot = range(0.0, maximum(times), length=100)
-N_total = sum(u0)
-
-β_along_trajectory = [begin
-    S_t, I_t, R_t = sol_trained(t)
-    nn_input = [I_t / N_total, t / maximum(times)]
-    β_val, _ = nn_architecture(nn_input, p_trained.nn_params, st_nn)
-    β_val[1]
-end for t in t_plot]
-
-# β on its own is hard to read, so convert to reproduction numbers: R_0(t) is
-# what the learned β implies about transmissibility, and R_eff(t) accounts for
-# the susceptibles actually left
-R0_along = β_along_trajectory ./ γ_guess
-Reff_along = [R0_along[i] * sol_trained(t_plot[i])[1] / N_total
-              for i in eachindex(t_plot)]
-
-plot(t_plot, R0_along,
-     label="R₀(t) implied by learned β", linewidth=2,
-     xlabel="Time (days)", ylabel="Reproduction number",
-     title="What the network learned, in reproduction numbers",
-     legend=:topleft)
-plot!(t_plot, Reff_along, label="R_eff(t)", linewidth=2)
-hline!([1.0], label="R_eff = 1", linestyle=:dash, color=:black)
-vspan!([25, 35], alpha=0.2, color=:blue, label="Second wave period")
-```
-
-Read R_eff first, because it is the quantity with a threshold. It rises to
-about 3 as the first wave takes off, falls to about 0.3 by day 15, and is then
-held a little above 1 through days 20 to 30, which sustains the second wave.
-Both of those moves are the network's doing rather than the structure's: the fall
-is mostly the learned β collapsing, with depletion contributing about two fifths
-of it, and the recovery is β climbing again while the susceptible fraction barely
-changes. After that it settles a little below 1 and
-the tail decays.
-
-Now read R₀ against it, over the window where R_eff is actually near 1. Between
-days 20 and 30 the susceptible fraction falls from about 35% to 21%, and the
-implied R₀ climbs from about 3 to about 5 to hold R_eff up. The network is not
-describing a change in behaviour there; it is buying back, through
-transmissibility, what susceptible depletion takes away.
-
-Past day 31, where R_eff crosses back below 1, it stops keeping up. R₀ goes on climbing, but not fast enough, and
-R_eff drifts down to about 0.6 by day 59 as the tail decays.
-
-The underlying β is not monotone either: it rises through the first wave, falls
-back as that wave dies, and only then climbs. Plotting it alone hides both the
-threshold and the implausibility, which is why the reproduction numbers are the
-better lens.
-
-Be careful about what that shape can be attributed to. Susceptible depletion is
-already in the model: the `S` factor in `-β * S * I / N` accounts for it, and R_eff
-is R_0 multiplied by that same susceptible fraction. So a β that has to climb is not the network
-describing depletion. It is compensating for what the structure cannot do once the
-susceptibles are gone, which is the argument the next section takes up.
-
-Resist reading behaviour into the early shape as well. β climbs from 0.28 to
-about 1.7 over the first six days while prevalence is still rising, turns down
-before prevalence peaks on day 8, and is back to roughly its starting value by day
-14 once the wave has largely passed. Transmission rising as the epidemic grows and falling as
-it fades is not the signature of a population reacting to visible cases.
-
-In any case the training data cannot separate the two candidate explanations. They
-trace a single path through the network's two-dimensional input space, one
-prevalence for each day, so dependence on prevalence and dependence on time are
-indistinguishable from this fit. Ask the network what β would be at a prevalence
-the epidemic never reached on a given day and it will answer, but nothing in the
-data informed that answer.
-
-Treat the values at the far right with care. By then susceptibles are nearly
-exhausted, so β has very little effect on incidence and the data barely constrain
-it: training longer moves the final value substantially while leaving the fitted
-trajectory and the loss almost unchanged. A parameter the data cannot see is a
-parameter you should not interpret.
-
-The exact shape varies between runs (see [Uncertainty quantification](#uncertainty-quantification-in-the-main-analysis) below), so treat these numbers as this run's, not the model's.
-
-Before interpreting this curve, look back at Step 5. The fit is good, so the question is not whether the network found something but whether what it found is believable. The next section takes that up.
-
-Interpreting a learned β(t), in general:
-
-A dip followed by a recovery suggests the network found that transmission has to
-vary to explain the shape of the data, which is consistent with behavioural
-relaxation: initial caution, then a return to normal contact patterns. Note that
-our own curve has this shape, and that the section above gives reasons not to read
-it that way here. A shape alone cannot establish the reading: it takes data that
-separate prevalence from time, which a single outbreak does not.
-
-An implied R₀ that climbs without limit, as ours does after day 15, is a different
-signal. It says the network is compensating for something the *structure* cannot
-do, rather than describing a behaviour: here, a susceptible pool that only ever
-shrinks, which a single closed SIR compartment forces on it. Real reintroduction
-or waning immunity would show up this way too, and the shape alone cannot tell you
-which you have.
-
-A roughly constant β(t) would say the network did not find time-varying
-transmission useful, which might mean the network is too small, that more
-iterations are needed, or genuinely that time-varying β is not the right mechanism
-for these data.
-
-## Uncertainty quantification in the main analysis {#uncertainty-quantification-in-the-main-analysis}
-
-Everything above is a single optimisation run — the learned β(t) is a point estimate with no uncertainty attached. This is a serious limitation for drawing scientific conclusions. A quick way to get a rough sense of uncertainty is to re-run the training from several different random seeds (e.g. 5-10) and overlay the resulting β(t) curves. Where the curves agree, the signal is robust; where they diverge, the data cannot constrain the answer. See [Going further → Ensemble uncertainty](#ensemble-uncertainty) for more detail.
-
-# Practical challenges
-
-Training UDEs is difficult, especially with limited data. Understanding why helps set realistic expectations.
-
-The fundamental tension is between flexibility and data. Our network has 33 parameters and we have 59 data points - roughly 2 points per parameter. In classical statistics, you'd want at least 10-20 observations per parameter for reliable inference. With neural networks embedded in ODEs, the situation is even more constrained because the parameters interact nonlinearly through the differential equation.
-
-Identifiability is another challenge. Many different β(t) curves could produce similar epidemic trajectories. The data doesn't uniquely determine β(t) — there's a family of solutions. The ODE structure constrains this family (not every β(t) produces a valid epidemic), but it doesn't eliminate the ambiguity entirely.
-
-Initialisation matters because optimisation can get stuck in local minima. Different random seeds for the network weights lead to different solutions. Running multiple times and comparing results is good practice.
-
-Numerical stability can be problematic. The combination of ODE solving and gradient computation can produce NaN values if the optimiser takes steps that are too large, or if the ODE becomes stiff (rapidly changing dynamics requiring small time steps).
-
-## The deeper issue: structural constraints
-
-The fit is decent, but look at what it cost: β has to climb to several times the constant-β baseline to keep the tail going. That price is itself a signal: **maybe time-varying β is not the full story**.
-
-Consider what happens during the trough (days 13-21):
-
-- Cases drop to near-zero (0-5 per day)
-- By this point, S has been substantially depleted by the first wave
-- Even with I > 0, the product β·S·I/N is small because S is small
-- A large β can compensate, and nothing in the model stops it growing without bound
-
-The neural network can only learn β(t), but the **SIR structure itself** constrains what's possible:
-
-1. **S only decreases**: Once recovered, people are immune forever — the susceptible pool is depleted by the first wave
-2. **The trough problem**: With I near zero and S depleted, sustaining cases requires a β that climbs without limit, which is exactly what the learned curve does
-3. **No memory**: The model has no way to "store" infection for later release
-
-In the [pMCMC session](pmcmc.qmd), we saw that the SEIT4L model — which adds an exposed class and Erlang-distributed temporary immunity — explains the two waves through structural changes, not time-varying transmission. That is the more parsimonious explanation for this data.
-
-**What other structural changes could help?**
-
-- **SEIR model**: Exposed period sustains transmission chains during the trough
-- **Two-population model**: Different mixing groups, delayed introduction
-- **Learn γ(t) too**: Time-varying recovery might help, though this raises identifiability issues with β(t)
-
-**UDEs can only discover mechanisms within the constraints we impose**. If we say "it must be SIR with learned β(t)", we're already limiting what can be learned.
-
-The fit itself is not the problem here, since time-varying transmission does reproduce both waves.
-The problem is the price it pays for that.
-By day 30, where the data still constrain the answer, the implied R_0 is already about 5, twice the literature value the constant-β baseline uses, and it is still rising.
-That is a strong hint that a different structure would explain the data more plausibly.
-
-## Common failure modes
-
-Overfitting occurs when the training loss becomes very low but the predictions look unrealistic — perhaps fitting noise or producing wildly oscillating β(t). With UDEs this is less common than in standard neural networks because the ODE structure constrains the output, but it can still happen with very flexible networks. The main solution is reducing network size (fewer hidden units).
-
-Underfitting is the opposite: the UDE behaves almost identically to constant β, meaning the network hasn't learned anything useful. The loss may still be high. Solutions include increasing network capacity (more hidden units) or running more training iterations.
-
-NaN explosion happens when gradients become infinite, usually because the optimiser took too large a step that pushed the ODE into an unstable region. You'll see NaN values in the loss. Solutions include reducing the learning rate (0.01 to 0.001), using gradient clipping, or switching to a more robust ODE solver that handles stiff equations.
-
-## Sensitivity to initialisation
-
-Different random initialisations of the network weights can lead to different local minima and different learned β(t) curves. Let's check how much this matters.
-
-```{julia}
-# Train from 3 different random seeds and compare learned β(t)
-plot(title="Learned β(t) across random seeds",
-     xlabel="Time (days)", ylabel="β", legend=:topright)
-
-for seed in [1234, 5678, 9012]
-    rng_test = Random.default_rng()
-    Random.seed!(rng_test, seed)
-    p_nn_test, _ = Lux.setup(rng_test, nn_architecture)
-    p_nn_test = ComponentArray(p_nn_test)
-
-    # Only the network weights are optimised, as above
-    p_test = ComponentArray{Float64}(nn_params = p_nn_test)
-
-    opt_func_test = OptimizationFunction(loss_ude, Optimization.AutoForwardDiff())
-    opt_prob_test = OptimizationProblem(opt_func_test, p_test, nothing)
-    result_test = solve(opt_prob_test, Optimisers.Adam(0.01), maxiters=10_000,
-                        callback = (state, l) -> false)
-
-    # Extract the learned β(t) along the trajectory for comparison
-    p_test_trained = result_test.u
-    prob_test = ODEProblem(sir_ude!, u0, tspan, p_test_trained)
-    sol_test = solve(prob_test, Tsit5(), dense=true)
-    β_test = [begin
-        S_t, I_t, R_t = sol_test(t)
-        nn_input = [I_t / sum(u0), t / maximum(times)]
-        β_val, _ = nn_architecture(nn_input, p_test_trained.nn_params, st_nn)
-        β_val[1]
-    end for t in t_plot]
-
-    plot!(t_plot, β_test, label="Seed $seed (loss=$(round(result_test.objective, digits=1)))",
-          linewidth=2)
+chosen = Dict{String, Float64}()
+for label in unique(losses.data)
+    rows = losses[losses.data .== label, :]
+    chosen[label] = rows.rise[argmin(rows.loss)]
+    println(rpad(label, 14), "picks a rise time of ", chosen[label], " days (truth ",
+        ANTIBODY_RISE, ")")
 end
 ```
 
-Compare not just the final loss values but the shape of the β(t) curves. Similar losses do not guarantee similar β(t) — two different transmission patterns can produce comparably good fits. Where the curves agree, you can be more confident in the result; where they diverge, the data cannot distinguish between explanations.
+```{julia}
+plot(titre_grid, true_protection.(titre_grid), linewidth = 3, color = :black,
+    label = "True protection", xlabel = "log2 titre", ylabel = "Protection",
+    title = "The curve each dataset arrives at")
+for (label, style) in (("cases", :solid), ("final sera", :dash), ("serial sera", :solid))
+    rise = chosen[label]
+    plot!(titre_grid, learned(weights_for(rise, label)), linewidth = 2,
+        linestyle = style, label = "$label, rise = $rise days")
+end
+plot!()
+```
 
-# Exercises
+```{julia}
+for label in ("cases", "final sera", "serial sera")
+    p = weights_for(chosen[label], label)
+    values = [round(network_protection(t, p, network, network_state), digits = 2)
+              for t in (3.0, 5.0, 7.0)]
+    println(rpad(label, 14), "protection at log2 titre 3/5/7: ", values)
+end
+println(rpad("truth", 14), "protection at log2 titre 3/5/7: ",
+    [round(true_protection(t), digits = 2) for t in (3.0, 5.0, 7.0)])
+```
 
-::: {.callout-tip title="Exercise 1: Experiment with hyperparameters"}
-Try changing one thing at a time and observe the effect on the learned β(t) curve and the final loss:
+The serial sera pick six days and recover the curve.
+The case series and the final survey both pick eleven and land on the same answer, which is why the dashed line traces the solid one, and that answer puts half protection around a titre of 4 where the truth is near 6.
+On those numbers an analyst would report that the island was largely protected at titres that in fact left people open to a second attack, which is the difference between the two mechanisms Camacho et al. could not separate.
 
-1. **Hidden units**: Change `Dense(2 => 8, tanh)` to `Dense(2 => 4, tanh)` (smaller) or `Dense(2 => 16, tanh)` (larger). How does the number of parameters change? Does the fit improve or does overfitting become visible?
-2. **Learning rate**: Replace `Adam(0.01)` with `Adam(0.001)` or `Adam(0.05)`. What happens to training stability and convergence speed?
-3. **Random seed**: Change `Random.seed!(1234)` to a different value and re-run. How much does the learned β(t) vary between seeds? What does this tell you about identifiability?
+The identification comes from the first bleed, on day 20, when antibody is still climbing and its rate leaves a trace.
+By the end of the outbreak everyone has reached their peak, and a titre at the plateau says how high the response climbed rather than how fast.
 
-For each change, re-run from Step 1 through Step 6 and compare the β(t) plot to your original result.
+::: {.callout-tip title="Exercise: when to draw blood"}
+The two serosurveys cost the same and differ only in timing.
+Say why the day 20 bleed pins down the rise time and the final one leaves it open, in terms of the antibody curve, and work out roughly when you would draw blood in an outbreak where the response took a month to build.
 :::
 
-::: {.callout-tip title="Exercise 2: Interpret the structural constraint"}
-In the section on [structural constraints](#the-deeper-issue-structural-constraints), we argue that an SIR model with learned β(t) can only sustain the second wave by driving β ever higher. Can you explain, in your own words, why sustaining the second wave requires R_0 to climb the way it does — considering both the depleted susceptible pool and near-zero prevalence during the trough? What structural change to the model would let it produce a second wave without an implausible R_0, and how does this relate to the SEIT4L model from the [pMCMC session](pmcmc.qmd)?
+::: {.callout-tip title="What to look for" collapse="true"}
+The rise time appears in the antibody curve as $a_c(1 - e^{-\tau/r})$, and the data can only see it while the exponential term is still moving.
+By day 59 most of the sampled islanders are 40 to 55 days past infection, where $e^{-\tau/r}$ is tiny for any rise time between 3 and 11 days, so every candidate predicts the same titre.
+The day 20 bleed finds people 10 to 20 days past infection, where the candidates predict titres that differ by more than the assay noise.
+
+For a response that takes a month to build, the informative window moves accordingly: bleeds in the first four to six weeks after infection separate the candidates, and a survey at three months finds everyone at their plateau again.
+The general rule is that a measurement informs a rate only while the quantity it measures is changing at that rate.
+:::
+
+# What the learned curve says about the island
+
+```{julia}
+p_best = weights_for(chosen["serial sera"], "serial sera")
+
+strong = [antibody_level(1, t, ANTIBODY_RISE) for t in 0:TDC_DAYS]
+weak = [antibody_level(2, t, ANTIBODY_RISE) for t in 0:TDC_DAYS]
+sus(class, p) = [(1 - early_protection(t)) *
+                 (1 - network_protection(antibody_level(class, t, ANTIBODY_RISE), p,
+                                         network, network_state)) for t in 0:TDC_DAYS]
+
+plt = plot(layout = (1, 2), size = (900, 400), bottom_margin = 5Plots.mm,
+    left_margin = 3Plots.mm)
+plot!(plt[1], 0:TDC_DAYS, strong, linewidth = 2, label = "strong responder",
+    xlabel = "Days since infection", ylabel = "log2 titre", title = "Antibody",
+    titlefontsize = 10)
+plot!(plt[1], 0:TDC_DAYS, weak, linewidth = 2, label = "weak responder")
+plot!(plt[2], 0:TDC_DAYS, sus(1, p_best), linewidth = 2, label = "strong responder",
+    xlabel = "Days since infection", ylabel = "Susceptibility",
+    title = "Susceptibility implied by the learned curve", titlefontsize = 10)
+plot!(plt[2], 0:TDC_DAYS, sus(2, p_best), linewidth = 2, label = "weak responder")
+plt
+```
+
+The learned curve, applied along the two antibody trajectories, reproduces the mechanism that generated the island's second wave.
+A strong responder is briefly susceptible around a fortnight after infection, when the early protection has faded and the titre is close to the threshold, and is protected after that.
+A weak responder becomes susceptible at the same time and stays that way, which is why a third of the island could have influenza twice inside two months.
+
+Both of Camacho's surviving hypotheses appear here as features of one curve.
+The brief dip in the strong responders is their window of susceptibility.
+The flat high susceptibility of the weak responders is their all-or-nothing response.
+A study with serial sera would tell you how much of each the island had, which the case series alone cannot.
+
+# What this does and does not show
+
+::: {.callout-warning}
+## The island's real record cannot support this analysis
+
+Mantle and Tyrrell recovered sera from 11 islanders, at one time point [@camacho2011].
+Everything above rests on 160 samples from 80 people bled twice, with infection dates attached.
+The session shows what such a study would buy, which is a different claim from having measured it.
+
+The design question is the transferable part.
+Before collecting immunological data to settle a mechanism, work out which parameter the mechanism turns on, then check that your sampling times fall where that parameter still moves the measurement.
+:::
+
+::: {.callout-tip title="Exercise: the analysis you could run on the real data"}
+The real record gives dated attacks, the counts of first and second attacks, and 11 cross-sectional sera.
+Which parts of this session's model could you fit to that, and which would you have to fix by assumption?
+:::
+
+::: {.callout-tip title="What to look for" collapse="true"}
+The case series and the 92 second attacks constrain susceptibility as a function of time since infection, which a compartment model such as SEITL can absorb, and the course already fits that.
+The 11 sera give the titre distribution at one moment, which bears on the spread of peaks across people rather than on the rate of climb.
+
+The protection curve stays out of reach: it needs titres at known times since infection, and the record has neither the times nor enough people.
+Fixing the antibody curve by assumption would make the protection curve estimable, and the profile in this session shows what that estimate would be worth, since a wrong assumption about the rise time moves the curve from one end of the titre range to the other.
 :::
 
 # When to use UDEs
 
-UDEs aren't always appropriate. Here's when they add value.
+## UDEs are a good fit when
 
-## Use UDEs when:
+- You trust the mechanism and can name the one function you do not know
+- That function depends on a quantity the model tracks between measurements
+- The question needs the mechanism: a new population, a scenario, or an intervention
+- The data cover the range of the input the question will use
 
-- You have mechanistic knowledge about structure (e.g., compartmental dynamics) but unknown functional forms (how transmission varies)
-- You have moderate-to-large datasets - ideally hundreds to thousands of data points
-- You're doing exploratory analysis to discover potential mechanisms
-- You're willing to experiment with hyperparameters and validate results carefully
+## Other methods are a better fit when
 
-## Don't use UDEs when:
-
-- Simple parametric models fit the data adequately (prefer parsimony)
-- Your dataset is very small (under 50 points)
-- You need interpretable parameters for publication or policy
-- Computational resources are limited - training can be expensive
-- You need real-time inference - for a single dataset, MCMC may actually be faster
+- The unknown function's input is measured at the times it is used. A parametric form or a spline in that covariate, fitted with MCMC, is simpler and gives uncertainty
+- A form with a few interpretable parameters fits adequately, in which case prefer it
+- The likelihood is flat in the direction you care about. A flexible function makes that worse rather than better, and the answer is more data of another kind
 
 # Comparison with other approaches
 
-| Method | Flexibility | Interpretability | Data needs | Computational cost |
-|--------|-------------|------------------|------------|-------------------|
-| **Constant β** | Low | High | Low (10-50 points) | Very low |
-| **Time-varying β with splines** | Medium | Medium | Medium (50-200) | Low |
-| **GP for β(t)** | Medium | Medium (but with UQ) | Medium (50-200) | Medium |
-| **UDE** | High | Low | High (100-1000+) | High |
-
-**For TdC data (59 points)**: GPs or splines are likely more appropriate than UDEs.
+| Method | What it learns | Identifies the mechanism | Uncertainty | Data needs | Cost |
+|--------|----------------|--------------------------|-------------|------------|------|
+| **Compartment with an assumed shape** | A duration | No | Easy with MCMC | Case series | Low |
+| **Parametric protection curve** | Two or three parameters | Given sera at known times | Easy with MCMC | Cases and sera | Low |
+| **UDE with a state-dependent term** | The shape of the curve | Given sera at known times | Hard | Cases and sera | High |
 
 # Where UDEs have been applied
 
-Real-data applications of UDEs are still relatively few. In epidemiology, Kuwahara & Bauch (2024) used a UDE to predict COVID-19 second waves from case and mobility data, Schmid et al. (2026) combined a UDE-based SEIR model with wastewater surveillance to project case counts, and Rojas-Campos et al. (2023) demonstrated the UDE → SINDy pipeline on simulated regional transmission data. Outside epidemiology, UDEs have been applied to glucose-insulin dynamics (de Rooij et al. 2025) and battery degradation modelling (Kuzhiyil et al. 2024). Philipps et al. (2025) review the broader state of UDEs in systems biology and note that most published work still uses synthetic data.
-
-# Going further
-
-## Network architecture choices
-
-The neural network architecture affects what patterns can be learned:
-
-- Smaller networks (e.g., 4→1) may underfit complex dynamics but are more interpretable
-- Larger networks (e.g., 16→8→1) can capture more complexity but may overfit with limited data despite the ODE constraint
-- Input features matter: β(t) learns time-dependent patterns, β(I/N) learns prevalence-dependent patterns, β(I/N, t) can learn both
-
-Try different architectures to understand what your data can support.
-
-## Ensemble uncertainty
-
-See [Uncertainty quantification in the main analysis](#uncertainty-quantification-in-the-main-analysis) for the basic idea of training from multiple random seeds. For a more rigorous version, train 10-20 runs and compute pointwise confidence bands on β(t) from the ensemble. This is particularly important for scientific claims about mechanisms.
-
-## Validation with synthetic data
-
-Before trusting UDE discoveries on real data, test on synthetic data where you know the truth:
-
-1. Generate data with a known β(t), e.g., β(t) = β₀ × (1 + 0.3 sin(2πt/20))
-2. Train UDE on this synthetic data
-3. Compare learned β(t) to the true function
-4. If the UDE can't recover known patterns, be cautious about interpreting patterns from real data
-
-## Symbolic regression: interpretable discovery (optional)
-
-::: {.callout-note}
-This section introduces a related but distinct topic — symbolic regression — that extends the UDE workflow. It is included for interest and can be safely skipped.
-:::
-
-A major limitation of neural network UDEs is interpretability - you get a function that works, but you can't write down what it is. Symbolic regression addresses this by searching for *equations* rather than neural network weights.
-
-The idea: instead of learning that β(t) is "some neural network", discover that β(t) = β₀(1 + α·sin(ωt)) or β(t) = β₀·exp(-κI/N). The output is a human-readable formula that can be interpreted, published, and debated.
-
-Two main approaches exist:
-
-[SINDy (Sparse Identification of Nonlinear Dynamics)](https://doi.org/10.1073/pnas.1517384113) builds a library of candidate terms (polynomials, trigonometric functions, etc.) and uses sparse regression to find which terms are needed. It's fast and produces interpretable equations, but limited to the function library you define. In Julia, [DataDrivenDiffEq.jl](https://docs.sciml.ai/DataDrivenDiffEq/stable/) provides SINDy implementations.
-
-Genetic programming / symbolic regression evolves equations by combining mathematical operations, selecting those that fit well. Tools like [PySR](https://astroautomata.com/PySR/) (accessible from Julia via PythonCall) or [SymbolicRegression.jl](https://github.com/MilesCranmer/SymbolicRegression.jl) can discover surprising functional forms you wouldn't have thought to include in a library.
-
-The workflow often combines both approaches: first use a neural network UDE to confirm that a time-varying or state-dependent term improves fit, then apply symbolic regression to find an interpretable equation for that term.
-
-For policy applications, the difference matters in principle. A hypothetical finding like "transmission increases when prevalence drops below 5%" would be actionable; "transmission follows neural network with weights [0.23, -0.41, ...]" is not. In practice, recovering clean symbolic expressions from noisy epidemic data is difficult, but symbolic UDEs offer a path from discovery towards interpretation.
-
-For more on this approach, see the [SciML tutorial on missing physics](https://docs.sciml.ai/Overview/stable/showcase/missing_physics/) and [Philipps et al. (2025)](https://doi.org/10.1038/s41540-025-00550-w) for a recent review of UDEs in systems biology.
+Real-data applications are still relatively few.
+In epidemiology, Kuwahara and Bauch [-@kuwahara2024] used a UDE informed by behaviour and mobility data to predict COVID-19 waves, Schmid et al. [-@schmid2026] combined a UDE-based SEIR model with wastewater surveillance to project case counts, and Rojas-Campos et al. [-@rojas2023] demonstrated the UDE-to-SINDy pipeline on simulated regional transmission data.
+Philipps et al. [-@philipps2025] review the state of UDEs in systems biology and note that most published work still uses synthetic data.
 
 # Learning points
 
 ::: {.callout-tip title="Learning points"}
-- **UDEs combine mechanistic and machine learning**: Keep known structure (SIR compartments), learn unknown parts (how β varies)
-- **The loss function matters**: Poisson likelihood forces the model to explain small counts; SSE is dominated by peak values
-- **The ODE constrains the network**: The mechanistic structure limits what the network can learn, preventing it from memorising noise
-- **A single training run is a point estimate**: Without ensemble runs or Bayesian treatment, there is no uncertainty quantification — interpret any single β(t) curve with caution
-- **Learned patterns suggest mechanisms** but don't prove them - UDEs generate hypotheses needing independent validation
-- **Data requirements are high**: UDEs need hundreds of data points to work well; for small datasets, simpler approaches may be better
+- **A compartment can hide a mechanism**: replacing T with antibody turns a duration you assume into a curve you can estimate, and makes the assumption visible
+- **UDEs learn a function of something the model tracks**: here the titre at exposure, which the sera measure on other days
+- **A flat likelihood is a result**: the case series constrains susceptibility against time since infection, and splitting that into an antibody curve and a protection curve needs data of another kind
+- **Timing decides whether a measurement identifies a rate**: bleeds on day 20 pin the antibody rise, and the same islanders bled at the end say as little as the cases do
+- **Competing mechanisms can be one curve**: a window of susceptibility and an all-or-nothing response are the strong and weak ends of the same protection curve
+- **Simulating the study is the cheap part of designing it**: the profile here costs minutes and would have told Mantle and Tyrrell when to take blood
 :::
 
-# Next steps
+# Going further
 
-This session and the [variational inference](variational_inference.qmd) session round out the course's coverage of inference methods. Together with the MCMC, particle filter and pMCMC sessions, you now have a range of approaches for fitting mechanistic models to data, and some sense of when each is appropriate.
+## From a learned curve to an equation
+
+Once the curve has a shape, look for a formula.
+**Symbolic regression** searches for an equation that reproduces it, either by sparse regression over candidate terms, as in SINDy [@brunton2016], or by evolving expressions [@cranmer2020symbolic].
+Our learned protection curve is a logistic in the log2 titre, which is the form the serology literature already uses [@coudeville2010], with two parameters to estimate.
+Refitting that way brings the problem back to MCMC and gives credible intervals on the curve and on everything computed from it.
+
+## The parts we supplied
+
+The reproduction number, the reporting probability, the generation interval, the peaks of the two kinds of response and their proportions were all handed to the fit.
+A real analysis estimates them, and each one competes with the protection curve for the same information.
+The profile in this session is the two-parameter version of that problem, and the full version is a joint posterior over every supplied quantity and the network weights together.
+
+## Beyond antibody
+
+The same structure fits any mechanism where protection or infectiousness depends on a measured quantity: viral load and onward transmission, cellular markers and severity, or antibody and vaccine response.
+The question to ask in each case is which of your measurements are taken while the quantity is changing.
+
+# Next session
+
+This session and the [variational inference](variational_inference.qmd) session round out the course's coverage of inference methods.
+Together with the MCMC, particle filter and pMCMC sessions, you now have a range of approaches for fitting mechanistic models to data, and some sense of when each is appropriate.
 
 # References
 
-- Rackauckas et al. (2020). [Universal Differential Equations for Scientific Machine Learning](https://arxiv.org/abs/2001.04385). *arXiv:2001.04385*. (The original UDE paper)
-- Kuwahara & Bauch (2024). [Predicting Covid-19 pandemic waves with biologically and behaviorally informed universal differential equations](https://doi.org/10.1016/j.heliyon.2024.e25363). *Heliyon* 10(4). (UDE applied to real COVID-19 case and mobility data)
-- Rojas-Campos et al. (2023). [Learning COVID-19 Regional Transmission Using Universal Differential Equations in a SIR model](https://arxiv.org/abs/2310.16804). *arXiv:2310.16804*. (UDE → SINDy pipeline for regional transmission)
-- Schmid et al. (2026). [Wastewater-informed neural compartmental model for long-horizon case number projections](https://www.medrxiv.org/content/10.64898/2026.02.10.26345731v1). *medRxiv*. (UDE-based SEIR with wastewater data for case projections)
-- Philipps et al. (2025). [Current state and open problems in universal differential equations for systems biology](https://doi.org/10.1038/s41540-025-00550-w). *npj Systems Biology and Applications* 11, 101. (Review of UDEs in systems biology)
-- Brunton et al. (2016). [Discovering governing equations from data by sparse identification of nonlinear dynamical systems](https://doi.org/10.1073/pnas.1517384113). *PNAS* 113(15), 3932-3937. (The original SINDy paper)
-- Cranmer et al. (2020). [Discovering Symbolic Models from Deep Learning with Inductive Biases](https://arxiv.org/abs/2006.11287). *NeurIPS*. (Symbolic regression from neural networks)
-- [DiffEqFlux.jl documentation](https://docs.sciml.ai/DiffEqFlux/stable/) - Neural ODEs and UDEs in Julia
-- [SciML tutorials on missing physics](https://docs.sciml.ai/Overview/stable/showcase/missing_physics/) - Learning unknown terms in differential equations
-- [Lux.jl documentation](https://lux.csail.mit.edu/) - Modern neural network framework used in this session
+::: {#refs}
+:::

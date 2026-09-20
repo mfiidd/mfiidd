@@ -1,12 +1,17 @@
 module MFIIDD
 
 using CodeTracking: definition
+using ComponentArrays: ComponentArray
 using DataFrames: DataFrame
 using DifferentialEquations: ODEProblem, Tsit5, remake, solve
-using Distributions: Distribution, Poisson, logpdf
+using Distributions: Categorical, Distribution, Poisson, logpdf
+using Lux: Lux, Chain, Dense, sigmoid
+using Optimisers: Optimisers
+using Optimization: Optimization, OptimizationFunction, OptimizationProblem
+using OptimizationOptimisers: OptimizationOptimisers
 using GeneralisedFilters: BF
 using PrecompileTools: @compile_workload
-using Random: AbstractRNG, randexp
+using Random: AbstractRNG, Xoshiro, rand, randexp, randn
 using SSMProblems: SSMProblems, StateSpaceModel
 using StatsBase: Weights, wsample
 
@@ -16,6 +21,7 @@ include("seitl_jumps.jl")
 include("seitl_ssm_interface.jl")
 include("threaded_bootstrap_filter.jl")
 include("seitl_runner.jl")
+include("tdc_serology.jl")
 
 export sir_ode!, simulate_sir
 export seitl_ode!, simulate_seitl_deterministic, simulate_seitl_stochastic
@@ -27,6 +33,11 @@ export run_particle_filter, filtered_incidence
 export SEITLDynamics, SEITLInitial, PoissonObservation
 export ThreadedBF, BlockedDynamics
 export source_for
+export early_protection, antibody_level, true_protection, outbreak
+export report_cases, draw_sera, case_loglik, sero_loglik
+export protection_network, protection_weights, network_protection, train_protection
+export TDC_N, TDC_DAYS, TDC_R0, TDC_REPORTING, TDC_GENERATION
+export WEAK_FRACTION, ANTIBODY_PEAK, ANTIBODY_RISE, EARLY_SCALE, SERO_SD
 
 """
     source_for(file::AbstractString) -> String
