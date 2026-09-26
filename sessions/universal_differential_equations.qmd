@@ -181,6 +181,7 @@ Their infection dates come from the case record, so each sample gives a titre at
 
 ```{julia}
 sera = draw_sera(run.infected, ANTIBODY_RISE)
+println(length(sera), " titre measurements from 80 islanders, each bled twice")
 tau = [sample[3] - sample[2] for sample in sera]
 titres = [sample[4] for sample in sera]
 
@@ -218,7 +219,7 @@ The case series sees a second wave and cannot see who is in it.
 A curve that *falls* as titre rises explains that wave just as well, by casting the strong responders as the susceptible group and the weak ones as protected, and on this case series it comes within four log likelihood units of the truth.
 Gradient descent from an unlucky start settles there and reports it without any sign of trouble.
 
-Protection rises with antibody, and that is knowledge, so it belongs in the architecture.
+We know that protection rises with antibody, so that belongs in the architecture.
 `monotone` takes the absolute value of every weight, which makes the network increasing in its input and removes the mirror solution from the space the optimiser searches.
 `fit_protection` then trains from three sets of starting weights and keeps the best, which guards against the ordinary kind of local optimum.
 :::
@@ -282,7 +283,7 @@ vline!([ANTIBODY_RISE], linestyle = :dash, color = :grey, label = "truth")
 ```
 
 The case series barely moves: three quarters of a log likelihood unit separates its best and worst rise times across the whole range from three to eleven days.
-Its minimum sits at eight, ahead of the truth at six by two hundredths of a unit, which is nothing at all.
+Its minimum sits at eight, two hundredths of a unit ahead of the truth at six.
 The network absorbs a wrong antibody curve and reproduces the same epidemic through it.
 The serial sera, by contrast, move by 254 units over the same range and put their minimum on six.
 
@@ -369,7 +370,7 @@ By the end of the outbreak everyone has reached their peak, and a titre at the p
 ## How much of that curve is pinned down
 
 A single fit gives a single curve.
-To see how much the noise in the data moves it, the script refits eight times to resampled case counts and a resampled serosurvey, holding the rise time at the value the serial sera chose.
+To see how much the noise in the data moves it, the script refits eight times to resampled case counts, holding the rise time at the value the serial sera chose.
 Each refit restarts three times, so the spread below is uncertainty rather than the optimiser giving up in different places.
 
 ```{julia}
@@ -405,7 +406,7 @@ plot!(days, predictions[1], linewidth = 2, color = 1, label = "one of them")
 scatter!(days, cases, markersize = 3, color = :black, label = "simulated cases")
 ```
 
-The eight curves agree at the bottom and top of the titre range and disagree across the middle, which is exactly where the true curve has its shoulder.
+The eight curves agree at the bottom and top of the titre range and disagree between about four and seven, which covers the shoulder in the true curve.
 That middle stretch is the part the data speak least about, and it is the part that distinguishes a curve with two steps from a plain logistic.
 
 The epidemics those curves produce sit on the data throughout.
@@ -467,11 +468,11 @@ plt
 
 The learned curve, applied along the three antibody trajectories, reproduces the mechanism behind the island's second wave.
 A strong responder opens to 0.03 on day 13, against a true 0.04 on the same day: the early protection has faded and the titre is nearly at its peak, so the window exists and is narrow.
-An intermediate responder reaches 0.68 and settles at 0.61, where the truth is 0.52 and 0.51, so a second attack is slowed and the fit overstates by about a fifth.
-A weak responder returns to full susceptibility and stays there, which is a fifth of the island.
+An intermediate responder reaches 0.68 and settles at 0.61, where the truth is 0.52 and 0.51, so a second attack is slowed rather than prevented, and the fit reads them as slightly more exposed than they were.
+A weak responder returns to full susceptibility and stays there, and they are a fifth of the island.
 
 Both of Camacho's surviving hypotheses appear here as features of one curve.
-The brief dip in the strong responders is their window of susceptibility.
+The bump in the strong responders is their window of susceptibility.
 The flat high susceptibility of the weak responders is their all-or-nothing response.
 A study with serial sera would tell you how much of each the island had, which the case series alone cannot.
 
