@@ -15,12 +15,13 @@ const TDC_REPORTING = 0.85              ## share of attacks that were dated
 ## Generation interval for influenza, mean about 3.2 days
 const TDC_GENERATION = [0.0, 0.15, 0.35, 0.28, 0.14, 0.06, 0.02]
 
-## Two kinds of antibody response. Strong responders reach a titre that protects
-## them; weak responders peak below any useful level
-const WEAK_FRACTION = 0.33
-const ANTIBODY_PEAK = (8.0, 3.5)        ## log2 titre reached, strong and weak
+## Three kinds of antibody response, in the proportions a population might show:
+## most islanders reach a protective titre, some reach an intermediate one, and a
+## fifth mount little response at all
+const RESPONSE_FRACTIONS = (0.62, 0.18, 0.20)
+const ANTIBODY_PEAK = (8.0, 4.5, 2.0)   ## log2 titre reached by each kind
 const ANTIBODY_RISE = 6.0               ## days over which the response builds
-const EARLY_SCALE = 16.0                ## how long early protection holds
+const EARLY_SCALE = 14.0                ## how long early protection holds
 const SERO_SD = 0.5                     ## assay noise on a log2 titre
 
 """
@@ -30,14 +31,14 @@ Protection from the cellular response `tau` days after infection. It holds for
 about a fortnight and then falls away, which leaves a window before the antibody
 response has built.
 """
-early_protection(tau) = exp(-(tau / EARLY_SCALE)^4)
+early_protection(tau) = exp(-(tau / EARLY_SCALE)^6)
 
 """
     antibody_level(class, tau, rise)
 
-Log2 antibody titre `tau` days after infection, for a strong (`class = 1`) or
-weak (`class = 2`) responder. The titre climbs towards the class peak with time
-constant `rise`.
+Log2 antibody titre `tau` days after infection for a responder of the given
+class, numbered from the strongest. The titre climbs towards the class peak with
+time constant `rise`.
 """
 function antibody_level(class::Integer, tau, rise)
     tau <= 0 && return zero(typeof(rise + 0.0))
@@ -47,11 +48,14 @@ end
 """
     true_protection(titre)
 
-The protection curve used to generate the data, and which the session pretends
-not to know: protection switches on over a narrow range around a log2 titre of
-5.5, so strong responders end up protected and weak responders do not.
+The protection curve used to simulate the data, and which the session pretends
+not to know. It rises in two steps: partial protection appears at low titres,
+and full protection arrives only above about 1:100. An intermediate responder
+therefore sits on the shoulder, protected enough to delay a second attack and
+not enough to prevent one.
 """
-true_protection(titre) = 1 / (1 + exp(-(titre - 5.5) / 0.35))
+true_protection(titre) =
+    0.5 / (1 + exp(-(titre - 3.0) / 0.4)) + 0.5 / (1 + exp(-(titre - 6.5) / 0.4))
 
 """
     outbreak(rise, protection; r0, seed_infections)
@@ -62,24 +66,28 @@ with the early response:
 
     susceptibility(tau) = (1 - early_protection(tau)) * (1 - protection(antibody))
 
-Returns daily infections, the part of them that are second infections, and the
-cohorts of once-infected people indexed by the day they were infected.
+Returns daily infections, the part of them that are second infections, and a
+record of first infections by class and by day, which is who a serosurvey can
+sample from.
 """
 function outbreak(rise, protection; r0::Real = TDC_R0, seed_infections = (2.0, 2.0))
     T = typeof(protection(1.0) + rise + 0.0)
     days = TDC_DAYS + 1
 
-    naive = T[(1 - WEAK_FRACTION) * TDC_N, WEAK_FRACTION * TDC_N]
-    cohort = [zeros(T, days), zeros(T, days)]   ## infected once, by day of infection
+    classes = eachindex(RESPONSE_FRACTIONS)
+    naive = T[share * TDC_N for share in RESPONSE_FRACTIONS]
+    cohort = [zeros(T, days) for _ in classes]  ## still on their first infection
+    infected = [zeros(T, days) for _ in classes] ## everyone, by day of first infection
     infections = zeros(T, days)
     second = zeros(T, days)
 
     for (day, seeded) in enumerate(seed_infections)
         infections[day] = seeded
-        for c in 1:2
-            share = c == 1 ? 1 - WEAK_FRACTION : WEAK_FRACTION
-            cohort[c][day] += seeded * share
-            naive[c] -= seeded * share
+        for c in classes
+            arriving = seeded * RESPONSE_FRACTIONS[c]
+            cohort[c][day] += arriving
+            infected[c][day] += arriving
+            naive[c] -= arriving
         end
     end
 
@@ -92,10 +100,11 @@ function outbreak(rise, protection; r0::Real = TDC_R0, seed_infections = (2.0, 2
 
         first_time = zero(T)
         again = zero(T)
-        for c in 1:2
+        for c in classes
             new = min(hazard, 1.0) * naive[c]
             naive[c] -= new
             cohort[c][t] += new
+            infected[c][t] += new
             first_time += new
 
             for d in 1:(t - 1)
@@ -111,7 +120,7 @@ function outbreak(rise, protection; r0::Real = TDC_R0, seed_infections = (2.0, 2
         second[t] = again
     end
 
-    return (infections = infections, second = second, cohort = cohort)
+    return (infections = infections, second = second, cohort = cohort, infected = infected)
 end
 
 """
@@ -126,23 +135,29 @@ function report_cases(infections; seed::Integer = 4, reporting::Real = TDC_REPOR
 end
 
 """
-    draw_sera(cohort, rise; n, bleed_days, seed)
+    draw_sera(infected, rise; n, bleed_days, seed)
 
-Take blood from `n` islanders on each day in `bleed_days`, sampling people in
-proportion to the size of the cohorts they belong to. Each sample records the
-class, the day that person was infected, the day of the bleed, and the measured
-log2 titre. A bleed only happens after the person was infected.
+Take blood from `n` islanders on each day in `bleed_days`, sampling in proportion
+to the number first infected on each day. Each sample records the class, the day
+that person was first infected, the day of the bleed, and the measured log2
+titre. A bleed only happens after the person was infected.
+
+Islanders who were infected twice are sampled alongside the rest, and their
+titre is taken from their first infection. A second infection boosts them
+towards the same class peak, so the approximation costs little here.
 """
 function draw_sera(
-    cohort,
+    infected,
     rise;
     n::Integer = 80,
     bleed_days = (20, TDC_DAYS + 1),
     seed::Integer = 5,
 )
     rng = Xoshiro(seed)
-    pool =
-        [(c, d, cohort[c][d]) for c in 1:2 for d in 1:(TDC_DAYS + 1) if cohort[c][d] > 0.05]
+    pool = [
+        (c, d, infected[c][d]) for c in eachindex(infected) for
+        d in 1:(TDC_DAYS + 1) if infected[c][d] > 0.05
+    ]
     weights = [entry[3] for entry in pool]
     picks = rand(rng, Categorical(weights ./ sum(weights)), n)
 
@@ -205,12 +220,38 @@ function protection_weights(network; seed::Integer = 1)
 end
 
 """
+    monotone(p)
+
+Take the absolute value of every weight, which makes the network increasing in
+its input. Protection cannot fall as antibody rises, and a network free to
+learn that it does has a second optimum in which the strong responders are the
+susceptible ones. The biology rules that out, so we build it into the
+architecture.
+"""
+monotone(p) = ComponentArray(
+    layer_1 = (weight = abs.(p.layer_1.weight), bias = p.layer_1.bias),
+    layer_2 = (weight = abs.(p.layer_2.weight), bias = p.layer_2.bias),
+)
+
+"""
+    protection_from(p, network, state)
+
+The protection curve for weights `p`, as a scalar function of a log2 titre. The
+monotone transform is applied once here, because a single epidemic evaluates the
+curve a few thousand times.
+"""
+function protection_from(p, network, state)
+    weights = monotone(p)
+    return titre -> first(first(network([titre / 4], weights, state)))
+end
+
+"""
     network_protection(titre, p, network, state)
 
-Evaluate the network as a scalar function: a log2 titre in, a protection between
-zero and one out.
+Evaluate the curve at one titre: a log2 titre in, a protection between zero and
+one out, increasing in the titre.
 """
-network_protection(titre, p, network, state) = first(first(network([titre / 4], p, state)))
+network_protection(titre, p, network, state) = protection_from(p, network, state)(titre)
 
 """
     train_protection(loss, p0; iterations, rates)
@@ -237,4 +278,27 @@ function train_protection(
         p = result.u
     end
     return p, history
+end
+
+"""
+    fit_protection(loss, network; seeds, iterations, rates)
+
+Fit from several starting points and keep the best.
+
+Adam on this loss is sensitive to where it starts, so a single run can stop at a
+curve a few log likelihood units short of the one the data support.
+"""
+function fit_protection(loss, network; seeds = 1:3, kwargs...)
+    best_p = nothing
+    best_loss = Inf
+    best_history = Float64[]
+    for seed in seeds
+        start, _ = protection_weights(network; seed)
+        p, history = train_protection(loss, start; kwargs...)
+        value = loss(p)
+        if value < best_loss
+            best_p, best_loss, best_history = p, value, history
+        end
+    end
+    return best_p, best_loss, best_history
 end

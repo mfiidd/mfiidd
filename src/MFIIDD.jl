@@ -36,8 +36,10 @@ export source_for
 export early_protection, antibody_level, true_protection, outbreak
 export report_cases, draw_sera, case_loglik, sero_loglik
 export protection_network, protection_weights, network_protection, train_protection
+export protection_from
+export fit_protection
 export TDC_N, TDC_DAYS, TDC_R0, TDC_REPORTING, TDC_GENERATION
-export WEAK_FRACTION, ANTIBODY_PEAK, ANTIBODY_RISE, EARLY_SCALE, SERO_SD
+export RESPONSE_FRACTIONS, ANTIBODY_PEAK, ANTIBODY_RISE, EARLY_SCALE, SERO_SD
 
 """
     source_for(file::AbstractString) -> String

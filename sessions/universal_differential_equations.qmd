@@ -22,24 +22,28 @@ The Julia ecosystem (SciML, Lux.jl) is currently the most mature platform for th
 The concepts transfer, and the session is worth reading for them.
 :::
 
-## The second wave, and what the course has assumed about it
+## What the course assumes about the second wave
 
 Of the 284 islanders on Tristan da Cunha in 1971, 273 had an attack of influenza and 92 had two, inside 59 days [@mantle1973].
 The [SEITL session](seitl.qmd) explains that second wave with a compartment: after recovery you sit in T for a while, and you leave it either back to susceptible or on to lasting immunity.
 The [pMCMC session](pmcmc.qmd) then compares two shapes for the time spent in T.
 
-That compartment is a placeholder for immunology nobody measured.
+That compartment stands for immunology the 1971 investigation did not measure.
 Camacho et al. [-@camacho2011] compared six mechanisms for the same outbreak and found two that the case data support equally well: a window of susceptibility that opens after recovery, and an all-or-nothing response in which some islanders acquire no lasting protection at all.
 Their closing recommendation is that separating the two needs immunological data on individuals, which Mantle and Tyrrell's record lacks.
 
 This session takes that recommendation literally.
 We replace the compartment with antibody, make protection a function of it, and ask what data would identify that function.
 
+Everything below is simulated.
+We generate an outbreak with the island's shape, simulate the surveillance that produced the case record and a serosurvey of the kind that investigation lacked, and fit to those.
+The island's real data appear only at the end, where we ask what they could have supported.
+
 ## Protection as a function of antibody
 
 Two things protect you after an infection, and they arrive at different times.
 The cellular response acts early and fades over a fortnight.
-The antibody response builds over days to weeks and then holds, and how high it climbs varies between people: some mount a strong response, others little [@amanna2007; @kucharski2015].
+The antibody response builds over days to weeks and then holds, and how high it climbs varies between people: some mount a strong response, others little [@amanna2007; @kucharski2015; @ranjeva2019].
 
 Between the two lies a window in which a person has lost the early protection and has yet to gain the humoral kind.
 Islanders whose antibody peaks low stay in that state.
@@ -66,8 +70,12 @@ where $a_c$ is the peak their response reaches and $r$ is the time the response 
 Their susceptibility to reinfection combines the two kinds of protection:
 
 $$
-s_c(\tau) = \underbrace{\left(1 - e^{-(\tau/16)^4}\right)}_{\text{early protection has faded}} \times \underbrace{\Bigl(1 - \sigma\bigl(A_c(\tau)\bigr)\Bigr)}_{\text{antibody has yet to protect}} .
+s_c(\tau) = \left(1 - e^{-(\tau/14)^6}\right)\left(1 - \sigma\left(A_c(\tau)\right)\right).
 $$
+
+The first factor climbs from zero as the early protection fades, over about a fortnight.
+The second falls towards zero as antibody reaches titres that protect.
+An islander is open to reinfection while both factors are near one.
 
 Infections on day $t$ come from the never-infected and from everyone whose susceptibility has returned:
 
@@ -83,14 +91,14 @@ Everything above is supplied except $\sigma$, the protection curve, which this s
 ## Why this needs a UDE
 
 A **universal differential equation** (UDE) keeps the mechanism and replaces an unknown term with a neural network [@rackauckas2020].
-Here the network supplies $\sigma$.
+Here the network supplies $\sigma$, constrained to increase with titre and to stay between zero and one, which is everything we are willing to assert about it.
 
 The input to $\sigma$ is the titre an islander has on the day they are exposed, which the model computes from their infection date and the antibody curve.
 A serosurvey measures titres on the days blood is drawn, and the exposures happen on all the other days.
 Because the titre at exposure depends on the antibody parameters, and the infections depend on $\sigma$ evaluated at that titre, the function and the epidemic have to be fitted together.
 
 ::: {.callout-warning}
-## The question is which data identify which part
+## Which data identify which part
 
 The protection curve enters the model through a composition: the case data see susceptibility as a function of time since infection, which is $\sigma$ evaluated along the antibody curve.
 Cases alone therefore constrain the composition rather than either piece.
@@ -105,7 +113,7 @@ By the end of this session, you will be able to:
 2. Fit a neural network inside that mechanism to two data streams at once
 3. Recognise a likelihood that is flat in the direction you care about, and say what it means
 4. Show that a second data stream identifies the mechanism, and that the timing of its collection decides whether it does
-5. Say what the real Tristan da Cunha record could and could not support
+5. Work out which measurements identify the mechanism, and check the island's record against them
 
 # Setup
 
@@ -139,9 +147,9 @@ println("```julia\n", source_for("tdc_serology.jl"), "\n```")
 ```
 :::
 
-## The outbreak
+## The simulated outbreak
 
-We generate the island's epidemic with a protection curve that switches on over a narrow range of titres, and which we then set aside until the end.
+We simulate the island's epidemic with a protection curve that rises in two steps, and then set that curve aside until the end.
 
 ```{julia}
 run = outbreak(ANTIBODY_RISE, true_protection)
@@ -150,37 +158,39 @@ days = 0:TDC_DAYS
 
 println("infections ", round(Int, sum(run.infections)), ", of which second infections ",
     round(Int, sum(run.second)))
-println("dated cases ", sum(cases), " (the record has 312 from 365 attacks, 92 of them second)")
+println("simulated dated cases ", sum(cases),
+    " (the island's record has 312, from 365 attacks, 92 of them second)")
 println("first peak ", maximum(cases[1:20]), " on day ", argmax(cases[1:20]),
     "; second wave peaks at ", maximum(cases[26:end]), " on day ", argmax(cases[26:end]) + 25)
 ```
 
 ```{julia}
 plot(days, cases, linewidth = 2, label = "dated cases", xlabel = "Day",
-    ylabel = "Cases", title = "An island-shaped outbreak")
+    ylabel = "Cases", title = "A simulated outbreak on an island")
 plot!(days, TDC_REPORTING .* run.second, linewidth = 2, label = "second infections")
 ```
 
 The second wave is made of people who have already had influenza once.
-In this simulated island they are the weak responders, whose antibody peaks below any protective level, and they amount to a third of the population.
+In this simulated island they are the weak responders, whose antibody peaks below any protective level, together with the intermediate ones, who reach the shoulder of the protection curve and are slowed rather than stopped.
+The two groups are 38% of the population between them.
 
-## The serosurvey
+## The simulated serosurvey
 
-Eighty islanders give blood twice, on day 20 and at the end of the outbreak.
+We simulate eighty islanders giving blood twice, on day 20 and at the end of the outbreak.
 Their infection dates come from the case record, so each sample gives a titre at a known time since infection.
 
 ```{julia}
-sera = draw_sera(run.cohort, ANTIBODY_RISE)
+sera = draw_sera(run.infected, ANTIBODY_RISE)
 tau = [sample[3] - sample[2] for sample in sera]
 titres = [sample[4] for sample in sera]
 
 scatter(tau, titres, markersize = 3, alpha = 0.6, label = "",
     xlabel = "Days since infection", ylabel = "log2 titre",
-    title = "What the serosurvey sees")
+    title = "Simulated titres by time since infection")
 ```
 
 The first bleed catches people while their antibody is still climbing, and the second finds them at their peak.
-Two clouds appear at the top and bottom of the plot, which are the strong and weak responders.
+The samples settle at three levels, which are the three kinds of responder: most islanders reach a protective titre, some an intermediate one, and a fifth stay low.
 
 # Learning the protection curve
 
@@ -192,17 +202,29 @@ The network takes a log2 titre and returns protection between zero and one.
 network = protection_network()
 p_init, network_state = protection_weights(network)
 
-protection_from(p) = titre -> network_protection(titre, p, network, network_state)
+curve(p) = protection_from(p, network, network_state) ## the learned protection curve
 
 ## the case series alone, at the antibody rise time we assume
-cases_only(p, rise) = -case_loglik(outbreak(rise, protection_from(p)).infections, cases)
+cases_only(p, rise) = -case_loglik(outbreak(rise, curve(p)).infections, cases)
 
 ## the case series and the serosurvey together
 with_sera(p, rise) = cases_only(p, rise) - sero_loglik(sera, rise)
 ```
 
+::: {.callout-important}
+## What you know goes into the network too
+
+The case series sees a second wave and cannot see who is in it.
+A curve that *falls* as titre rises explains that wave just as well, by casting the strong responders as the susceptible group and the weak ones as protected, and on this case series it comes within four log likelihood units of the truth.
+Gradient descent from an unlucky start settles there and reports it without any sign of trouble.
+
+Protection rises with antibody, and that is knowledge, so it belongs in the architecture.
+`monotone` takes the absolute value of every weight, which makes the network increasing in its input and removes the mirror solution from the space the optimiser searches.
+`fit_protection` then trains from three sets of starting weights and keeps the best, which guards against the ordinary kind of local optimum.
+:::
+
 ```{julia}
-p_cases, history = train_protection(p -> cases_only(p, ANTIBODY_RISE), p_init)
+p_cases, _, history = fit_protection(p -> cases_only(p, ANTIBODY_RISE), network)
 println("network parameters: ", length(p_init))
 println("loss on the case series: ", round(cases_only(p_cases, ANTIBODY_RISE), digits = 1))
 for titre in (3.0, 5.0, 7.0)
@@ -213,19 +235,31 @@ end
 ```
 
 ```{julia}
+fitted = TDC_REPORTING .* outbreak(ANTIBODY_RISE, curve(p_cases)).infections
+
+scatter(days, cases, markersize = 3, color = :black, label = "simulated cases",
+    xlabel = "Day", ylabel = "Cases", title = "The fitted epidemic")
+plot!(days, fitted, linewidth = 2, label = "fitted")
+```
+
+The fit reproduces both waves, which is the least it should do: the protection curve has 25 parameters and the epidemic is one curve of 60 numbers.
+A fit this good tells you the model can describe the outbreak, but it leaves the mechanism inside it untested.
+
+```{julia}
 titre_grid = range(0, 9, length = 200)
 learned(p) = [network_protection(t, p, network, network_state) for t in titre_grid]
 
 plot(titre_grid, true_protection.(titre_grid), linewidth = 3, color = :black,
     label = "True protection", xlabel = "log2 titre", ylabel = "Protection",
-    title = "Fitted to the case series, with the antibody rise assumed correctly")
+    title = "Protection fitted with the rise time assumed correct")
 plot!(titre_grid, learned(p_cases), linewidth = 2, label = "Learned")
 ```
 
-Given the right antibody curve, the case series recovers the shape of the protection curve: flat and low while titres are small, climbing steeply around a titre of 5 to 6.
-That result rests on an assumption we have no business making.
+Given the right antibody curve, the case series puts the curve in the right place: protection passes one half at a log2 titre of about five, where the truth does, and the two agree at the top and bottom of the range.
+The two steps in the truth are smoothed into one, which is the first sign of where the information runs out.
+That fit was handed the antibody rise time, and the next section asks what happens when a study has to estimate it.
 
-# The likelihood is flat where it matters
+# One epidemic, many protection curves
 
 The antibody rise time was handed to the fit.
 Change it and the network compensates, because the cases only ever see the product of the two.
@@ -239,7 +273,7 @@ unstack(losses, :rise, :data, :loss)
 
 ```{julia}
 plot(xlabel = "Assumed antibody rise time (days)", ylabel = "Loss",
-    title = "What each dataset can say about the rise time")
+    title = "Each dataset's loss against the assumed rise time")
 for (label, marker) in (("cases", :circle), ("final sera", :diamond), ("serial sera", :square))
     rows = sort(losses[losses.data .== label, :], :rise)
     plot!(rows.rise, rows.loss, linewidth = 2, marker = marker, label = label)
@@ -247,9 +281,10 @@ end
 vline!([ANTIBODY_RISE], linestyle = :dash, color = :grey, label = "truth")
 ```
 
-The case series is flat.
-Across a fourfold range of rise times the loss moves by about one unit, and its lowest point sits at the far end from the truth.
-The fits behind those points disagree completely about immunology.
+The case series barely moves: three quarters of a log likelihood unit separates its best and worst rise times across the whole range from three to eleven days.
+Its minimum sits at eight, ahead of the truth at six by two hundredths of a unit, which is nothing at all.
+The network absorbs a wrong antibody curve and reproduces the same epidemic through it.
+The serial sera, by contrast, move by 254 units over the same range and put their minimum on six.
 
 ```{julia}
 #| output: false
@@ -273,14 +308,17 @@ end
 plot!()
 ```
 
-Every curve in that figure fits the epidemic. They disagree about whether protection begins at a titre of 2 or of 7, which is the difference between an island that was mostly immune and one that was mostly exposed.
+Every curve in that figure fits the epidemic.
+They disagree about where protection arrives: the titre at which it reaches one half moves from about four, under an assumed rise time of eleven days, to about seven, under three days.
+The longer the antibody is assumed to take to build, the lower the titre at which the fitted curve places protection, because the epidemic only ever sees the two multiplied together.
+Three doublings of titre separate the ends, and one doubling is the difference between a titre that protects an islander and one that leaves them open to a second attack.
 
 ::: {.callout-important}
-## A flat likelihood is an answer
+## Extra flexibility is spent on the wrong thing
 
 The case data identify susceptibility as a function of time since infection.
 Splitting that into an antibody curve and a protection curve needs a second kind of measurement.
-Fitting harder, or with a more flexible network, leaves the profile as flat as it was, because the flat direction belongs to the data and the model rather than to the optimiser.
+A more flexible network makes this worse rather than better: the extra freedom is spent absorbing the wrong antibody curve, and the fit improves while the answer drifts.
 :::
 
 # What a serosurvey adds
@@ -301,7 +339,7 @@ end
 ```{julia}
 plot(titre_grid, true_protection.(titre_grid), linewidth = 3, color = :black,
     label = "True protection", xlabel = "log2 titre", ylabel = "Protection",
-    title = "The curve each dataset arrives at")
+    title = "Protection curves from the three datasets")
 for (label, style) in (("cases", :solid), ("final sera", :dash), ("serial sera", :solid))
     rise = chosen[label]
     plot!(titre_grid, learned(weights_for(rise, label)), linewidth = 2,
@@ -322,11 +360,60 @@ println(rpad("truth", 14), "protection at log2 titre 3/5/7: ",
 ```
 
 The serial sera pick six days and recover the curve.
-The case series and the final survey both pick eleven and land on the same answer, which is why the dashed line traces the solid one, and that answer puts half protection around a titre of 4 where the truth is near 6.
-On those numbers an analyst would report that the island was largely protected at titres that in fact left people open to a second attack, which is the difference between the two mechanisms Camacho et al. could not separate.
+The case series picks eight days and the final survey eleven, and both slide protection down to titres where it has not arrived: at a log2 titre of 5 they report 0.75 and 0.91 against a true 0.51.
+An analyst working from either would call an islander at that titre safe when they were about as likely as not to be reinfected, and would report an island better protected than it was.
 
 The identification comes from the first bleed, on day 20, when antibody is still climbing and its rate leaves a trace.
 By the end of the outbreak everyone has reached their peak, and a titre at the plateau says how high the response climbed rather than how fast.
+
+## How much of that curve is pinned down
+
+A single fit gives a single curve.
+To see how much the noise in the data moves it, the script refits eight times to resampled case counts and a resampled serosurvey, holding the rise time at the value the serial sera chose.
+Each refit restarts three times, so the spread below is uncertainty rather than the optimiser giving up in different places.
+
+```{julia}
+ensemble = CSV.read(datadir("tdc_protection_ensemble.csv"), DataFrame)
+members = [begin
+               rows = sort(ensemble[ensemble.replicate .== r, :], :index)
+               p = copy(p_init)
+               p .= rows.value
+               p
+           end for r in unique(ensemble.replicate)]
+
+plot(titre_grid, true_protection.(titre_grid), linewidth = 3, color = :black,
+    label = "True protection", xlabel = "log2 titre", ylabel = "Protection",
+    title = "Eight fits to resampled data")
+for (i, p) in enumerate(members)
+    plot!(titre_grid, learned(p), linewidth = 1.5, alpha = 0.7, color = 2,
+        label = i == 1 ? "resampled fits" : "")
+end
+plot!(titre_grid, learned(weights_for(chosen["serial sera"], "serial sera")),
+    linewidth = 2.5, color = 1, label = "fit to the simulated data")
+```
+
+```{julia}
+predictions = [TDC_REPORTING .* outbreak(ANTIBODY_RISE, curve(p)).infections
+               for p in members]
+lower = [minimum(pred[i] for pred in predictions) for i in eachindex(days)]
+upper = [maximum(pred[i] for pred in predictions) for i in eachindex(days)]
+
+plot(days, lower, fillrange = upper, fillalpha = 0.3, linealpha = 0, color = 1,
+    label = "range across the eight fits", xlabel = "Day", ylabel = "Cases",
+    title = "Epidemics the fitted curves produce")
+plot!(days, predictions[1], linewidth = 2, color = 1, label = "one of them")
+scatter!(days, cases, markersize = 3, color = :black, label = "simulated cases")
+```
+
+The eight curves agree at the bottom and top of the titre range and disagree across the middle, which is exactly where the true curve has its shoulder.
+That middle stretch is the part the data speak least about, and it is the part that distinguishes a curve with two steps from a plain logistic.
+
+The epidemics those curves produce sit on the data throughout.
+The band has no width during the first wave, because protection plays no part in infecting islanders who have never been infected, and it opens up in the second wave, where the curves disagree.
+Models that differ about immunology can agree about the epidemic.
+
+This ensemble is a rough sampling distribution rather than a posterior.
+It moves the data and refits, so it shows how much the noise moves the answer, and it holds the rise time fixed, so it leaves out the uncertainty that the profile above makes visible.
 
 ::: {.callout-tip title="Exercise: when to draw blood"}
 The two serosurveys cost the same and differ only in timing.
@@ -346,39 +433,52 @@ The general rule is that a measurement informs a rate only while the quantity it
 
 ```{julia}
 p_best = weights_for(chosen["serial sera"], "serial sera")
-
-strong = [antibody_level(1, t, ANTIBODY_RISE) for t in 0:TDC_DAYS]
-weak = [antibody_level(2, t, ANTIBODY_RISE) for t in 0:TDC_DAYS]
+labels = ("strong", "intermediate", "weak")
 sus(class, p) = [(1 - early_protection(t)) *
                  (1 - network_protection(antibody_level(class, t, ANTIBODY_RISE), p,
                                          network, network_state)) for t in 0:TDC_DAYS]
 
+true_sus(class) = [(1 - early_protection(t)) *
+                   (1 - true_protection(antibody_level(class, t, ANTIBODY_RISE)))
+                   for t in 0:TDC_DAYS]
+
+for (c, label) in enumerate(labels)
+    learned_s, true_s = sus(c, p_best), true_sus(c)
+    println(rpad(label, 14), "peak susceptibility ", round(maximum(learned_s), digits = 2),
+        " on day ", argmax(learned_s) - 1, ", settling at ", round(learned_s[end], digits = 2),
+        " (truth ", round(maximum(true_s), digits = 2), " on day ", argmax(true_s) - 1,
+        ", settling at ", round(true_s[end], digits = 2), ")")
+end
+
 plt = plot(layout = (1, 2), size = (900, 400), bottom_margin = 5Plots.mm,
     left_margin = 3Plots.mm)
-plot!(plt[1], 0:TDC_DAYS, strong, linewidth = 2, label = "strong responder",
-    xlabel = "Days since infection", ylabel = "log2 titre", title = "Antibody",
-    titlefontsize = 10)
-plot!(plt[1], 0:TDC_DAYS, weak, linewidth = 2, label = "weak responder")
-plot!(plt[2], 0:TDC_DAYS, sus(1, p_best), linewidth = 2, label = "strong responder",
-    xlabel = "Days since infection", ylabel = "Susceptibility",
-    title = "Susceptibility implied by the learned curve", titlefontsize = 10)
-plot!(plt[2], 0:TDC_DAYS, sus(2, p_best), linewidth = 2, label = "weak responder")
+for (c, label) in enumerate(labels)
+    plot!(plt[1], 0:TDC_DAYS, [antibody_level(c, t, ANTIBODY_RISE) for t in 0:TDC_DAYS],
+        linewidth = 2, label = label, xlabel = "Days since infection",
+        ylabel = "log2 titre", title = "Antibody", titlefontsize = 10)
+    plot!(plt[2], 0:TDC_DAYS, sus(c, p_best), linewidth = 2, color = c, label = label,
+        xlabel = "Days since infection", ylabel = "Susceptibility",
+        title = "Susceptibility: learned (solid) and true (dashed)", titlefontsize = 10)
+    plot!(plt[2], 0:TDC_DAYS, true_sus(c), linewidth = 2, color = c, linestyle = :dash,
+        label = "")
+end
 plt
 ```
 
-The learned curve, applied along the two antibody trajectories, reproduces the mechanism that generated the island's second wave.
-A strong responder is briefly susceptible around a fortnight after infection, when the early protection has faded and the titre is close to the threshold, and is protected after that.
-A weak responder becomes susceptible at the same time and stays that way, which is why a third of the island could have influenza twice inside two months.
+The learned curve, applied along the three antibody trajectories, reproduces the mechanism behind the island's second wave.
+A strong responder opens to 0.03 on day 13, against a true 0.04 on the same day: the early protection has faded and the titre is nearly at its peak, so the window exists and is narrow.
+An intermediate responder reaches 0.68 and settles at 0.61, where the truth is 0.52 and 0.51, so a second attack is slowed and the fit overstates by about a fifth.
+A weak responder returns to full susceptibility and stays there, which is a fifth of the island.
 
 Both of Camacho's surviving hypotheses appear here as features of one curve.
 The brief dip in the strong responders is their window of susceptibility.
 The flat high susceptibility of the weak responders is their all-or-nothing response.
 A study with serial sera would tell you how much of each the island had, which the case series alone cannot.
 
-# What this does and does not show
+# What a study would have to collect
 
 ::: {.callout-warning}
-## The island's real record cannot support this analysis
+## The island's record holds 11 sera against this session's 160
 
 Mantle and Tyrrell recovered sera from 11 islanders, at one time point [@camacho2011].
 Everything above rests on 160 samples from 80 people bled twice, with infection dates attached.
@@ -414,7 +514,7 @@ Fixing the antibody curve by assumption would make the protection curve estimabl
 
 - The unknown function's input is measured at the times it is used. A parametric form or a spline in that covariate, fitted with MCMC, is simpler and gives uncertainty
 - A form with a few interpretable parameters fits adequately, in which case prefer it
-- The likelihood is flat in the direction you care about. A flexible function makes that worse rather than better, and the answer is more data of another kind
+- The likelihood is flat in the direction you care about. Extra flexibility widens the flat direction, and the fix is data of another kind
 
 # Comparison with other approaches
 
@@ -435,6 +535,7 @@ Philipps et al. [-@philipps2025] review the state of UDEs in systems biology and
 ::: {.callout-tip title="Learning points"}
 - **A compartment can hide a mechanism**: replacing T with antibody turns a duration you assume into a curve you can estimate, and makes the assumption visible
 - **UDEs learn a function of something the model tracks**: here the titre at exposure, which the sera measure on other days
+- **What you know goes into the network**: protection rises with antibody, and a network free to learn otherwise finds a mirror solution that the case series rejects by only four log likelihood units
 - **A flat likelihood is a result**: the case series constrains susceptibility against time since infection, and splitting that into an antibody curve and a protection curve needs data of another kind
 - **Timing decides whether a measurement identifies a rate**: bleeds on day 20 pin the antibody rise, and the same islanders bled at the end say as little as the cases do
 - **Competing mechanisms can be one curve**: a window of susceptibility and an all-or-nothing response are the strong and weak ends of the same protection curve
