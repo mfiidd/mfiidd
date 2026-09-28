@@ -17,7 +17,7 @@ order: 13
 ::: {.callout-note collapse="true"}
 ## Coming from R?
 UDEs rely on differentiable programming: automatic differentiation through a mechanistic model with a neural network inside it.
-R has neural network libraries and R has differential equation solvers, but nothing that differentiates through the two together, which leaves the training loop in this session without a practical R translation.
+R has neural network libraries and differential equation solvers, but nothing that differentiates through the two together, which leaves the training loop in this session without a practical R translation.
 The Julia ecosystem (SciML, Lux.jl) is currently the most mature platform for this kind of work.
 The concepts transfer, and the session is worth reading for them.
 :::
@@ -28,7 +28,7 @@ Of the 284 islanders on Tristan da Cunha in 1971, 273 had an attack of influenza
 The [SEITL session](seitl.qmd) explains that second wave with a compartment: after recovery you sit in T for a while, and you leave it either back to susceptible or on to lasting immunity.
 The [pMCMC session](pmcmc.qmd) then compares two shapes for the time spent in T.
 
-That compartment stands for immunology the 1971 investigation did not measure.
+That compartment stands in for immunology, where the 1971 record gives only dates of attack.
 Camacho et al. [-@camacho2011] compared six mechanisms for the same outbreak and found two that the case data support equally well: a window of susceptibility that opens after recovery, and an all-or-nothing response in which some islanders acquire no lasting protection at all.
 Their closing recommendation is that separating the two needs immunological data on individuals, which Mantle and Tyrrell's record lacks.
 
@@ -49,7 +49,7 @@ Between the two lies a window in which a person has lost the early protection an
 Islanders whose antibody peaks low stay in that state.
 Both of Camacho's surviving mechanisms fall out of the same picture: a delayed climb is the window hypothesis, a low peak is the all-or-nothing one.
 
-The curve that decides both is protection as a function of antibody titre, and its shape is unknown.
+Both mechanisms turn on one unknown curve: protection as a function of antibody titre.
 Estimates exist for influenza from challenge and field data [@coudeville2010], with 1:40 the conventional half-protective titre, and their uncertainty is wide.
 
 ## The model
@@ -191,7 +191,7 @@ scatter(tau, titres, markersize = 3, alpha = 0.6, label = "",
 ```
 
 The first bleed catches people while their antibody is still climbing, and the second finds them at their peak.
-The samples settle at three levels, which are the three kinds of responder: most islanders reach a protective titre, some an intermediate one, and a fifth stay low.
+The samples settle at three levels, one for each kind of responder: most islanders reach a protective titre, some an intermediate one, and a fifth stay low.
 
 # Learning the protection curve
 
@@ -215,9 +215,9 @@ with_sera(p, rise) = cases_only(p, rise) - sero_loglik(sera, rise)
 ::: {.callout-important}
 ## What you know goes into the network too
 
-The case series sees a second wave and cannot see who is in it.
+The case series sees a second wave but cannot see who is in it.
 A curve that *falls* as titre rises explains that wave just as well, by casting the strong responders as the susceptible group and the weak ones as protected, and on this case series it comes within four log likelihood units of the truth.
-Gradient descent from an unlucky start settles there and reports it without any sign of trouble.
+Gradient descent from an unlucky start settles there and returns a fitted epidemic that looks as good as the one the true curve gives.
 
 We know that protection rises with antibody, so that belongs in the architecture.
 `monotone` takes the absolute value of every weight, which makes the network increasing in its input and removes the mirror solution from the space the optimiser searches.
@@ -262,8 +262,7 @@ That fit was handed the antibody rise time, and the next section asks what happe
 
 # One epidemic, many protection curves
 
-The antibody rise time was handed to the fit.
-Change it and the network compensates, because the cases only ever see the product of the two.
+Change the assumed rise time and the network compensates for it.
 The profile below refits the network at each assumed rise time, with the case series alone and with the sera added.
 
 ```{julia}
@@ -319,12 +318,12 @@ Three doublings of titre separate the ends, and one doubling is the difference b
 
 The case data identify susceptibility as a function of time since infection.
 Splitting that into an antibody curve and a protection curve needs a second kind of measurement.
-A more flexible network makes this worse rather than better: the extra freedom is spent absorbing the wrong antibody curve, and the fit improves while the answer drifts.
+A more flexible network deepens the problem: the extra freedom is spent absorbing the wrong antibody curve, and the fit improves while the answer drifts.
 :::
 
 # What a serosurvey adds
 
-The sera speak about the antibody curve, which is the part the cases leave open.
+The sera measure the antibody curve, which is the part the cases leave open.
 Let each dataset pick its own rise time, and compare the protection curves that follow.
 
 ```{julia}
@@ -371,7 +370,7 @@ By the end of the outbreak everyone has reached their peak, and a titre at the p
 
 A single fit gives a single curve.
 To see how much the noise in the data moves it, the script refits eight times to resampled case counts, holding the rise time at the value the serial sera chose.
-Each refit restarts three times, so the spread below is uncertainty rather than the optimiser giving up in different places.
+Each refit restarts three times, so the spread below is uncertainty rather than the optimiser stalling in different places.
 
 ```{julia}
 ensemble = CSV.read(datadir("tdc_protection_ensemble.csv"), DataFrame)
@@ -407,14 +406,15 @@ scatter!(days, cases, markersize = 3, color = :black, label = "simulated cases")
 ```
 
 The eight curves agree at the bottom and top of the titre range and disagree between about four and seven, which covers the shoulder in the true curve.
-That middle stretch is the part the data speak least about, and it is the part that distinguishes a curve with two steps from a plain logistic.
+The data speak least about that middle stretch, and it is what separates a curve with two steps from a plain logistic.
 
 The epidemics those curves produce sit on the data throughout.
-The band has no width during the first wave, because protection plays no part in infecting islanders who have never been infected, and it opens up in the second wave, where the curves disagree.
+The band has no width during the first wave, where every infection is a first infection and the protection curve plays no part, and it opens up in the second, where the curves disagree.
 Models that differ about immunology can agree about the epidemic.
 
 This ensemble is a rough sampling distribution rather than a posterior.
-It moves the data and refits, so it shows how much the noise moves the answer, and it holds the rise time fixed, so it leaves out the uncertainty that the profile above makes visible.
+It moves the data and refits, which shows how much the noise moves the answer.
+Holding the rise time fixed leaves out the uncertainty the profile above makes visible.
 
 ::: {.callout-tip title="Exercise: when to draw blood"}
 The two serosurveys cost the same and differ only in timing.
@@ -467,14 +467,15 @@ plt
 ```
 
 The learned curve, applied along the three antibody trajectories, reproduces the mechanism behind the island's second wave.
-A strong responder opens to 0.03 on day 13, against a true 0.04 on the same day: the early protection has faded and the titre is nearly at its peak, so the window exists and is narrow.
-An intermediate responder reaches 0.68 and settles at 0.61, where the truth is 0.52 and 0.51, so a second attack is slowed rather than prevented, and the fit reads them as slightly more exposed than they were.
+A strong responder opens to 0.03 on day 13, against a true 0.04 on the same day: the early protection has faded while the titre is nearly at its peak, which leaves a narrow window.
+An intermediate responder reaches 0.68 and settles at 0.61, where the truth is 0.52 and 0.51, so a second attack is slowed rather than prevented.
+The fit reads that group as slightly more exposed than they were.
 A weak responder returns to full susceptibility and stays there, and they are a fifth of the island.
 
 Both of Camacho's surviving hypotheses appear here as features of one curve.
 The bump in the strong responders is their window of susceptibility.
 The flat high susceptibility of the weak responders is their all-or-nothing response.
-A study with serial sera would tell you how much of each the island had, which the case series alone cannot.
+A study with serial sera would tell you how much of each the island had; the case series gives their combined effect and stops there.
 
 # What a study would have to collect
 
@@ -527,7 +528,7 @@ Fixing the antibody curve by assumption would make the protection curve estimabl
 
 # Where UDEs have been applied
 
-Real-data applications are still relatively few.
+Real-data applications are still few.
 In epidemiology, Kuwahara and Bauch [-@kuwahara2024] used a UDE informed by behaviour and mobility data to predict COVID-19 waves, Schmid et al. [-@schmid2026] combined a UDE-based SEIR model with wastewater surveillance to project case counts, and Rojas-Campos et al. [-@rojas2023] demonstrated the UDE-to-SINDy pipeline on simulated regional transmission data.
 Philipps et al. [-@philipps2025] review the state of UDEs in systems biology and note that most published work still uses synthetic data.
 
