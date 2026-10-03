@@ -21,4 +21,9 @@ jobs:
       - name: Run CompatHelper
         run: julia -e 'using CompatHelper; CompatHelper.main()'
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # A personal access token, not secrets.GITHUB_TOKEN. GitHub refuses to
+          # trigger workflows for anything the Actions token authors, so a pull
+          # request opened with it gets no render, cannot satisfy the required
+          # checks, and never reaches the auto-merge workflow. The token needs
+          # contents and pull-requests write on this repository.
+          GITHUB_TOKEN: ${{ secrets.COMPATHELPER_TOKEN }}

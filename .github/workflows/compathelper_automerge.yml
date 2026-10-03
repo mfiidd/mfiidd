@@ -12,7 +12,7 @@ jobs:
   enable-auto-merge:
     runs-on: ubuntu-latest
     if: >-
-      github.event.pull_request.user.login == 'github-actions[bot]' &&
+      contains(fromJSON('["github-actions[bot]", "sbfnk-bot"]'), github.event.pull_request.user.login) &&
       startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/')
     steps:
       - name: Enable auto-merge (squash)
