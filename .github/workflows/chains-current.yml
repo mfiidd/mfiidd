@@ -19,7 +19,12 @@ jobs:
           HEAD: ${{ github.event.pull_request.head.sha }}
           LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
         run: |
-          changed=$(git diff --name-only "$BASE" "$HEAD")
+          # base.sha is the base branch tip rather than the merge base, so compare
+          # against where this branch left main. A branch that is merely behind
+          # would otherwise report main's own bumps in reverse as its own, and be
+          # told to regenerate chains for a bump that is not its.
+          merge_base=$(git merge-base "$BASE" "$HEAD")
+          changed=$(git diff --name-only "$merge_base" "$HEAD")
 
           case "$changed" in
             *Project.toml*) ;;
@@ -30,7 +35,7 @@ jobs:
           moved=""
           while read -r pkg; do
             case "$pkg" in ''|\#*) continue ;; esac
-            before=$(git show "$BASE:Project.toml" | sed -n "/^\[compat\]/,\$p" \
+            before=$(git show "$merge_base:Project.toml" | sed -n "/^\[compat\]/,\$p" \
                      | grep -E "^$pkg = " || true)
             after=$(git show "$HEAD:Project.toml" | sed -n "/^\[compat\]/,\$p" \
                     | grep -E "^$pkg = " || true)
