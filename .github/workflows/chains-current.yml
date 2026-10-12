@@ -2,6 +2,10 @@ name: Chains current
 
 on:
   pull_request:
+    # labeled is here because the chains-reviewed escape hatch below is read from
+    # the event payload. Without it, labelling a pull request that has already
+    # failed triggers nothing, and re-running the job replays the old labels.
+    types: [opened, reopened, synchronize, labeled]
 
 permissions:
   contents: read
