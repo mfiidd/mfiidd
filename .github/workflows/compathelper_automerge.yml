@@ -11,11 +11,12 @@ permissions:
 jobs:
   enable-auto-merge:
     runs-on: ubuntu-latest
-    # Matched on type rather than login, because CompatHelper now authors through
-    # an app installation token and the login is that app's, not the Actions bot's.
-    # The branch prefix is what makes this specific.
+    # The app's own login. CompatHelper authors through an app installation token
+    # now, so this is no longer the Actions bot, but matching the type alone would
+    # leave a branch name as the only thing identifying the pull request, and an
+    # author chooses that.
     if: >-
-      github.event.pull_request.user.type == 'Bot' &&
+      github.event.pull_request.user.login == 'mfiidd-compathelper[bot]' &&
       startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/')
     steps:
       # pull_request_target runs with write access, so check out the base ref and
