@@ -45,6 +45,12 @@ jobs:
           if [ -z "$dep" ]; then
             echo "No dependency readable from the title, so a person reviews this one."
             echo "auto=no" >> "$GITHUB_OUTPUT"
+          elif [ ! -f .github/chain-affecting-packages.txt ]; then
+            # grep exits 2 for a missing file and 1 for no match, which the elif
+            # below cannot tell apart, so a moved or renamed list would wave
+            # everything through. Checked separately for that reason.
+            echo "The package list is missing, so a person reviews this one."
+            echo "auto=no" >> "$GITHUB_OUTPUT"
           elif grep -qxF "$dep" .github/chain-affecting-packages.txt; then
             echo "$dep can move the committed chains, so a person reviews this one."
             echo "auto=no" >> "$GITHUB_OUTPUT"
