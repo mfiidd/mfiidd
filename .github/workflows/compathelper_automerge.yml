@@ -36,9 +36,16 @@ jobs:
         env:
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          dep=$(printf '%s\n' "$TITLE" | sed -n 's/.* for \([A-Za-z0-9_]*\) to .*/\1/p')
+          # CompatHelper writes two title forms, "bump compat for X to Y" and
+          # "add new compat entry for X at version Y", and a title this cannot
+          # read is left for a person rather than waved through.
+          dep=$(printf '%s\n' "$TITLE" \
+                | sed -n 's/.* for \([A-Za-z0-9_]*\) \(to\|at version\) .*/\1/p')
           echo "dependency: ${dep:-<unparsed>}"
-          if [ -n "$dep" ] && grep -qxF "$dep" .github/chain-affecting-packages.txt; then
+          if [ -z "$dep" ]; then
+            echo "No dependency readable from the title, so a person reviews this one."
+            echo "auto=no" >> "$GITHUB_OUTPUT"
+          elif grep -qxF "$dep" .github/chain-affecting-packages.txt; then
             echo "$dep can move the committed chains, so a person reviews this one."
             echo "auto=no" >> "$GITHUB_OUTPUT"
           else
