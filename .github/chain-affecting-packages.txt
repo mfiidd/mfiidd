@@ -14,10 +14,12 @@
 # and generate_pmcmc_seit4l.jl each take many hours at 256 particles, against a
 # six hour limit per CI job.
 #
-# One name per line. Add a package when its version can move the draws.
+# One name per line, and each name must be a direct dependency in Project.toml,
+# because CompatHelper only ever bumps those. AdvancedMH is the sampler itself:
+# the chains come from externalsampler(AdvancedMH.RobustAdaptiveMetropolis()).
 
 Turing
-AdvancedPS
+AdvancedMH
 AdvancedVI
 SSMProblems
 GeneralisedFilters
