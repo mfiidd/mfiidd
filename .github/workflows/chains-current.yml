@@ -17,7 +17,7 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-      - name: Check the committed chains against the compat bounds
+      - name: Check the committed chains against the resolved versions
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
           HEAD: ${{ github.event.pull_request.head.sha }}
@@ -30,28 +30,38 @@ jobs:
           merge_base=$(git merge-base "$BASE" "$HEAD")
           changed=$(git diff --name-only "$merge_base" "$HEAD")
 
+          # Manifest.toml, not Project.toml. The sessions and the generation
+          # scripts load whatever the manifest pins, and a widened [compat] bound
+          # leaves that pin valid, so Pkg.resolve keeps it. A bound moving is
+          # therefore not what moves the draws; a resolved version moving is.
           case "$changed" in
-            *Project.toml*) ;;
-            *) echo "Project.toml untouched, nothing to check."; exit 0 ;;
+            *Manifest.toml*) ;;
+            *) echo "Manifest.toml untouched, nothing to check."; exit 0 ;;
           esac
 
-          # Which of the listed packages had their compat bound changed.
+          # The version line from one package's block in the manifest at one ref.
+          # The || true matters because the job runs under pipefail: a manifest
+          # added by the pull request itself does not exist at the merge base.
+          pinned() {
+            { git show "$1:Manifest.toml" 2>/dev/null || true; } \
+              | awk -v pkg="$2" '$0 == "[[deps." pkg "]]" { f = 1; next }
+                                 /^\[\[/ { f = 0 }
+                                 f && /^version = / { print; exit }'
+          }
+
           moved=""
           while read -r pkg; do
             case "$pkg" in ''|\#*) continue ;; esac
-            before=$(git show "$merge_base:Project.toml" | sed -n "/^\[compat\]/,\$p" \
-                     | grep -E "^$pkg = " || true)
-            after=$(git show "$HEAD:Project.toml" | sed -n "/^\[compat\]/,\$p" \
-                    | grep -E "^$pkg = " || true)
-            [ "$before" != "$after" ] && moved="$moved $pkg"
+            [ "$(pinned "$merge_base" "$pkg")" != "$(pinned "$HEAD" "$pkg")" ] \
+              && moved="$moved $pkg"
           done < .github/chain-affecting-packages.txt
 
           if [ -z "$moved" ]; then
-            echo "No chain-affecting compat bound changed."
+            echo "No chain-affecting package changed its resolved version."
             exit 0
           fi
 
-          echo "Compat changed for:$moved"
+          echo "Resolved version changed for:$moved"
 
           # Every committed chain comes from one environment, so regenerating some
           # and not the others is worse than regenerating none: the sessions then
@@ -73,16 +83,17 @@ jobs:
           esac
 
           cat <<MSG
-          The compat bound moved for:$moved
+          The resolved version moved for:$moved
           and these committed chains were not regenerated:$stale
 
-          Those versions can change the draws in the committed chains under data/,
-          and the sessions load those chains rather than regenerating them, so the
-          site render cannot tell you whether they still match the code.
+          Those are the versions the sessions and the generation scripts actually
+          load, so moving them can change the draws in the committed chains under
+          data/. The sessions load those chains rather than regenerating them, so
+          the site render cannot tell you whether they still match the code.
 
           Either regenerate them, with scripts/generate_pmcmc_seitl.jl,
           generate_pmcmc_seit4l.jl and generate_pmcmc_seit4l_abc.jl, and commit the
-          result; or add the chains-reviewed label if this bump cannot move the
+          result; or add the chains-reviewed label if this change cannot move the
           draws. The first two take many hours at 256 particles, so they belong on
           the cluster rather than here.
           MSG
