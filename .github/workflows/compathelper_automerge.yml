@@ -26,11 +26,14 @@ jobs:
           ref: ${{ github.event.pull_request.base.sha }}
           sparse-checkout: .github/chain-affecting-packages.txt
           sparse-checkout-cone-mode: false
-      # The required check is the full site render, which executes every session,
-      # so a bump that breaks one cannot merge. It does not regenerate the chains
-      # in data/, which the sessions load, so a bump to a package that can move
-      # the draws is left for a person. chain-affecting-packages.txt holds that
-      # list, shared with chains-current.yml so the two cannot drift apart.
+      # The required check is the full site render, and it is weaker than it looks:
+      # it resolves against the committed Manifest.toml, which a widened bound
+      # leaves valid, so it executes the version already pinned rather than the one
+      # being allowed. It shows the bound change breaks nothing as resolved today,
+      # and says nothing about the new version. It also loads the chains in data/
+      # rather than regenerating them. So a bump to a package that can move the
+      # draws is left for a person, from chain-affecting-packages.txt, the list
+      # this shares with chains-current.yml.
       - name: Decide whether this bump may merge itself
         id: decide
         env:
