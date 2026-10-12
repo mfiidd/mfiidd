@@ -11,9 +11,23 @@ permissions:
 jobs:
   enable-auto-merge:
     runs-on: ubuntu-latest
+    # Matched on type rather than login, because CompatHelper now authors through
+    # an app installation token and the login is that app's, not the Actions bot's.
+    # The branch prefix is what makes this specific.
+    #
+    # The required check is the full site render, which executes every session, so
+    # a dependency that breaks one cannot merge. It does not re-run the chain
+    # generation in scripts/: the sessions load the committed output in data/. A
+    # bump to the inference stack can therefore render green while the committed
+    # chains stop matching the code that made them, so those arrive as ordinary
+    # pull requests and someone decides whether to regenerate.
     if: >-
-      github.event.pull_request.user.login == 'github-actions[bot]' &&
-      startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/')
+      github.event.pull_request.user.type == 'Bot' &&
+      startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/') &&
+      !contains(github.event.pull_request.title, 'for Turing') &&
+      !contains(github.event.pull_request.title, 'for AdvancedPS') &&
+      !contains(github.event.pull_request.title, 'for SSMProblems') &&
+      !contains(github.event.pull_request.title, 'for GeneralisedFilters')
     steps:
       - name: Enable auto-merge (squash)
         env:
