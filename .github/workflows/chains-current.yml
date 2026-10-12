@@ -1,0 +1,70 @@
+name: Chains current
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  chains-current:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          fetch-depth: 0
+      - name: Check the committed chains against the compat bounds
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+          LABELS: ${{ join(github.event.pull_request.labels.*.name, ',') }}
+        run: |
+          changed=$(git diff --name-only "$BASE" "$HEAD")
+
+          case "$changed" in
+            *Project.toml*) ;;
+            *) echo "Project.toml untouched, nothing to check."; exit 0 ;;
+          esac
+
+          # Which of the listed packages had their compat bound changed.
+          moved=""
+          while read -r pkg; do
+            case "$pkg" in ''|\#*) continue ;; esac
+            before=$(git show "$BASE:Project.toml" | sed -n "/^\[compat\]/,\$p" \
+                     | grep -E "^$pkg = " || true)
+            after=$(git show "$HEAD:Project.toml" | sed -n "/^\[compat\]/,\$p" \
+                    | grep -E "^$pkg = " || true)
+            [ "$before" != "$after" ] && moved="$moved $pkg"
+          done < .github/chain-affecting-packages.txt
+
+          if [ -z "$moved" ]; then
+            echo "No chain-affecting compat bound changed."
+            exit 0
+          fi
+
+          echo "Compat changed for:$moved"
+
+          case "$changed" in
+            *data/pmcmc_*) echo "Committed chains were regenerated too."; exit 0 ;;
+          esac
+
+          case ",$LABELS," in
+            *,chains-reviewed,*)
+              echo "Labelled chains-reviewed, so taking it that regenerating is not needed."
+              exit 0 ;;
+          esac
+
+          cat <<MSG
+          The compat bound moved for:$moved
+
+          Those versions can change the draws in the committed chains under data/,
+          and the sessions load those chains rather than regenerating them, so the
+          site render cannot tell you whether they still match the code.
+
+          Either regenerate them, with scripts/generate_pmcmc_seitl.jl,
+          generate_pmcmc_seit4l.jl and generate_pmcmc_seit4l_abc.jl, and commit the
+          result; or add the chains-reviewed label if this bump cannot move the
+          draws. The first two take many hours at 256 particles, so they belong on
+          the cluster rather than here.
+          MSG
+          exit 1

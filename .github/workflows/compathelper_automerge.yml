@@ -14,22 +14,37 @@ jobs:
     # Matched on type rather than login, because CompatHelper now authors through
     # an app installation token and the login is that app's, not the Actions bot's.
     # The branch prefix is what makes this specific.
-    #
-    # The required check is the full site render, which executes every session, so
-    # a dependency that breaks one cannot merge. It does not re-run the chain
-    # generation in scripts/: the sessions load the committed output in data/. A
-    # bump to the inference stack can therefore render green while the committed
-    # chains stop matching the code that made them, so those arrive as ordinary
-    # pull requests and someone decides whether to regenerate.
     if: >-
       github.event.pull_request.user.type == 'Bot' &&
-      startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/') &&
-      !contains(github.event.pull_request.title, 'for Turing') &&
-      !contains(github.event.pull_request.title, 'for AdvancedPS') &&
-      !contains(github.event.pull_request.title, 'for SSMProblems') &&
-      !contains(github.event.pull_request.title, 'for GeneralisedFilters')
+      startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/')
     steps:
+      # pull_request_target runs with write access, so check out the base ref and
+      # never the pull request's own code. Only the package list is read here.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: .github/chain-affecting-packages.txt
+          sparse-checkout-cone-mode: false
+      # The required check is the full site render, which executes every session,
+      # so a bump that breaks one cannot merge. It does not regenerate the chains
+      # in data/, which the sessions load, so a bump to a package that can move
+      # the draws is left for a person. chain-affecting-packages.txt holds that
+      # list, shared with chains-current.yml so the two cannot drift apart.
+      - name: Decide whether this bump may merge itself
+        id: decide
+        env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          dep=$(printf '%s\n' "$TITLE" | sed -n 's/.* for \([A-Za-z0-9_]*\) to .*/\1/p')
+          echo "dependency: ${dep:-<unparsed>}"
+          if [ -n "$dep" ] && grep -qxF "$dep" .github/chain-affecting-packages.txt; then
+            echo "$dep can move the committed chains, so a person reviews this one."
+            echo "auto=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "auto=yes" >> "$GITHUB_OUTPUT"
+          fi
       - name: Enable auto-merge (squash)
+        if: steps.decide.outputs.auto == 'yes'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |

@@ -1,0 +1,26 @@
+# Packages whose version can change the numbers in the committed chains under
+# data/, rather than only whether the code runs.
+#
+# The sessions load those chains instead of regenerating them, because a full
+# PMMH run takes hours. So the site render proves a bump did not break any code
+# path, and proves nothing about whether the sampler still produces the
+# committed draws. Two workflows read this list:
+#
+#   chains-current.yml          fails a pull request that changes compat for one
+#                              of these without regenerating the chains
+#   compathelper_automerge.yml  keeps these off auto-merge, so a person decides
+#
+# Regenerating is a cluster job, not a CI job: scripts/generate_pmcmc_seitl.jl
+# and generate_pmcmc_seit4l.jl each take many hours at 256 particles, against a
+# six hour limit per CI job.
+#
+# One name per line. Add a package when its version can move the draws.
+
+Turing
+AdvancedPS
+AdvancedVI
+SSMProblems
+GeneralisedFilters
+DifferentialEquations
+JumpProcesses
+Distributions
