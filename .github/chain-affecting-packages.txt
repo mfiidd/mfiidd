@@ -1,50 +1,57 @@
-# Packages whose version can change the numbers in the committed chains under
-# data/, rather than only whether the code runs.
+# Packages whose version can change the numbers in the committed PMMH output,
+# rather than only whether the code runs. That output is the three chain CSVs
+# under data/ and the deck figures drawn from them under sessions/slides/images/,
+# which CONTRIBUTING.md treats as one unit: change what produced the chains and
+# both have to be regenerated.
 #
-# The sessions load those chains instead of regenerating them, because a full
-# PMMH run takes hours. So the site render shows a bump broke no code path, and
-# shows nothing about whether the sampler still produces the committed draws.
-# One workflow reads this list: compathelper_automerge.yml keeps a bump to any
-# of these off auto-merge, so a person decides whether to widen the bound.
+# The sessions load that output instead of regenerating it, because a full PMMH
+# run takes hours. So the site render shows a bump broke no code path, and shows
+# nothing about whether the sampler still produces the committed draws. One
+# workflow reads this list: compathelper_automerge.yml keeps a bump to any of
+# these off auto-merge, so a person decides whether to widen the bound.
 #
-# That is the whole of what this list does today. Nothing checks the chains
-# themselves against the versions that produced them, and a widened bound is
-# only the permission for a later move: the version the code loads is the one
-# pinned in Manifest.toml, which a widened bound leaves valid, so Pkg.resolve
-# keeps it until someone re-resolves. Catching that move needs a check that
-# compares the manifest, which is not in place.
+# That is the whole of what this list does today. Nothing checks the committed
+# output against the versions that produced it, and a widened bound is only the
+# permission for a later move: the version the code loads is the one pinned in
+# Manifest.toml, which a widened bound leaves valid, so Pkg.resolve keeps it
+# until someone re-resolves. Catching that move needs a check that compares the
+# manifest, which is not in place.
 #
 # One bare name per line, nothing else on the line: the reader matches the whole
 # line with grep -qxF. Every name is a direct dependency in Project.toml, which
 # is the right universe here because the guard reads a CompatHelper title and
-# CompatHelper only bumps direct dependencies. Each earns its place by sitting
-# on the path the generation scripts take:
+# CompatHelper only bumps direct dependencies. Each earns its place by a traced
+# call on the path from a generation script to a committed artefact:
 #
-#   Turing                 drives the sampler
+#   Turing                 drives sample()
 #   AdvancedMH             RobustAdaptiveMetropolis, the proposal itself
 #   SSMProblems            the state space model interface
 #   GeneralisedFilters     BF, the bootstrap filter the chains run through
-#   LogExpFunctions        GeneralisedFilters' log-weight arithmetic
-#   StatsBase              GeneralisedFilters' resampler
-#   JumpProcesses          the stochastic simulator
-#   DifferentialEquations  supplies the solve both simulators run through, and
-#                          the ODE behind the committed deck figures
+#   LogExpFunctions        softmax and logsumexp, which GeneralisedFilters
+#                          weights and resamples with
+#   JumpProcesses          the stochastic simulator, and the solve it runs on
+#   DifferentialEquations  Tsit5, the deterministic fit in
+#                          scripts/generate_pmcmc_figures.jl
 #   Distributions          the priors and the observation model
 #
-# LogExpFunctions and StatsBase earn their place through what GeneralisedFilters
-# does with them, not through anything here: `logsumexp` is called only by
-# src/threaded_bootstrap_filter.jl, `wsample` is imported and never called, and
-# the chains take the unthreaded BF path. So do not prune either on a grep of
+# LogExpFunctions earns its place through GeneralisedFilters rather than through
+# anything here: logsumexp is called only by src/threaded_bootstrap_filter.jl,
+# and the chains take the unthreaded BF path. So do not prune it on a grep of
 # src/, which is what that evidence looks like at first glance.
 #
-# AdvancedVI is deliberately absent: nothing committed under data/ comes from it.
+# Two deliberate absences. AdvancedVI, because nothing committed comes from it.
+# And StatsBase, which looks like it belongs and does not: wsample is imported
+# at src/MFIIDD.jl:11 and never called, GeneralisedFilters' resamplers.jl holds
+# no StatsBase reference, and its only two uses there are a weights overload
+# nothing calls and an import in the Rao-Blackwellised filter, which BF is not.
+# Anything that did route StatsBase into the draws would arrive as a
+# GeneralisedFilters bump, which this list catches.
 
 Turing
 AdvancedMH
 SSMProblems
 GeneralisedFilters
 LogExpFunctions
-StatsBase
-DifferentialEquations
 JumpProcesses
+DifferentialEquations
 Distributions
