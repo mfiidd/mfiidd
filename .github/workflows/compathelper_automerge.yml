@@ -4,9 +4,10 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
 
+# The merge goes through the app token minted below, so the Actions token only
+# needs to read the base ref for the package list.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   enable-auto-merge:
@@ -19,6 +20,12 @@ jobs:
       github.event.pull_request.user.login == 'mfiidd-compathelper[bot]' &&
       startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/')
     steps:
+      - name: Mint an installation token
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.COMPATHELPER_APP_ID }}
+          private-key: ${{ secrets.COMPATHELPER_APP_KEY }}
       # pull_request_target runs with write access, so check out the base ref and
       # never the pull request's own code. Only the package list is read here.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -63,7 +70,14 @@ jobs:
       - name: Enable auto-merge (squash)
         if: steps.decide.outputs.auto == 'yes'
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # The app token again, not secrets.GITHUB_TOKEN, and for the same
+          # reason it is used to open these pull requests: GitHub raises no
+          # workflow for anything the Actions token authors. Auto-merge is
+          # performed as whoever enabled it, so enabling it with the Actions
+          # token lands a squash commit on main that triggers no push event and
+          # no deploy. #196 is the precedent: its squash commit 2f145d3 has zero
+          # workflow runs, where every compat merge done by hand has a deploy run.
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           gh pr merge ${{ github.event.pull_request.number }} \
             --auto --squash \
