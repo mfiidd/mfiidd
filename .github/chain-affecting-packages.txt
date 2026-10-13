@@ -20,15 +20,22 @@
 # CompatHelper only bumps direct dependencies. Each earns its place by sitting
 # on the path the generation scripts take:
 #
-#   Turing                 the sampler's driver
+#   Turing                 drives the sampler
 #   AdvancedMH             RobustAdaptiveMetropolis, the proposal itself
 #   SSMProblems            the state space model interface
-#   GeneralisedFilters     BF, the bootstrap filter
-#   LogExpFunctions        logsumexp, which forms the log-likelihood
-#   StatsBase              wsample, the resampler
-#   DifferentialEquations  the deterministic simulator
+#   GeneralisedFilters     BF, the bootstrap filter the chains run through
+#   LogExpFunctions        GeneralisedFilters' log-weight arithmetic
+#   StatsBase              GeneralisedFilters' resampler
 #   JumpProcesses          the stochastic simulator
+#   DifferentialEquations  supplies the solve both simulators run through, and
+#                          the ODE behind the committed deck figures
 #   Distributions          the priors and the observation model
+#
+# LogExpFunctions and StatsBase earn their place through what GeneralisedFilters
+# does with them, not through anything here: `logsumexp` is called only by
+# src/threaded_bootstrap_filter.jl, `wsample` is imported and never called, and
+# the chains take the unthreaded BF path. So do not prune either on a grep of
+# src/, which is what that evidence looks like at first glance.
 #
 # AdvancedVI is deliberately absent: nothing committed under data/ comes from it.
 
