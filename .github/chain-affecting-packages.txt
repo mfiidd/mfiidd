@@ -2,23 +2,23 @@
 # data/, rather than only whether the code runs.
 #
 # The sessions load those chains instead of regenerating them, because a full
-# PMMH run takes hours. So the site render proves a bump did not break any code
-# path, and proves nothing about whether the sampler still produces the
-# committed draws. Two workflows read this list:
+# PMMH run takes hours. So the site render shows a bump broke no code path, and
+# shows nothing about whether the sampler still produces the committed draws.
+# One workflow reads this list: compathelper_automerge.yml keeps a bump to any
+# of these off auto-merge, so a person decides whether to widen the bound.
 #
-#   chains-current.yml          reports a pull request that moves one of these
-#                              packages' resolved version in Manifest.toml
-#                              without regenerating the chains
-#   compathelper_automerge.yml  keeps these off auto-merge, so a person decides
+# That is the whole of what this list does today. Nothing checks the chains
+# themselves against the versions that produced them, and a widened bound is
+# only the permission for a later move: the version the code loads is the one
+# pinned in Manifest.toml, which a widened bound leaves valid, so Pkg.resolve
+# keeps it until someone re-resolves. Catching that move needs a check that
+# compares the manifest, which is not in place.
 #
-# Regenerating is a cluster job, not a CI job: scripts/generate_pmcmc_seitl.jl
-# and generate_pmcmc_seit4l.jl each take many hours at 256 particles, against a
-# six hour limit per CI job.
-#
-# One bare name per line, nothing else on the line: both readers match the whole
-# line, one with grep -qxF and one with read. Every name has to be pinned in
-# Manifest.toml, which holds the transitive packages too, and earns its place by
-# sitting on the path the generation scripts take:
+# One bare name per line, nothing else on the line: the reader matches the whole
+# line with grep -qxF. Every name is a direct dependency in Project.toml, which
+# is the right universe here because the guard reads a CompatHelper title and
+# CompatHelper only bumps direct dependencies. Each earns its place by sitting
+# on the path the generation scripts take:
 #
 #   Turing                 the sampler's driver
 #   AdvancedMH             RobustAdaptiveMetropolis, the proposal itself
