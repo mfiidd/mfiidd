@@ -1,0 +1,71 @@
+# Bumps that a person should look at before they merge themselves, because they
+# could change the numbers in the three committed chain CSVs under data/.
+#
+# The sessions load those chains as the posterior instead of regenerating them,
+# and regenerating is a cluster job: generate_pmcmc_seitl.jl and
+# generate_pmcmc_seit4l.jl take many hours at 256 particles against CI's six
+# hour limit. Nothing checks the committed draws against the versions that
+# produced them, so this list is the only thing standing between a bump and an
+# auto-merge. One workflow reads it: compathelper_automerge.yml.
+#
+# Note what a widened bound does and does not do. The version the code loads is
+# the one pinned in Manifest.toml, which a widened bound leaves valid, so
+# Pkg.resolve keeps it until someone re-resolves. A bump is the permission for a
+# later move rather than the move itself, and the render that gates it installs
+# the version already pinned. Catching the move needs a check that compares the
+# manifest, which is not in place.
+#
+# This list is a judgement, not a derivation. Three rounds of trying to state a
+# rule that picks it out produced a rule that either admitted most of the
+# dependency tree or drew a line it could not defend. So it is maintained by
+# hand, it is not exhaustive, and it errs towards holding a bump back: the cost
+# of a wrong inclusion is one manual merge, and the cost of a wrong omission is
+# a set of committed draws that no longer reproduce.
+#
+# One bare name per line, nothing else on the line: the reader matches the whole
+# line with grep -qxF. Every name is a direct dependency, which is the right
+# universe because the guard reads a CompatHelper title and CompatHelper bumps
+# only those. Why each is here:
+#
+#   Turing                 drives sample()
+#   AdvancedMH             RobustAdaptiveMetropolis, the proposal itself
+#   SSMProblems            the state space model interface
+#   GeneralisedFilters     BF, the bootstrap filter the chains run through
+#   LogExpFunctions        softmax and logsumexp, which GeneralisedFilters
+#                          weights and resamples with
+#   JumpProcesses          the stochastic simulator, and the solve it runs on
+#   DifferentialEquations  shares the SciMLBase stack that solve resolves
+#                          against, so its bound moves what the jumps run on
+#   Distributions          the priors and the observation model
+#   ForwardDiff            ForwardDiff.value strips the Duals inside the PMMH
+#                          model at scripts/pmmh_setup.jl:79
+#
+# LogExpFunctions is here for what GeneralisedFilters does with it, not for
+# anything in this repository: logsumexp is called only by
+# src/threaded_bootstrap_filter.jl, and the chains take the unthreaded BF path.
+# Do not prune it on a grep of src/, which is what that evidence looks like.
+#
+# Deliberately absent, so these are not rediscovered as omissions:
+#
+#   Plots, StatsPlots           they draw the committed deck figures, which a
+#                               script redraws in minutes. Only the chains are
+#                               expensive, and only they are guarded here.
+#   CSV, DataFrames,            they serialise the chains. A change there fails
+#   FlexiChains                 the render rather than moving a draw.
+#   StatsBase                   no route to the draws: wsample is imported at
+#                               src/MFIIDD.jl:11 and never called, and
+#                               GeneralisedFilters' resamplers.jl holds no
+#                               StatsBase reference. Its one call in a
+#                               generation script sets a histogram axis limit
+#                               in a model-checking figure.
+#   AdvancedVI                  nothing committed comes from it.
+
+Turing
+AdvancedMH
+SSMProblems
+GeneralisedFilters
+LogExpFunctions
+JumpProcesses
+DifferentialEquations
+Distributions
+ForwardDiff

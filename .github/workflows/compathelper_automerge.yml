@@ -4,20 +4,80 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
 
+# The merge goes through the app token minted below, so the Actions token only
+# needs to read the base ref for the package list.
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   enable-auto-merge:
     runs-on: ubuntu-latest
+    # The app's own login. CompatHelper authors through an app installation token
+    # now, so this is no longer the Actions bot, but matching the type alone would
+    # leave a branch name as the only thing identifying the pull request, and an
+    # author chooses that.
     if: >-
-      github.event.pull_request.user.login == 'github-actions[bot]' &&
+      github.event.pull_request.user.login == 'mfiidd-compathelper[bot]' &&
       startsWith(github.event.pull_request.head.ref, 'compathelper/new_version/')
     steps:
-      - name: Enable auto-merge (squash)
+      - name: Mint an installation token
+        id: token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          app-id: ${{ secrets.COMPATHELPER_APP_ID }}
+          private-key: ${{ secrets.COMPATHELPER_APP_KEY }}
+      # pull_request_target runs with write access, so check out the base ref and
+      # never the pull request's own code. Only the package list is read here.
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          sparse-checkout: .github/chain-affecting-packages.txt
+          sparse-checkout-cone-mode: false
+      # The required check is the full site render, and it is weaker than it looks:
+      # it resolves against the committed Manifest.toml, which a widened bound
+      # leaves valid, so it executes the version already pinned rather than the one
+      # being allowed. It shows the bound change breaks nothing as resolved today,
+      # and says nothing about the new version. It also loads the chains in data/
+      # rather than regenerating them. So a bump to a package that can move the
+      # draws is left for a person, from chain-affecting-packages.txt. Nothing
+      # else checks those draws: holding the bump back is the whole of the guard.
+      - name: Decide whether this bump may merge itself
+        id: decide
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # CompatHelper writes two title forms, "bump compat for X to Y" and
+          # "add new compat entry for X at version Y", and a title this cannot
+          # read is left for a person rather than waved through.
+          dep=$(printf '%s\n' "$TITLE" \
+                | sed -n 's/.* for \([A-Za-z0-9_]*\) \(to\|at version\) .*/\1/p')
+          echo "dependency: ${dep:-<unparsed>}"
+          if [ -z "$dep" ]; then
+            echo "No dependency readable from the title, so a person reviews this one."
+            echo "auto=no" >> "$GITHUB_OUTPUT"
+          elif [ ! -f .github/chain-affecting-packages.txt ]; then
+            # grep exits 2 for a missing file and 1 for no match, which the elif
+            # below cannot tell apart, so a moved or renamed list would wave
+            # everything through. Checked separately for that reason.
+            echo "The package list is missing, so a person reviews this one."
+            echo "auto=no" >> "$GITHUB_OUTPUT"
+          elif grep -qxF "$dep" .github/chain-affecting-packages.txt; then
+            echo "$dep can move the committed chains, so a person reviews this one."
+            echo "auto=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "auto=yes" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Enable auto-merge (squash)
+        if: steps.decide.outputs.auto == 'yes'
+        env:
+          # The app token again, not secrets.GITHUB_TOKEN, and for the same
+          # reason it is used to open these pull requests: GitHub raises no
+          # workflow for anything the Actions token authors. Auto-merge is
+          # performed as whoever enabled it, so enabling it with the Actions
+          # token lands a squash commit on main that triggers no push event and
+          # no deploy. #196 is the precedent: its squash commit 2f145d3 has zero
+          # workflow runs, where every compat merge done by hand has a deploy run.
+          GH_TOKEN: ${{ steps.token.outputs.token }}
         run: |
           gh pr merge ${{ github.event.pull_request.number }} \
             --auto --squash \
