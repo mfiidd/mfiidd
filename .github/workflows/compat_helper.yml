@@ -25,7 +25,20 @@ jobs:
       - name: Install CompatHelper
         run: julia -e 'using Pkg; Pkg.add("CompatHelper")'
       - name: Run CompatHelper
-        run: julia -e 'using CompatHelper; CompatHelper.main()'
+        # CompatHelper skips a bump that already has an open pull request, by
+        # matching the open pull requests' author against a username that
+        # defaults to github-actions[bot] (src/utilities/ci.jl). The app opens
+        # them now, so that default matches nothing, the list of titles to skip
+        # comes back empty, and every weekly run opens a second pull request for
+        # every bump still waiting. Naming the app restores the skip. The email
+        # is left at its default, which this does not depend on.
+        run: |
+          julia -e '
+              using CompatHelper
+              CompatHelper.main(
+                  ENV,
+                  CompatHelper.GitHubActions(username = "mfiidd-compathelper[bot]"),
+              )'
         env:
           # An app installation token, not secrets.GITHUB_TOKEN. GitHub triggers
           # no workflow for anything the Actions token authors, so pull requests
