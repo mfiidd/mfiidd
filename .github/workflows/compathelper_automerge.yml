@@ -4,10 +4,9 @@ on:
   pull_request_target:
     types: [opened, reopened, synchronize]
 
-# The merge goes through the app token minted below, so the Actions token only
-# needs to read the base ref for the package list.
-permissions:
-  contents: read
+# Everything below goes through the app token minted in the job, and nothing
+# checks the repository out, so the Actions token needs no scopes at all.
+permissions: {}
 
 jobs:
   enable-auto-merge:
@@ -26,43 +25,41 @@ jobs:
         with:
           app-id: ${{ secrets.COMPATHELPER_APP_ID }}
           private-key: ${{ secrets.COMPATHELPER_APP_KEY }}
-      # pull_request_target runs with write access, so check out the base ref and
-      # never the pull request's own code. Only the package list is read here.
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
-        with:
-          ref: ${{ github.event.pull_request.base.sha }}
-          sparse-checkout: .github/chain-affecting-packages.txt
-          sparse-checkout-cone-mode: false
-      # The required check is the full site render, and it is weaker than it looks:
-      # it resolves against the committed Manifest.toml, which a widened bound
-      # leaves valid, so it executes the version already pinned rather than the one
-      # being allowed. It shows the bound change breaks nothing as resolved today,
-      # and says nothing about the new version. It also loads the chains in data/
-      # rather than regenerating them. So a bump to a package that can move the
-      # draws is left for a person, from chain-affecting-packages.txt. Nothing
-      # else checks those draws: holding the bump back is the whole of the guard.
+      # What makes a bump safe to merge unreviewed is that it cannot change a
+      # version anything runs. CompatHelper widens a [compat] bound and says so
+      # in the title, which leaves the Manifest.toml pin admissible, so
+      # Pkg.resolve keeps it and the render installs what it installed before.
+      # The committed chains in data/ and the deck figures drawn from them are
+      # untouched by that, whichever package it is. A bump is permission for a
+      # later move rather than the move itself: the move lands when someone
+      # re-resolves and Manifest.toml changes, which is the diff worth a
+      # person's attention and what a staleness check has to compare.
       - name: Decide whether this bump may merge itself
         id: decide
         env:
+          GH_TOKEN: ${{ steps.token.outputs.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
           TITLE: ${{ github.event.pull_request.title }}
         run: |
-          # CompatHelper writes two title forms, "bump compat for X to Y" and
-          # "add new compat entry for X at version Y", and a title this cannot
-          # read is left for a person rather than waved through.
-          dep=$(printf '%s\n' "$TITLE" \
-                | sed -n 's/.* for \([A-Za-z0-9_]*\) \(to\|at version\) .*/\1/p')
-          echo "dependency: ${dep:-<unparsed>}"
-          if [ -z "$dep" ]; then
-            echo "No dependency readable from the title, so a person reviews this one."
+          # The list of paths, never the branch's content: pull_request_target
+          # runs with write access, so nothing here checks out or executes code
+          # from the pull request. A failure here aborts the step and leaves the
+          # merge unenabled, which is the side to fail on.
+          files=$(gh api --paginate "repos/$REPO/pulls/$PR/files" --jq '.[].filename' | sort)
+          echo "paths changed:"
+          printf '%s\n' "${files:-<none>}"
+          # Matched with case rather than grep: grep -q closing the pipe early
+          # can leave the pipeline non-zero under pipefail even on a match.
+          case "$TITLE" in
+            *'(keep existing compat)'*) keeps_bound=yes ;;
+            *) keeps_bound=no ;;
+          esac
+          if [ "$files" != "Project.toml" ]; then
+            echo "This touches more than the compat bounds, so a person reviews it."
             echo "auto=no" >> "$GITHUB_OUTPUT"
-          elif [ ! -f .github/chain-affecting-packages.txt ]; then
-            # grep exits 2 for a missing file and 1 for no match, which the elif
-            # below cannot tell apart, so a moved or renamed list would wave
-            # everything through. Checked separately for that reason.
-            echo "The package list is missing, so a person reviews this one."
-            echo "auto=no" >> "$GITHUB_OUTPUT"
-          elif grep -qxF "$dep" .github/chain-affecting-packages.txt; then
-            echo "$dep can move the committed chains, so a person reviews this one."
+          elif [ "$keeps_bound" != yes ]; then
+            echo "The title does not say the existing bound is kept, so a person reviews it."
             echo "auto=no" >> "$GITHUB_OUTPUT"
           else
             echo "auto=yes" >> "$GITHUB_OUTPUT"
