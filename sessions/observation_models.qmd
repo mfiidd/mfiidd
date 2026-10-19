@@ -469,7 +469,7 @@ place.
 # Compare the two observation models on every shared parameter
 params_shared = (:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ)
 comparison = DataFrame(
-    parameter = string.(params_shared),
+    parameter = collect(string.(params_shared)),
     poisson_mean = [mean(chain_poisson[p]) for p in params_shared],
     poisson_sd = [std(chain_poisson[p]) for p in params_shared],
     negbin_mean = [mean(chain_negbin[p]) for p in params_shared],
