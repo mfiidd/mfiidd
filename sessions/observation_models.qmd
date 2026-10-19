@@ -60,7 +60,7 @@ using Random
 using LinearAlgebra
 using DrWatson
 using StatsBase  # For Weights in ABC-SMC
-using MFIIDD ## the course package, which holds the SIR implementation
+using MFIIDD ## the course package, which holds the SEIT4L implementation
 ```
 
 ## Initialisation
@@ -93,16 +93,22 @@ We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 
 # The model we are fitting
 
-The transmission model is the SIR model from the earlier sessions, and $\rho$, the
-fraction of infections that are reported, is the one the
-[model checking session](model_checking.qmd) fitted.
+The transmission model is the deterministic SEIT4L model built in the
+[Structure and stochasticity](seitl.qmd) session, fitted here the same way as in
+the [Particle MCMC](pmcmc.qmd) session's deterministic comparison: $R_0$, the
+latent and infectious periods, the probability $\alpha$ of long-term immunity,
+the duration $D_\mathrm{imm}$ of temporary immunity, and $\rho$, the fraction of
+infections that are reported, are all fitted alongside each other. A plain SIR
+cannot reproduce this outbreak's second wave at all, which the
+[model checking session](model_checking.qmd) diagnosed and the SEIT4L model
+fixes.
 
-These two functions live in [`src/sir_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl) and arrived with `using MFIIDD` above.
+These two functions live in [`src/seitl_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_model.jl) and arrived with `using MFIIDD` above.
 
 ```{julia}
 #| echo: false
 #| output: asis
-println("```julia\n", source_for(sir_ode!), "\n\n", source_for(simulate_sir), "\n```")
+println("```julia\n", source_for(seit4l_ode!), "\n\n", source_for(simulate_seit4l_deterministic), "\n```")
 ```
 
 ```{julia}
@@ -114,9 +120,12 @@ times = [0.0; flu_tdc.time]
 
 ## The island as the ship lands, at the start of day 1. Of the five islanders it
 ## brought back, three had been ill during the eight day voyage and are past their
-## infectious period, so they start recovered; the two who fell ill on landing
-## start infectious. N = 284, the island population
-init_state = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
+## infectious period, so they start in the first stage of temporary immunity; the
+## two who fell ill on landing start infectious. N = 284, the island population
+init_state = Dict(
+    :S => 279.0, :E => 0.0, :I => 2.0,
+    :T1 => 3.0, :T2 => 0.0, :T3 => 0.0, :T4 => 0.0, :L => 0.0,
+)
 ```
 
 Each fit below is checked against the data with a posterior predictive interval.
@@ -128,15 +137,26 @@ Each fit below is checked against the data with a posterior predictive interval.
 This is what we've been doing throughout the course:
 
 ```{julia}
-@model function sir_poisson(times, init_state, n_obs)
-    # Priors
-    R_0 ~ Uniform(1.0, 20.0)
-    D_inf ~ Uniform(1.0, 10.0)
-    ρ ~ Uniform(0.1, 1.0)  # Reporting rate
+@model function seit4l_poisson(times, init_state, n_obs)
+    # Weakly informative priors, as in the Particle MCMC session
+    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
+    α ~ Beta(2, 2)
+    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
+    ρ ~ Beta(2, 2)  # Reporting rate
 
     # Simulate
-    θ = Dict(:R_0 => R_0, :D_inf => D_inf)
-    traj = simulate_sir(θ, init_state, times)
+    θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf, :α => α, :D_imm => D_imm)
+    traj = simulate_seit4l_deterministic(θ, init_state, times)
+
+    # Reject parameter draws that drive the ODE solver to fail early; the NUTS
+    # gradient probe occasionally lands on combinations where it only saves a
+    # few timepoints
+    if nrow(traj) != length(times)
+        Turing.@addlogprob! -Inf
+        return
+    end
 
     # Likelihood: Poisson observation model
     lambdas = [max(ρ * traj.Inc[i + 1], 1e-10) for i in 1:n_obs]
@@ -155,7 +175,7 @@ We fit this model:
 
 ```{julia}
 # Fit with NUTS
-model_poisson = sir_poisson(times, init_state, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
+model_poisson = seit4l_poisson(times, init_state, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
 chain_poisson = sample(model_poisson, NUTS(0.65), 500, progress=false)
 # The 0.65 is the target acceptance rate for NUTS — higher values (closer to 1)
 # make the sampler more conservative, lower values allow larger steps.
@@ -164,7 +184,7 @@ chain_poisson = sample(model_poisson, NUTS(0.65), 500, progress=false)
 
 ```{julia}
 # Plot posteriors
-plot(chain_poisson[[:R_0, :D_inf, :ρ]], size=(900, 600))
+plot(chain_poisson[[:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ]], size=(900, 900))
 ```
 
 ```{julia}
@@ -243,8 +263,12 @@ What do you find, and what would it imply for the parameter estimates?
 
 ```{julia}
 # Residual variance against mean prediction, under the Poisson fit
-θ_fit = Dict(:R_0 => mean(chain_poisson[:R_0]), :D_inf => mean(chain_poisson[:D_inf]))
-pred_fit = mean(chain_poisson[:ρ]) .* simulate_sir(θ_fit, init_state, times).Inc[2:end]
+θ_fit = Dict(
+    :R_0 => mean(chain_poisson[:R_0]), :D_lat => mean(chain_poisson[:D_lat]),
+    :D_inf => mean(chain_poisson[:D_inf]), :α => mean(chain_poisson[:α]),
+    :D_imm => mean(chain_poisson[:D_imm]),
+)
+pred_fit = mean(chain_poisson[:ρ]) .* simulate_seit4l_deterministic(θ_fit, init_state, times).Inc[2:end]
 resid_fit = flu_tdc.obs .- pred_fit
 
 println("mean prediction:    ", round(mean(pred_fit), digits = 2))
@@ -254,20 +278,28 @@ println("ratio:              ", round(var(resid_fit) / mean(pred_fit), digits = 
 ```
 
 ::: {.callout-tip title="Solution" collapse="true"}
-The ratio printed above is around 25, where Poisson demands 1. The data are wildly
-*overdispersed* relative to Poisson.
+The ratio printed above is around 2, above the 1 Poisson demands but nothing like
+the single-wave SIR's failure: that model could not reproduce a second wave at
+all, which is exactly what SEIT4L was built to do.
+The fitted trajectory tracks the first wave closely (days 4 to 11 land within a
+few cases of what was reported) and predicts about 314 of the 312 reported cases
+in total, essentially the right amount.
 
-Two things produce that, and it is worth keeping them apart. Some of it is
-genuine observation noise: two islanders infected in the same household are not
-independent draws, and reporting was not uniform across the outbreak. Most of it
-here is something else, namely that a single-wave SIR fitted to a two-wave
-outbreak is wrong about the mean, and everything it gets wrong about the mean
-lands in the residuals.
+What overdispersion is left is mostly real observation noise rather than a badly
+wrong mean. Two islanders infected in the same household are not independent
+draws, reporting was not perfectly uniform across the outbreak, and a population
+of 284 is small enough that demographic stochasticity shapes the outbreak rather
+than jittering it, exactly the point the [Structure and stochasticity](seitl.qmd)
+session made. The deterministic curve cannot represent that: it settles into a
+smooth, slowly decaying tail through the second wave, while the actual counts
+keep jumping between zero and a dozen. The single biggest miss is the peak
+itself, on day 7, where the trajectory predicts around 33 cases against the 47
+reported — the kind of undershoot a genuinely stochastic peak in a small
+population can produce even when the mean dynamics are right.
 
-Either way the consequence for the Poisson fit is the same.
-It treats every departure from the trajectory as strong evidence against it, so the posterior comes out far too narrow.
-Nor can it buy its way out by moving the parameters: the four days around the observed peak are underpredicted by factors of about four to nine and stay that way, because the many low-count days of the second wave outweigh them.
-The negative binomial in the next section loosens that grip, but notice that it does so by explaining the misfit as noise rather than by fixing the model.
+Because the mean is no longer badly wrong, loosening the likelihood should move
+the posteriors much less than it would for a misspecified model. The next fit
+checks that.
 :::
 
 Reasons the assumption might fail for epidemic data:
@@ -290,48 +322,28 @@ Then fit it below and check.
 :::
 
 ::: {.callout-tip title="Solution" collapse="true"}
-1. **Wider**, and by a lot. The negative binomial can attribute a departure from
-   the trajectory to observation noise, so the data pin the parameters down less
-   tightly. Here the posterior standard deviation for $R_0$ roughly doubles.
-   Loosening the observation model transfers uncertainty back to the
-   parameters, which is the honest direction: the Poisson intervals were narrow
-   because the model was forbidden from admitting the data were noisy.
+1. **Wider, but only modestly.** The negative binomial can attribute a departure
+   from the trajectory to observation noise, so the data pin the parameters down
+   a little less tightly. Here the posterior standard deviation for $R_0$ widens
+   by about a sixth, and the other transmission parameters by similar amounts.
+   $\rho$ widens the most, by closer to four fifths, because it is the parameter
+   most directly pinned by the total case count, and that count is exactly where
+   a few noisy days make the most difference.
 
-2. **The mean moves too, and that is the surprise.** $R_0$ goes from about 1.9
-   to about 2.7, several Poisson standard deviations apart. The two models do not
-   merely disagree about the uncertainty, they disagree about the answer.
-
-   The misfit sits almost entirely in the first wave.
-   Days 6 to 9 carry about three quarters of the squared residual, and day 7 alone about a third: 47 cases reported against about five predicted.
-   The fitted trajectory accounts for about 211 of the 312 reported cases, and two thirds of that shortfall falls in the first eighteen days, which carry about 90% of the squared residual.
-   The Poisson fit cannot lift its peak to meet those days, because the outbreak has a second wave and a single SIR curve has only one peak to spend.
-   Days 19 to 59 carry 109 of the 312 cases and rise again to 12 on day 32.
-   Raising $R_0$ makes the epidemic burn out sooner: at $R_0 = 7$, holding $D_\mathrm{inf}$ at its fitted value, the trajectory peaks on day 3 and predicts almost no cases at all after day 19, where the Poisson likelihood then gives those 109 observed cases essentially no probability.
-   Fitting the same model to the first eighteen days alone removes the second wave, and $R_0$ comes out around 7.
-
-   The negative binomial adds a dispersion parameter, so departures from its mean cost much less: over days 19 to 59 its log-likelihood is about 54 units better than the Poisson's.
-   Less bound to track every day exactly, it settles on a longer infectious period and a larger $R_0$, and so on a larger predicted total, about 245 cases against 211.
-
-   Look at $\rho$ in the comparison table below. The Poisson fit pushes it to about
-   0.99, against the upper bound of its `Uniform(0.1, 1.0)` prior. A parameter
-   pinned to the edge of its prior is a model straining against a constraint, and
-   here it is straining for the same reason. Even reporting everybody would not be
-   enough: the model starts with 279 susceptibles, so it can never produce more
-   than 279 cases against the 312 observed. The reporting rate is pinned at a
-   bound that still cannot close the gap, which is about as clear a sign as this
-   session offers that the shortfall is structural.
+2. **The mean barely moves, and that is no longer a surprise.** The previous
+   solution found SEIT4L's mean trajectory already close to right, so there is
+   little slack left for the negative binomial to redistribute. $R_0$ and $\rho$
+   both move by well under one Poisson posterior standard deviation. Loosening
+   an observation model only drags the mean along with it when the mean was
+   wrong to start with, and here it mostly was not.
 
 3. **Large $\phi$** is the right answer to the question as asked, because
-   variance is $\mu + \mu^2/\phi$ and the second term vanishes as
-   $\phi \to \infty$. The data say the opposite: the posterior
-   for $\phi$ sits near 0.5, so the variance is roughly $\mu + 2\mu^2$ and the
-   extra flexibility was very much needed.
-
-   Note that a small $\phi$ is not proof of messy reporting. A single-wave SIR
-   cannot reproduce a two-wave outbreak, and the negative binomial is absorbing
-   that structural failure as though it were noise. An observation model will
-   always volunteer to explain a misspecified mean, which is why the
-   [model checking](model_checking.qmd) session comes first.
+   variance is $\mu + \mu^2/\phi$ and the second term vanishes as $\phi \to
+   \infty$. The posterior for $\phi$ sits near 5, some way below "large" but
+   nowhere near the near-zero values a severely misspecified mean would demand:
+   real overdispersion, at a scale consistent with household clustering and
+   demographic noise in a population of 284, rather than a mean trying to hide a
+   structural failure.
 :::
 
 # The negative binomial likelihood
@@ -384,27 +396,34 @@ Use $\text{Var} = \mu + \mu^2/\phi$ and solve for $\phi$.
 :::
 
 ::: {.callout-tip title="Solution" collapse="true"}
-With $\mu = 5$ and a variance 25 times the mean, $125 = 5 + 25/\phi$, so
-$\phi \approx 0.2$. The fit below returns a $\phi$ of about 0.5, in the same
-region.
-
-The calculation assumes the whole ratio is overdispersion, which it is not: the
-mean itself is wrong, and the fitted $\phi$ is absorbing both.
+With $\mu = 5$ and a variance twice the mean, $10 = 5 + 25/\phi$, so
+$\phi \approx 5$. The fit below returns a $\phi$ of about the same size, which
+is what should happen when the mean was already close to right: the back of an
+envelope calculation and the full fit agree because there is no structural
+misfit left for $\phi$ to paper over.
 :::
 
 ## Fitting it
 
 ```{julia}
-@model function sir_negbin(times, init_state, n_obs)
-    # Priors
-    R_0 ~ Uniform(1.0, 20.0)
-    D_inf ~ Uniform(1.0, 10.0)
-    ρ ~ Uniform(0.1, 1.0)
+@model function seit4l_negbin(times, init_state, n_obs)
+    # Weakly informative priors, as in the Particle MCMC session
+    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
+    α ~ Beta(2, 2)
+    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
+    ρ ~ Beta(2, 2)
     φ ~ Exponential(10.0)  # Overdispersion parameter
 
     # Simulate
-    θ = Dict(:R_0 => R_0, :D_inf => D_inf)
-    traj = simulate_sir(θ, init_state, times)
+    θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf, :α => α, :D_imm => D_imm)
+    traj = simulate_seit4l_deterministic(θ, init_state, times)
+
+    if nrow(traj) != length(times)
+        Turing.@addlogprob! -Inf
+        return
+    end
 
     # Likelihood: Negative Binomial observation model
     mus = [max(ρ * traj.Inc[i + 1], 1e-10) for i in 1:n_obs]
@@ -423,7 +442,7 @@ end
 Now fit it, so that the predictions you just committed to can be checked.
 
 ```{julia}
-model_negbin = sir_negbin(times, init_state, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
+model_negbin = seit4l_negbin(times, init_state, length(flu_tdc.obs)) | (; obs = flu_tdc.obs)
 chain_negbin = sample(model_negbin, NUTS(0.65), 500, progress=false)
 summarystats(chain_negbin)
 ```
@@ -435,17 +454,19 @@ p_negbin
 ```
 
 The interval now covers `{julia} covered_negbin` days against the Poisson's
-`{julia} covered_poisson`. It does so by being wide rather than by following the
-data: the trajectory underneath it still peaks in the wrong place.
+`{julia} covered_poisson`, both close to the 95% target. Neither trajectory
+underneath moves much: the negative binomial is not rescuing a wrong mean here,
+it is widening an interval that was already roughly in the right place.
 
 ```{julia}
-# Compare the two observation models on the parameter they disagree about most
+# Compare the two observation models on every shared parameter
+params_shared = (:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ)
 comparison = DataFrame(
-    parameter = ["R_0", "D_inf", "ρ"],
-    poisson_mean = [mean(chain_poisson[p]) for p in (:R_0, :D_inf, :ρ)],
-    poisson_sd = [std(chain_poisson[p]) for p in (:R_0, :D_inf, :ρ)],
-    negbin_mean = [mean(chain_negbin[p]) for p in (:R_0, :D_inf, :ρ)],
-    negbin_sd = [std(chain_negbin[p]) for p in (:R_0, :D_inf, :ρ)],
+    parameter = string.(params_shared),
+    poisson_mean = [mean(chain_poisson[p]) for p in params_shared],
+    poisson_sd = [std(chain_poisson[p]) for p in params_shared],
+    negbin_mean = [mean(chain_negbin[p]) for p in params_shared],
+    negbin_sd = [std(chain_negbin[p]) for p in params_shared],
 )
 comparison.sd_ratio = round.(comparison.negbin_sd ./ comparison.poisson_sd, digits = 1)
 comparison
@@ -456,12 +477,10 @@ comparison
 
 Both fits here are 500 NUTS draws, which is enough to see the difference in
 question but not enough to report. The negative binomial chain in particular comes
-back with Monte Carlo standard errors of about 0.17 on $D_\mathrm{inf}$ and 0.05
-on $R_0$, so the first decimal of one and the second of the other are already
-noise, however many digits the table prints. Those two are the parameters the
-comparison is about. The [diagnostics session](mcmc_diagnostics.qmd)
-is the reason you should have looked at `summarystats` before reading the table,
-rather than after.
+back with Monte Carlo standard errors of about 0.07 on $R_0$ and 0.005 on $\rho$,
+so the second decimal of each is already noise, however many digits the table
+prints. The [diagnostics session](mcmc_diagnostics.qmd) is the reason you should
+have looked at `summarystats` before reading the table, rather than after.
 :::
 
 ```{julia}
@@ -488,8 +507,8 @@ What it does not do is tell you which of those mechanisms was at work, or
 distinguish any of them from a mean that is simply wrong.
 
 The two fits differ in one thing: what they charge the model for a day that
-misses the prediction. That charge is what moved $R_0$, so it is worth looking at
-on its own.
+misses the prediction. That charge is what widened $\rho$ the most above, so it
+is worth looking at on its own.
 
 # Interlude: likelihood as distance
 
@@ -541,12 +560,13 @@ as the two part company. What differs is how steeply, and on which side:
 - Gaussian: penalises the absolute gap symmetrically, at a cost that does not
   depend on the size of the counts
 
-That flat tail is what moved the fit. Day 7 of the outbreak reports 47 cases where
-the Poisson fit predicts about 5:
+That flat tail is what widened the fit. Day 7, the observed peak, reports 47
+cases where the Poisson fit's mean trajectory predicts about 33:
 
 ```{julia}
 # What each observation model charges for day 7
-obs_day7, pred_day7 = 47, 5.0
+day7 = findfirst(==(7), flu_tdc.time)
+obs_day7, pred_day7 = flu_tdc.obs[day7], pred_fit[day7]
 φ_fit = median(φ_post)
 
 println("Poisson:  ", round(-logpdf(Poisson(pred_day7), obs_day7), digits = 1))
@@ -554,10 +574,12 @@ println("NegBin:   ", round(-logpdf(NegativeBinomial(φ_fit, φ_fit/(φ_fit+pred
                                     obs_day7), digits = 1))
 ```
 
-The Poisson is charged about eight times as much for that single day as the
-negative binomial. That is the shift in the comparison table above, seen from the
-observation model rather than from the chain: a likelihood that charges less for
-a badly missed day leaves the parameters freer to go elsewhere.
+The Poisson is charged a little more for that single day than the negative
+binomial, not the order-of-magnitude gap a badly wrong mean would produce. That
+is the comparison table above, seen from the observation model rather than from
+the chain: a likelihood that charges a little less for a missed day leaves the
+parameters only a little freer to go elsewhere, which is exactly what a mean
+that was already close to right should show.
 
 # Learning points
 
