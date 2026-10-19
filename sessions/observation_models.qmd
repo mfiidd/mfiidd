@@ -337,7 +337,9 @@ Then fit it below and check.
 2. **The mean barely moves, and that is no longer a surprise.** The previous
    solution found the mean trajectory of SEIT4L already close to right, so
    there is little slack left for the negative binomial to redistribute. $R_0$
-   and $\rho$ both move by well under one Poisson posterior standard deviation.
+   moves by well under one Poisson posterior standard deviation, but $\rho$
+   moves by close to one, the clearest sign that it is the parameter absorbing
+   most of the redistributed residuals.
    Loosening an observation model only drags the mean along with it when the
    mean was wrong to start with. Here it mostly was not.
 
