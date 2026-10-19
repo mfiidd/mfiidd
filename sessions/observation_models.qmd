@@ -326,8 +326,10 @@ Then fit it below and check.
 ::: {.callout-tip title="Solution" collapse="true"}
 1. **Wider, but only modestly.** The negative binomial can attribute a departure
    from the trajectory to observation noise, so the data pin the parameters down
-   a little less tightly. Here the posterior standard deviation for $R_0$ widens
-   by about a sixth, and the other transmission parameters by similar amounts.
+   a little less tightly. Here the posterior standard deviation for $R_0$ and
+   $D_\mathrm{inf}$ widen by about a sixth; $D_\mathrm{lat}$, $\alpha$ and
+   $D_\mathrm{imm}$ widen by noticeably more, closer to half again their
+   Poisson width.
    $\rho$ widens the most, by closer to four fifths, because it is the parameter
    most directly pinned by the total case count, and that count is exactly where
    a few noisy days make the most difference.
