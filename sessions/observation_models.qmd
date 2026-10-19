@@ -283,8 +283,8 @@ the failure of the single-wave SIR: that model could not reproduce a second wave
 at all, which is exactly what SEIT4L was built to do.
 The fitted trajectory follows the overall rise and fall of the first wave and
 predicts about 314 of the 312 reported cases in total, essentially the right
-amount, though individual days can miss by a dozen cases or more, as the look
-at day 7 below shows.
+amount, though individual days can miss by a dozen cases or more, as day 7
+below shows.
 
 The overdispersion that remains is mostly real observation noise rather than a
 badly wrong mean. Two islanders infected in the same household are not
@@ -328,8 +328,8 @@ Then fit it below and check.
    from the trajectory to observation noise, so the data pin the parameters down
    a little less tightly. Here the posterior standard deviation for $R_0$ and
    $D_\mathrm{inf}$ widen by about a sixth; $D_\mathrm{lat}$, $\alpha$ and
-   $D_\mathrm{imm}$ widen by noticeably more, closer to half again their
-   Poisson width.
+   $D_\mathrm{imm}$ widen by noticeably more, closer to half as much again as
+   their Poisson width.
    $\rho$ widens the most, by closer to four fifths, because it is the parameter
    most directly pinned by the total case count, and that count is exactly where
    a few noisy days make the most difference.
