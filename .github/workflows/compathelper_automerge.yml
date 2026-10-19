@@ -26,14 +26,22 @@ jobs:
           app-id: ${{ secrets.COMPATHELPER_APP_ID }}
           private-key: ${{ secrets.COMPATHELPER_APP_KEY }}
       # What makes a bump safe to merge unreviewed is that it cannot change a
-      # version anything runs. CompatHelper widens a [compat] bound and says so
-      # in the title, which leaves the Manifest.toml pin admissible, so
-      # Pkg.resolve keeps it and the render installs what it installed before.
-      # The committed chains in data/ and the deck figures drawn from them are
-      # untouched by that, whichever package it is. A bump is permission for a
-      # later move rather than the move itself: the move lands when someone
-      # re-resolves and Manifest.toml changes, which is the diff worth a
-      # person's attention and what a staleness check has to compare.
+      # version anything runs. One title form gives that: bumping compat for a
+      # package that already has a bound, keeping the existing one, unions the
+      # old bound with the new (new_compat_entry(::KeepEntry, old, new)
+      # upstream). The Manifest.toml pin stays admissible, Pkg.resolve keeps it,
+      # and the render installs what it installed before, whichever package it
+      # is, so the committed chains in data/ and the deck figures drawn from
+      # them are untouched. A bump is permission for a later move rather than
+      # the move itself: the move lands when someone re-resolves and
+      # Manifest.toml changes, which is the diff worth a person's attention and
+      # what a staleness check has to compare.
+      #
+      # The other form adds a bound where the package had none, and writes the
+      # new bound alone, which restricts the admissible range instead of
+      # widening it. Its title also ends "(keep existing compat)", because that
+      # parenthetical reports the configured entry_type rather than anything
+      # about the bound, so the title is matched on both halves below.
       - name: Decide whether this bump may merge itself
         id: decide
         env:
@@ -52,14 +60,14 @@ jobs:
           # Matched with case rather than grep: grep -q closing the pipe early
           # can leave the pipeline non-zero under pipefail even on a match.
           case "$TITLE" in
-            *'(keep existing compat)'*) keeps_bound=yes ;;
-            *) keeps_bound=no ;;
+            *'bump compat for '*', (keep existing compat)'*) widened=yes ;;
+            *) widened=no ;;
           esac
           if [ "$files" != "Project.toml" ]; then
             echo "This touches more than the compat bounds, so a person reviews it."
             echo "auto=no" >> "$GITHUB_OUTPUT"
-          elif [ "$keeps_bound" != yes ]; then
-            echo "The title does not say the existing bound is kept, so a person reviews it."
+          elif [ "$widened" != yes ]; then
+            echo "The title does not show an existing bound being widened, so a person reviews it."
             echo "auto=no" >> "$GITHUB_OUTPUT"
           else
             echo "auto=yes" >> "$GITHUB_OUTPUT"
