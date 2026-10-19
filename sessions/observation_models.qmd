@@ -281,9 +281,10 @@ println("ratio:              ", round(var(resid_fit) / mean(pred_fit), digits = 
 The ratio printed above is around 2, above the 1 Poisson demands but nothing like
 the failure of the single-wave SIR: that model could not reproduce a second wave
 at all, which is exactly what SEIT4L was built to do.
-The fitted trajectory tracks the first wave closely (days 4 to 11 land within a
-few cases of what was reported) and predicts about 314 of the 312 reported cases
-in total, essentially the right amount.
+The fitted trajectory follows the overall rise and fall of the first wave and
+predicts about 314 of the 312 reported cases in total, essentially the right
+amount, though individual days can miss by a dozen cases or more, as the look
+at day 7 below shows.
 
 The overdispersion that remains is mostly real observation noise rather than a
 badly wrong mean. Two islanders infected in the same household are not
