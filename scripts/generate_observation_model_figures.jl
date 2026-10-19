@@ -382,7 +382,7 @@ for (name, chain) in (("Poisson", chain_poisson), ("NegBin", chain_negbin))
 end
 println("NegBin φ: median ", round(median(vec(chain_negbin[:φ])), digits = 2))
 
-## Day 7, the observed peak, under the Poisson fit's posterior mean trajectory
+## Day 7, the observed peak, under the posterior mean trajectory of the Poisson fit
 θ_fit = Dict(p => mean(chain_poisson[p]) for p in (:R_0, :D_lat, :D_inf, :α, :D_imm))
 pred_fit =
     mean(chain_poisson[:ρ]) .*

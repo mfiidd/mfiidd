@@ -91,9 +91,9 @@ Under a negative binomial the same day is merely unusual, so the interval widens
 
 ![](images/observation_posteriors.svg)
 
-$\rho$ widens the most, because the total case count is what pins it down, but it
-barely shifts. SEIT4L's mean trajectory was already close to right, so loosening
-the likelihood has little mean to drag along with it.
+$\rho$ widens the most, because the total case count pins it down most
+directly, but it barely shifts. The mean trajectory of SEIT4L was already close
+to right, so loosening the likelihood has little mean to drag along with it.
 
 ## Likelihood as a distance
 

@@ -94,14 +94,14 @@ We have `{julia} length(flu_tdc.time)` daily observations of case counts.
 # The model we are fitting
 
 The transmission model is the deterministic SEIT4L model built in the
-[Structure and stochasticity](seitl.qmd) session, fitted here the same way as in
-the [Particle MCMC](pmcmc.qmd) session's deterministic comparison: $R_0$, the
-latent and infectious periods, the probability $\alpha$ of long-term immunity,
-the duration $D_\mathrm{imm}$ of temporary immunity, and $\rho$, the fraction of
-infections that are reported, are all fitted alongside each other. A plain SIR
-cannot reproduce this outbreak's second wave at all, which the
-[model checking session](model_checking.qmd) diagnosed and the SEIT4L model
-fixes.
+[Structure and stochasticity](seitl.qmd) session, fitted here the same way as
+the deterministic comparison in the [Particle MCMC](pmcmc.qmd) session: $R_0$,
+the latent and infectious periods, the probability $\alpha$ of long-term
+immunity, the duration $D_\mathrm{imm}$ of temporary immunity, and $\rho$, the
+fraction of infections that are reported, are all fitted alongside each other.
+A plain SIR cannot reproduce the second wave of this outbreak at all; the
+[model checking session](model_checking.qmd) diagnosed that failure, and the
+SEIT4L model fixes it.
 
 These two functions live in [`src/seitl_model.jl`](https://github.com/mfiidd/mfiidd/blob/main/src/seitl_model.jl) and arrived with `using MFIIDD` above.
 
@@ -279,23 +279,24 @@ println("ratio:              ", round(var(resid_fit) / mean(pred_fit), digits = 
 
 ::: {.callout-tip title="Solution" collapse="true"}
 The ratio printed above is around 2, above the 1 Poisson demands but nothing like
-the single-wave SIR's failure: that model could not reproduce a second wave at
-all, which is exactly what SEIT4L was built to do.
+the failure of the single-wave SIR: that model could not reproduce a second wave
+at all, which is exactly what SEIT4L was built to do.
 The fitted trajectory tracks the first wave closely (days 4 to 11 land within a
 few cases of what was reported) and predicts about 314 of the 312 reported cases
 in total, essentially the right amount.
 
-What overdispersion is left is mostly real observation noise rather than a badly
-wrong mean. Two islanders infected in the same household are not independent
-draws, reporting was not perfectly uniform across the outbreak, and a population
-of 284 is small enough that demographic stochasticity shapes the outbreak rather
-than jittering it, exactly the point the [Structure and stochasticity](seitl.qmd)
-session made. The deterministic curve cannot represent that: it settles into a
-smooth, slowly decaying tail through the second wave, while the actual counts
-keep jumping between zero and a dozen. The single biggest miss is the peak
-itself, on day 7, where the trajectory predicts around 33 cases against the 47
-reported — the kind of undershoot a genuinely stochastic peak in a small
-population can produce even when the mean dynamics are right.
+The overdispersion that remains is mostly real observation noise rather than a
+badly wrong mean. Two islanders infected in the same household are not
+independent draws, reporting was not perfectly uniform across the outbreak, and
+a population of 284 is small enough that demographic stochasticity shapes the
+outbreak rather than jittering it, which is the same point the
+[Structure and stochasticity](seitl.qmd) session made. The deterministic curve
+cannot represent that: it settles into a smooth, slowly decaying tail through
+the second wave, while the actual counts keep jumping between zero and a dozen.
+The single biggest miss is the peak itself, on day 7, where the trajectory
+predicts around 33 cases against the 47 reported, the kind of undershoot a
+genuinely stochastic peak in a small population can produce even when the mean
+dynamics are right.
 
 Because the mean is no longer badly wrong, loosening the likelihood should move
 the posteriors much less than it would for a misspecified model. The next fit
@@ -331,19 +332,19 @@ Then fit it below and check.
    a few noisy days make the most difference.
 
 2. **The mean barely moves, and that is no longer a surprise.** The previous
-   solution found SEIT4L's mean trajectory already close to right, so there is
-   little slack left for the negative binomial to redistribute. $R_0$ and $\rho$
-   both move by well under one Poisson posterior standard deviation. Loosening
-   an observation model only drags the mean along with it when the mean was
-   wrong to start with, and here it mostly was not.
+   solution found the mean trajectory of SEIT4L already close to right, so
+   there is little slack left for the negative binomial to redistribute. $R_0$
+   and $\rho$ both move by well under one Poisson posterior standard deviation.
+   Loosening an observation model only drags the mean along with it when the
+   mean was wrong to start with. Here it mostly was not.
 
 3. **Large $\phi$** is the right answer to the question as asked, because
    variance is $\mu + \mu^2/\phi$ and the second term vanishes as $\phi \to
    \infty$. The posterior for $\phi$ sits near 5, some way below "large" but
-   nowhere near the near-zero values a severely misspecified mean would demand:
-   real overdispersion, at a scale consistent with household clustering and
-   demographic noise in a population of 284, rather than a mean trying to hide a
-   structural failure.
+   nowhere near the near-zero values a severely misspecified mean would demand.
+   That fits real overdispersion, at a scale that household clustering and
+   demographic noise in a population of 284 could plausibly produce, rather
+   than a structural failure in the mean being mistaken for noise.
 :::
 
 # The negative binomial likelihood
@@ -453,10 +454,11 @@ p_negbin, covered_negbin = plot_predictive(model_negbin, chain_negbin,
 p_negbin
 ```
 
-The interval now covers `{julia} covered_negbin` days against the Poisson's
-`{julia} covered_poisson`, both close to the 95% target. Neither trajectory
-underneath moves much: the negative binomial is not rescuing a wrong mean here,
-it is widening an interval that was already roughly in the right place.
+The interval now covers `{julia} covered_negbin` days against `{julia}
+covered_poisson` for the Poisson, both close to the 95% target. Neither
+trajectory underneath moves much: the negative binomial is not rescuing a wrong
+mean here; it is widening an interval that was already roughly in the right
+place.
 
 ```{julia}
 # Compare the two observation models on every shared parameter
@@ -507,7 +509,7 @@ What it does not do is tell you which of those mechanisms was at work, or
 distinguish any of them from a mean that is simply wrong.
 
 The two fits differ in one thing: what they charge the model for a day that
-misses the prediction. That charge is what widened $\rho$ the most above, so it
+misses the prediction. That charge widened $\rho$ the most above, so it
 is worth looking at on its own.
 
 # Interlude: likelihood as distance
@@ -560,8 +562,8 @@ as the two part company. What differs is how steeply, and on which side:
 - Gaussian: penalises the absolute gap symmetrically, at a cost that does not
   depend on the size of the counts
 
-That flat tail is what widened the fit. Day 7, the observed peak, reports 47
-cases where the Poisson fit's mean trajectory predicts about 33:
+The flat tail widened the fit. Day 7, the observed peak, reports 47
+cases where the mean trajectory of the Poisson fit predicts about 33:
 
 ```{julia}
 # What each observation model charges for day 7
@@ -578,8 +580,8 @@ The Poisson is charged a little more for that single day than the negative
 binomial, not the order-of-magnitude gap a badly wrong mean would produce. That
 is the comparison table above, seen from the observation model rather than from
 the chain: a likelihood that charges a little less for a missed day leaves the
-parameters only a little freer to go elsewhere, which is exactly what a mean
-that was already close to right should show.
+parameters only a little freer to go elsewhere, consistent with a mean that was
+already close to right.
 
 # Learning points
 
