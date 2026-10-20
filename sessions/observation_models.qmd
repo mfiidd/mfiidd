@@ -329,7 +329,7 @@ Then fit it below and check.
    a little less tightly. Here the posterior standard deviation for $R_0$ and
    $D_\mathrm{inf}$ barely move, widening by a few per cent; $D_\mathrm{lat}$,
    $\alpha$ and $D_\mathrm{imm}$ widen by noticeably more, by around two fifths
-   again.
+   as much again.
    $\rho$ widens the most, by about three fifths, because it is the parameter
    most directly pinned by the total case count, and that count is exactly where
    a few noisy days make the most difference.
