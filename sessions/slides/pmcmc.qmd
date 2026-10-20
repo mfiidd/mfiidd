@@ -77,7 +77,7 @@ curve appears to license.
 
 A free check once the chain has run: compare the acceptance rate it achieved
 against RAM's target. A large shortfall means the chain met noise worse than
-what the particle count was calibrated for.
+the particle count was calibrated to handle.
 
 ::: {.cite}
 @pitt2012; @doucet2015
