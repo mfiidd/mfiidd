@@ -205,22 +205,22 @@
 <section id="what-each-model-predicts-after-fitting" class="slide level2">
 <h2>What each model predicts after fitting</h2>
 
-<img data-src="images/observation_predictive_bands.svg" class="r-stretch"><p>Both fits use the same SIR model on Tristan da Cunha. Only the observation model differs.</p>
+<img data-src="images/observation_predictive_bands.svg" class="r-stretch"><p>Both fits use the same SEIT4L model on Tristan da Cunha. Only the observation model differs.</p>
 </section>
 <section id="why-it-matters-for-inference" class="slide level2">
 <h2>Why it matters for inference</h2>
 <p>An observation model that is too tight makes the posterior too confident.</p>
 <div class="fragment">
-<p>Day 7 reports 47 cases where the Poisson fit predicts about five. That is near-impossible under Poisson, so the posterior narrows around a trajectory that never reaches it.</p>
+<p>Day 7, the observed peak, reports 47 cases where the Poisson fit predicts about 33. That costs the Poisson fit five log units for one day, enough to narrow the posterior a little.</p>
 </div>
 <div class="fragment">
-<p>Under a negative binomial the same day is merely unusual, so the intervals widen.</p>
+<p>Under a negative binomial the same day is merely unusual, so the interval widens.</p>
 </div>
 </section>
-<section id="the-posteriors-disagree-about-r_0" class="slide level2">
-<h2>The posteriors disagree about <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>R</mi><mn>0</mn></msub><annotation encoding="application/x-tex">R_0</annotation></semantics></math></h2>
+<section id="the-posteriors-barely-move" class="slide level2">
+<h2>The posteriors barely move</h2>
 
-<img data-src="images/observation_posteriors.svg" class="r-stretch"><p>The interval widens and the estimate moves. <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>D</mi><mrow><mi mathvariant="normal">i</mi><mi mathvariant="normal">n</mi><mi mathvariant="normal">f</mi></mrow></msub><annotation encoding="application/x-tex">D_\mathrm{inf}</annotation></semantics></math> moves too, from about 3.3 days to 6.8.</p>
+<img data-src="images/observation_posteriors.svg" class="r-stretch"><p><math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>ρ</mi><annotation encoding="application/x-tex">\rho</annotation></semantics></math> widens the most, because the total case count pins it down most directly, but it barely shifts. The mean trajectory of SEIT4L was already close to right, so loosening the likelihood has little mean to drag along with it.</p>
 </section>
 <section id="likelihood-as-a-distance" class="slide level2">
 <h2>Likelihood as a distance</h2>
@@ -236,7 +236,7 @@
 <section id="three-likelihoods-three-distances" class="slide level2">
 <h2>Three likelihoods, three distances</h2>
 
-<img data-src="images/observation_distance.svg" class="r-stretch"><p>The flatter the tail, the less a badly missed day costs. Day 7 costs the Poisson about 66 log units and the negative binomial about 8.</p>
+<img data-src="images/observation_distance.svg" class="r-stretch"><p>The flatter the tail, the less a missed day costs. Day 7 costs the Poisson about 5 log units and the negative binomial about 4.</p>
 </section>
 <section id="todays-question" class="slide level2">
 <h2>Today’s question</h2>
