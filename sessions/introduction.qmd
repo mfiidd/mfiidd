@@ -812,8 +812,9 @@ If you're working through this in one sitting, **stop here for 10-15 minutes**. 
 
 ## What is a posterior?
 
-The *posterior* combines our prior beliefs with the data evidence using *Bayes' theorem*, which follows from the rule of conditional probability.
-That rule defines the probability of $A$ given $B$ as the probability of both divided by the probability of $B$ on its own.
+The *posterior* combines our prior beliefs with the data evidence using *Bayes' theorem*, which follows from two general rules of probability: conditional probability and marginalisation.
+Both apply to any joint distribution, not just the one over parameters and data, and you'll meet them again elsewhere in the course.
+The rule of conditional probability defines the probability of $A$ given $B$ as the probability of both divided by the probability of $B$ on its own.
 
 $$p(A|B) = \frac{p(A,B)}{p(B)}$$
 
@@ -834,9 +835,11 @@ $$p(\theta|\text{data}) = \frac{p(\text{data}|\theta) \times p(\theta)}{p(\text{
 - $p(\theta)$: *Prior* - what we believed *before* seeing data
 - $p(\text{data})$: a normalising constant that does not depend on $\theta$
 
-Computing $p(\text{data})$ exactly means *marginalising* $\theta$ out of the joint distribution: averaging the likelihood over every possible value of $\theta$, weighted by the prior.
+$p(\text{data})$ is itself the marginal distribution of the data: the distribution you get by *marginalising* $\theta$ out of the joint distribution $p(\theta, \text{data})$, that is, summing or integrating it over every value $\theta$ can take.
 
-$$p(\text{data}) = \int p(\text{data}|\theta) \, p(\theta) \, d\theta$$
+$$p(\text{data}) = \int p(\theta, \text{data}) \, d\theta = \int p(\text{data}|\theta) \, p(\theta) \, d\theta$$
+
+Here that means averaging the likelihood over every possible value of $\theta$, weighted by the prior.
 
 For most models, including ours, this integral has no closed form.
 Because $p(\text{data})$ does not depend on $\theta$, comparing parameter values only needs the numerator up to that constant, so Bayes' theorem is usually written as a proportionality instead.

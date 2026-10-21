@@ -260,17 +260,36 @@ $$\log p(\text{data} \mid \theta) = \sum_{i} \log p(\text{data point } i \mid \t
 
 # Bayesian inference
 
+## Two rules of probability {.smaller}
+
+Two general rules, true of any joint distribution, are all we need to get
+$p(\theta \mid \text{data})$.
+
+- Conditional probability: $p(A \mid B) = \dfrac{p(A,B)}{p(B)}$, rearranged
+  into the **chain rule**, two ways to factorise a joint distribution:
+
+  $$p(A,B) = p(A \mid B)\,p(B) = p(B \mid A)\,p(A)$$
+
+- **Marginalisation**: integrating (or summing) a variable out of a joint
+  distribution to get the distribution of the rest:
+
+  $$p(B) = \int p(A,B)\,\mathrm{d}A$$
+
+We'll meet marginalisation again for the particle filter's likelihood.
+
 ## Bayes' rule {.smaller}
 
-In Bayesian inference we need $p(\theta \mid \text{data})$. Applying the rule of
-conditional probabilities:
+The chain rule applied to $\theta$ and the data gives two factorisations of
+$p(\theta, \text{data})$ that must be equal, so dividing through by
+$p(\text{data})$:
 
 $$p(\theta \mid \text{data}) = \frac{p(\text{data} \mid \theta)\, p(\theta)}{p(\text{data})}$$
 
 - $p(\theta \mid \text{data})$ is the *posterior*
 - $p(\text{data} \mid \theta)$ is the *likelihood*
 - $p(\theta)$ is the *prior*
-- $p(\text{data})$ is a *normalisation constant*
+- $p(\text{data})$ is a *normalisation constant*: $\theta$ marginalised out of
+  $p(\theta, \text{data})$, i.e. $\int p(\text{data} \mid \theta)\, p(\theta) \, \mathrm{d}\theta$
 
 In words,
 
