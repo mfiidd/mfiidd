@@ -73,6 +73,12 @@ Measured here at the posterior mean. The estimator is noisier out in the tails
 of the posterior, which is why the practical uses 256 rather than the 128 this
 curve appears to license.
 
+. . .
+
+A free check once the chain has run: compare the acceptance rate it achieved
+against RAM's target. A large shortfall means the chain met noise worse than
+the particle count was calibrated to handle.
+
 ::: {.cite}
 @pitt2012; @doucet2015
 :::
