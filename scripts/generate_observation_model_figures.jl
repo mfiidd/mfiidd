@@ -20,7 +20,7 @@ using DataFrames
 using Distributions
 using DrWatson
 using FlexiChains: @varname  ## refer to a model variable by name
-using MFIIDD ## the course package, which holds the SIR implementation
+using MFIIDD ## the course package, which holds the SEIT4L implementation
 using Plots
 using Random
 using StatsPlots
@@ -155,15 +155,39 @@ flu_tdc = CSV.read(datadir("flu_tdc_1971.csv"), DataFrame)
 times = [0.0; flu_tdc.time]
 
 ## The island as the ship lands, at the start of day 1. See CONTRIBUTING.md.
-init_state = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
+init_state = Dict(
+    :S => 279.0,
+    :E => 0.0,
+    :I => 2.0,
+    :T1 => 3.0,
+    :T2 => 0.0,
+    :T3 => 0.0,
+    :T4 => 0.0,
+    :L => 0.0,
+)
 
-@model function sir_poisson(times, init_state, n_obs)
-    R_0 ~ Uniform(1.0, 20.0)
-    D_inf ~ Uniform(1.0, 10.0)
-    ρ ~ Uniform(0.1, 1.0)
+"""
+    reject_failed_solve(traj, times)
 
-    θ = Dict(:R_0 => R_0, :D_inf => D_inf)
-    traj = simulate_sir(θ, init_state, times)
+`true` if the ODE solver gave up early, which the NUTS gradient probe
+occasionally triggers. Callers add `-Inf` to the log-density and return.
+"""
+reject_failed_solve(traj, times) = nrow(traj) != length(times)
+
+@model function seit4l_poisson(times, init_state, n_obs)
+    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
+    α ~ Beta(2, 2)
+    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
+    ρ ~ Beta(2, 2)
+
+    θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf, :α => α, :D_imm => D_imm)
+    traj = simulate_seit4l_deterministic(θ, init_state, times)
+    if reject_failed_solve(traj, times)
+        Turing.@addlogprob! -Inf
+        return
+    end
 
     lambdas = [max(ρ * traj.Inc[i + 1], 1e-10) for i in 1:n_obs]
     obs ~ arraydist(Poisson.(lambdas))
@@ -171,14 +195,21 @@ init_state = Dict(:S => 279.0, :I => 2.0, :R => 3.0)
     return traj
 end
 
-@model function sir_negbin(times, init_state, n_obs)
-    R_0 ~ Uniform(1.0, 20.0)
-    D_inf ~ Uniform(1.0, 10.0)
-    ρ ~ Uniform(0.1, 1.0)
+@model function seit4l_negbin(times, init_state, n_obs)
+    R_0 ~ truncated(Normal(3.0, 2.0), lower = 1.0)
+    D_lat ~ truncated(Normal(2.0, 1.0), lower = 0.5)
+    D_inf ~ truncated(Normal(3.0, 2.0), lower = 0.5)
+    α ~ Beta(2, 2)
+    D_imm ~ truncated(Normal(15.0, 10.0), lower = 1.0)
+    ρ ~ Beta(2, 2)
     φ ~ Exponential(10.0)
 
-    θ = Dict(:R_0 => R_0, :D_inf => D_inf)
-    traj = simulate_sir(θ, init_state, times)
+    θ = Dict(:R_0 => R_0, :D_lat => D_lat, :D_inf => D_inf, :α => α, :D_imm => D_imm)
+    traj = simulate_seit4l_deterministic(θ, init_state, times)
+    if reject_failed_solve(traj, times)
+        Turing.@addlogprob! -Inf
+        return
+    end
 
     mus = [max(ρ * traj.Inc[i + 1], 1e-10) for i in 1:n_obs]
     obs ~ arraydist([negbin(μ, φ) for μ in mus])
@@ -187,8 +218,8 @@ end
 end
 
 n_obs = length(flu_tdc.obs)
-model_poisson = sir_poisson(times, init_state, n_obs) | (; obs = flu_tdc.obs)
-model_negbin = sir_negbin(times, init_state, n_obs) | (; obs = flu_tdc.obs)
+model_poisson = seit4l_poisson(times, init_state, n_obs) | (; obs = flu_tdc.obs)
+model_negbin = seit4l_negbin(times, init_state, n_obs) | (; obs = flu_tdc.obs)
 
 chain_poisson = sample(model_poisson, NUTS(0.65), 1000, progress = false)
 chain_negbin = sample(model_negbin, NUTS(0.65), 1000, progress = false)
@@ -269,19 +300,19 @@ save_figure(p_bands, "observation_predictive_bands.svg")
 println("5/5 posteriors and the distance functions")
 
 p_post = density(
-    vec(chain_poisson[:R_0]),
+    vec(chain_poisson[:ρ]),
     linewidth = 3,
     color = POISSON_COLOUR,
     fill = (0, 0.2, POISSON_COLOUR),
     label = "Poisson",
-    xlabel = "R₀",
+    xlabel = "ρ",
     ylabel = "Posterior density",
     size = (900, 460),
     legend = :topright,
 )
 density!(
     p_post,
-    vec(chain_negbin[:R_0]),
+    vec(chain_negbin[:ρ]),
     linewidth = 3,
     color = NEGBIN_COLOUR,
     fill = (0, 0.2, NEGBIN_COLOUR),
@@ -336,7 +367,7 @@ save_figure(p_dist, "observation_distance.svg")
 # ---------------------------------------------------------------------------
 
 for (name, chain) in (("Poisson", chain_poisson), ("NegBin", chain_negbin))
-    for p in (:R_0, :D_inf, :ρ)
+    for p in (:R_0, :D_lat, :D_inf, :α, :D_imm, :ρ)
         draws = vec(chain[p])
         println(
             name,
@@ -350,6 +381,21 @@ for (name, chain) in (("Poisson", chain_poisson), ("NegBin", chain_negbin))
     end
 end
 println("NegBin φ: median ", round(median(vec(chain_negbin[:φ])), digits = 2))
+
+## Day 7, the observed peak, under the posterior mean trajectory of the Poisson fit
+θ_fit = Dict(p => mean(chain_poisson[p]) for p in (:R_0, :D_lat, :D_inf, :α, :D_imm))
+pred_fit =
+    mean(chain_poisson[:ρ]) .*
+    simulate_seit4l_deterministic(θ_fit, init_state, times).Inc[2:end]
+day7 = findfirst(==(7), flu_tdc.time)
+obs_day7, pred_day7 = flu_tdc.obs[day7], pred_fit[day7]
+φ_fit = median(vec(chain_negbin[:φ]))
+println("Day 7: observed ", obs_day7, ", predicted ", round(pred_day7, digits = 1))
+println("Day 7 cost, Poisson: ", round(-logpdf(Poisson(pred_day7), obs_day7), digits = 1))
+println(
+    "Day 7 cost, NegBin:  ",
+    round(-logpdf(negbin(pred_day7, φ_fit), obs_day7), digits = 1),
+)
 println(
     "Days inside the Poisson 95% band: ",
     count(flu_tdc.obs .>= band_poisson.lower .&& flu_tdc.obs .<= band_poisson.upper),

@@ -71,7 +71,7 @@ $$y_t \sim \text{NegativeBinomial}(\lambda_t, \phi)$$
 
 ![](images/observation_predictive_bands.svg)
 
-Both fits use the same SIR model on Tristan da Cunha.
+Both fits use the same SEIT4L model on Tristan da Cunha.
 Only the observation model differs.
 
 ## Why it matters for inference
@@ -80,19 +80,20 @@ An observation model that is too tight makes the posterior too confident.
 
 . . .
 
-Day 7 reports 47 cases where the Poisson fit predicts about five.
-That is near-impossible under Poisson, so the posterior narrows around a trajectory that never reaches it.
+Day 7, the observed peak, reports 47 cases where the Poisson fit predicts about 33.
+That costs the Poisson fit five log units for one day, enough to narrow the posterior a little.
 
 . . .
 
-Under a negative binomial the same day is merely unusual, so the intervals widen.
+Under a negative binomial the same day is merely unusual, so the interval widens.
 
-## The posteriors disagree about $R_0$
+## The posteriors barely move
 
 ![](images/observation_posteriors.svg)
 
-The interval widens and the estimate moves.
-$D_\mathrm{inf}$ moves too, from about 3.3 days to 6.8.
+$\rho$ widens the most, because the total case count pins it down most
+directly, but it barely shifts. The mean trajectory of SEIT4L was already close
+to right, so loosening the likelihood has little mean to drag along with it.
 
 ## Likelihood as a distance
 
@@ -108,8 +109,8 @@ The negative log-likelihood of one observation, as a function of how far it is f
 
 ![](images/observation_distance.svg)
 
-The flatter the tail, the less a badly missed day costs.
-Day 7 costs the Poisson about 66 log units and the negative binomial about 8.
+The flatter the tail, the less a missed day costs.
+Day 7 costs the Poisson about 5 log units and the negative binomial about 4.
 
 ## Today's question
 
