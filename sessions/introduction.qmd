@@ -813,7 +813,7 @@ If you're working through this in one sitting, **stop here for 10-15 minutes**. 
 ## What is a posterior?
 
 The *posterior* combines our prior beliefs with the data evidence using *Bayes' theorem*, which follows from two general rules of probability: conditional probability and marginalisation.
-Both apply to any joint distribution, not just the one over parameters and data, and you'll meet them again elsewhere in the course.
+Both apply to any joint distribution, not just the one over parameters and data. You'll meet them again elsewhere in the course.
 The rule of conditional probability defines the probability of $A$ given $B$ as the probability of both divided by the probability of $B$ on its own.
 
 $$p(A|B) = \frac{p(A,B)}{p(B)}$$
@@ -835,7 +835,7 @@ $$p(\theta|\text{data}) = \frac{p(\text{data}|\theta) \times p(\theta)}{p(\text{
 - $p(\theta)$: *Prior* - what we believed *before* seeing data
 - $p(\text{data})$: a normalising constant that does not depend on $\theta$
 
-$p(\text{data})$ is itself the marginal distribution of the data: the distribution you get by *marginalising* $\theta$ out of the joint distribution $p(\theta, \text{data})$, that is, summing or integrating it over every value $\theta$ can take.
+$p(\text{data})$ is itself the marginal distribution of the data: the distribution you get by *marginalising* $\theta$ out of the joint distribution $p(\theta, \text{data})$. That means summing or integrating it over every value $\theta$ can take.
 
 $$p(\text{data}) = \int p(\theta, \text{data}) \, d\theta = \int p(\text{data}|\theta) \, p(\theta) \, d\theta$$
 

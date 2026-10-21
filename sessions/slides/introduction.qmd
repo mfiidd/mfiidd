@@ -275,13 +275,13 @@ $p(\theta \mid \text{data})$.
 
   $$p(B) = \int p(A,B)\,\mathrm{d}A$$
 
-We'll meet marginalisation again for the particle filter's likelihood.
+We'll meet marginalisation again for the particle filter likelihood.
 
 ## Bayes' rule {.smaller}
 
 The chain rule applied to $\theta$ and the data gives two factorisations of
-$p(\theta, \text{data})$ that must be equal, so dividing through by
-$p(\text{data})$:
+$p(\theta, \text{data})$ that must be equal. Dividing through by
+$p(\text{data})$ gives:
 
 $$p(\theta \mid \text{data}) = \frac{p(\text{data} \mid \theta)\, p(\theta)}{p(\text{data})}$$
 
