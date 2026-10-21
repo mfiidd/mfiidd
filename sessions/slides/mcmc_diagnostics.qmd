@@ -406,6 +406,9 @@ p1 = density(
     xlabel = "θ", ylabel = "Density", fillrange = 0, fillalpha = 0.15,
     xlims = (1.2, 3.8)
 )
+## Shade the range of the right panel here, to show how little of the
+## posterior it covers.
+vspan!(p1, [2.4, 2.6], color = 2, alpha = 0.3, linealpha = 0)
 p2 = density(
     run_means, title = "Mean of a run (SD $(round(mcse_emp, digits = 3)))",
     xlabel = "θ", ylabel = "Density", fillrange = 0, fillalpha = 0.15, color = 2,
