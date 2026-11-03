@@ -812,13 +812,42 @@ If you're working through this in one sitting, **stop here for 10-15 minutes**. 
 
 ## What is a posterior?
 
-The *posterior* combines our prior beliefs with the data evidence using *Bayes' theorem*:
+The *posterior* combines our prior beliefs with the data evidence using *Bayes' theorem*, which follows from two general rules of probability: conditional probability and marginalisation.
+Both apply to any joint distribution, not just the one over parameters and data. You'll meet them again elsewhere in the course.
+The rule of conditional probability defines the probability of $A$ given $B$ as the probability of both divided by the probability of $B$ on its own.
 
-$$p(\theta|\text{data}) \propto p(\text{data}|\theta) \times p(\theta)$$
+$$p(A|B) = \frac{p(A,B)}{p(B)}$$
+
+Rearranging gives the *chain rule*: the joint probability of $A$ and $B$ factorises two ways, as $p(A|B)\,p(B)$ or as $p(B|A)\,p(A)$.
+
+$$p(A,B) = p(A|B)\,p(B) = p(B|A)\,p(A)$$
+
+The same rule applied to $\theta$ and the data gives two factorisations of $p(\theta, \text{data})$ that must be equal.
+
+$$p(\theta|\text{data})\,p(\text{data}) = p(\text{data}|\theta)\,p(\theta)$$
+
+Dividing through by $p(\text{data})$ gives Bayes' theorem.
+
+$$p(\theta|\text{data}) = \frac{p(\text{data}|\theta) \times p(\theta)}{p(\text{data})}$$
 
 - $p(\theta|\text{data})$: *Posterior* - what we believe about parameters *after* seeing data
 - $p(\text{data}|\theta)$: *Likelihood* - how well parameters explain the data
 - $p(\theta)$: *Prior* - what we believed *before* seeing data
+- $p(\text{data})$: a normalising constant that does not depend on $\theta$
+
+$p(\text{data})$ is itself the marginal distribution of the data: the distribution you get by *marginalising* $\theta$ out of the joint distribution $p(\theta, \text{data})$. That means summing or integrating it over every value $\theta$ can take.
+
+$$p(\text{data}) = \int p(\theta, \text{data}) \, d\theta = \int p(\text{data}|\theta) \, p(\theta) \, d\theta$$
+
+Here that means averaging the likelihood over every possible value of $\theta$, weighted by the prior.
+
+For most models, including ours, this integral has no closed form.
+Because $p(\text{data})$ does not depend on $\theta$, comparing parameter values only needs the numerator up to that constant, so Bayes' theorem is usually written as a proportionality instead.
+
+$$p(\theta|\text{data}) \propto p(\text{data}|\theta) \times p(\theta)$$
+
+The grid search later in this session works with exactly this unnormalised posterior, then approximates the marginalisation integral by summing over the grid instead of integrating.
+The [particle filters session](particle_filters.qmd) marginalises the same way, over trajectories instead of parameters, and turns to the *Monte Carlo method* because there is no grid of trajectories to sum over.
 
 In log space: $\log p(\theta|\text{data}) = \log p(\text{data}|\theta) + \log p(\theta) + \text{constant}$
 
@@ -1143,6 +1172,7 @@ Note that we only knew where to refine because the coarse grid had already told 
 - **Priors** express beliefs before seeing data - explore them through simulation (prior predictive checking)
 - **Likelihood** quantifies how well parameters explain observed data, given an observation model
 - **Posterior** combines prior and likelihood via Bayes' theorem: $p(\theta|\text{data}) \propto p(\text{data}|\theta) \times p(\theta)$
+- **Bayes' theorem** follows from the chain rule applied to $\theta$ and the data - the normalising constant $p(\text{data})$ comes from *marginalising* $\theta$ out of the joint distribution
 - **Observation models** encode assumptions (e.g., Poisson noise, conditional independence) - think critically about when they're violated
 - **Grid search** can explore posteriors but doesn't scale beyond a few parameters
 - **Posterior predictive checking** validates whether fitted models generate realistic data
