@@ -47,7 +47,7 @@ The chain still targets the correct posterior — exactly, not approximately. Th
 noise costs us **efficiency**, never **correctness**.
 
 ::: {.cite}
-@andrieu2010 — derived in the appendix
+[@andrieu2010](https://doi.org/10.1111/j.1467-9868.2009.00736.x) — derived in the appendix
 :::
 :::
 
@@ -74,7 +74,7 @@ of the posterior, which is why the practical uses 256 rather than the 128 this
 curve appears to license.
 
 ::: {.cite}
-@pitt2012; @doucet2015
+[@pitt2012](https://doi.org/10.1016/j.jeconom.2012.06.004); [@doucet2015](https://doi.org/10.1093/biomet/asu075)
 :::
 
 ## Why RAM rather than NUTS
@@ -245,7 +245,7 @@ estimator has to be non-negative and strictly positive wherever the posterior is
 Particle filter estimates satisfy this.
 
 ::: {.cite}
-@andrieu2009; @andrieu2010
+[@andrieu2009](https://doi.org/10.1214/07-AOS574); [@andrieu2010](https://doi.org/10.1111/j.1467-9868.2009.00736.x)
 :::
 
 #
