@@ -75,7 +75,7 @@ curve appears to license.
 
 . . .
 
-A check you can run once the chain has finished: compare the acceptance rate it achieved against the target. A large shortfall means the chain met noise worse than the particle count was calibrated to handle.
+Once the chain has finished, compare the acceptance rate it achieved against the target. A large shortfall means the chain met noise worse than the particle count was calibrated to handle.
 
 ::: {.cite}
 @pitt2012; @doucet2015
