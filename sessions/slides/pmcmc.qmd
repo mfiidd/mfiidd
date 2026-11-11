@@ -73,6 +73,10 @@ Measured here at the posterior mean. The estimator is noisier out in the tails
 of the posterior, which is why the practical uses 256 rather than the 128 this
 curve appears to license.
 
+. . .
+
+Once the chain has finished, compare the acceptance rate it achieved against the target. A large shortfall means the chain met noise worse than the particle count was calibrated to handle.
+
 ::: {.cite}
 [@pitt2012](https://doi.org/10.1016/j.jeconom.2012.06.004); [@doucet2015](https://doi.org/10.1093/biomet/asu075)
 :::
