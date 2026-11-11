@@ -1,0 +1,1674 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.11.9">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+
+<title>Beyond Turing – MFIIDD</title>
+<style>
+/* Default styles provided by pandoc.
+** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+*/
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: 1.5em;}
+div.column{flex: auto;}
+@media screen {
+div.columns{gap: min(4vw, 1.5em);}
+div.column{overflow-x: auto;}
+}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.min.js" integrity="sha384-ZvpUoO/+PpLXR1lu4jmpXWu80pZlYUAfxl5NsBMWOEPSjUn/6Z/hRTt8+pR6L4N2" crossorigin="anonymous"></script><script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../mfiidd-favicon.png" rel="icon" type="image/png">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/scrollable-regions/scrollable-regions.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-447e42e69aaa9833c0ba1b986f430b20.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-63b5708e65d6cd79cd7618c58d0c21e7.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-ce0f0d1e95892c391167071f7e5e54e4.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-b39bdffe12d58a8c5414dd9837b0d656.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-ce0f0d1e95892c391167071f7e5e54e4.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script id="quarto-search-options" type="application/json">{
+  "location": "navbar",
+  "copy-button": false,
+  "collapse-after": 3,
+  "panel-placement": "end",
+  "type": "overlay",
+  "limit": 50,
+  "keyboard-shortcut": [
+    "f",
+    "/",
+    "s"
+  ],
+  "show-item-context": false,
+  "language": {
+    "search-no-results-text": "No results",
+    "search-matching-documents-text": "matching documents",
+    "search-copy-link-title": "Copy link to search",
+    "search-hide-matches-text": "Hide additional matches",
+    "search-more-match-text": "more match in this document",
+    "search-more-matches-text": "more matches in this document",
+    "search-clear-button-title": "Clear",
+    "search-text-placeholder": "",
+    "search-detached-cancel-button-title": "Cancel",
+    "search-submit-button-title": "Submit",
+    "search-label": "Search"
+  }
+}</script>
+<script src="https://cdn.jsdelivr.net/npm/requirejs@2.3.6/require.min.js" integrity="sha384-c9c+LnTbwQ3aujuU7ULEPVvgLs+Fn6fJUvIGTsuu1ZcCf11fiEubah0ttpca4ntM sha384-6V1/AdqZRWk1KAlWbKBlGhN7VG4iE/yAZcO6NZPMF8od0vukrvr0tg4qY6NSrItx" crossorigin="anonymous"></script>
+
+<script type="application/javascript">define('jquery', [],function() {return window.jQuery;})</script>
+
+
+<link rel="stylesheet" href="../styles.css">
+<meta property="og:title" content="Beyond Turing – MFIIDD">
+<meta property="og:description" content="The wider Julia ecosystem">
+<meta property="og:site_name" content="MFIIDD">
+</head>
+
+<body class="nav-sidebar docked nav-fixed quarto-light"><a id="quarto-skip-link" class="visually-hidden-focusable" href="#quarto-document-content">Skip to main content</a><script id="quarto-html-before-body" type="application/javascript">
+    const toggleBodyColorMode = (bsSheetEl) => {
+      const mode = bsSheetEl.getAttribute("data-mode");
+      const bodyEl = window.document.querySelector("body");
+      if (mode === "dark") {
+        bodyEl.classList.add("quarto-dark");
+        bodyEl.classList.remove("quarto-light");
+      } else {
+        bodyEl.classList.add("quarto-light");
+        bodyEl.classList.remove("quarto-dark");
+      }
+    }
+    const toggleBodyColorPrimary = () => {
+      const bsSheetEl = window.document.querySelector("link#quarto-bootstrap:not([rel=disabled-stylesheet])");
+      if (bsSheetEl) {
+        toggleBodyColorMode(bsSheetEl);
+      }
+    }
+    const setColorSchemeToggle = (alternate) => {
+      const toggles = window.document.querySelectorAll('.quarto-color-scheme-toggle');
+      for (let i=0; i < toggles.length; i++) {
+        const toggle = toggles[i];
+        if (toggle) {
+          toggle.setAttribute("aria-checked", alternate ? "true" : "false");
+          if (alternate) {
+            toggle.classList.add("alternate");
+          } else {
+            toggle.classList.remove("alternate");
+          }
+        }
+      }
+    };
+    const toggleColorMode = (alternate) => {
+      // Switch the stylesheets
+      const primaryStylesheets = window.document.querySelectorAll('link.quarto-color-scheme:not(.quarto-color-alternate)');
+      const alternateStylesheets = window.document.querySelectorAll('link.quarto-color-scheme.quarto-color-alternate');
+      manageTransitions('#quarto-margin-sidebar .nav-link', false);
+      if (alternate) {
+        // note: dark is layered on light, we don't disable primary!
+        enableStylesheet(alternateStylesheets);
+        for (const sheetNode of alternateStylesheets) {
+          if (sheetNode.id === "quarto-bootstrap") {
+            toggleBodyColorMode(sheetNode);
+          }
+        }
+      } else {
+        disableStylesheet(alternateStylesheets);
+        enableStylesheet(primaryStylesheets)
+        toggleBodyColorPrimary();
+      }
+      manageTransitions('#quarto-margin-sidebar .nav-link', true);
+      // Switch the toggles
+      setColorSchemeToggle(alternate)
+    }
+    // Hack to workaround the fact that safari doesn't
+    // properly recolor the scrollbar when toggling (#1455).
+    // Not run on load: stylesheets are set before first paint there, and
+    // scrolling would undo the scroll to a URL fragment (#14973).
+    // The one pixel nudge keeps the reader where they were.
+    const refreshSafariScrollbar = () => {
+      if (navigator.userAgent.indexOf('Safari') > 0 && navigator.userAgent.indexOf('Chrome') == -1) {
+        manageTransitions("body", false);
+        const scrollY = window.scrollY;
+        window.scrollTo(0, scrollY > 0 ? scrollY - 1 : 1);
+        setTimeout(() => {
+          window.scrollTo(0, scrollY);
+          manageTransitions("body", true);
+        }, 40);
+      }
+    }
+    const disableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        stylesheet.rel = 'disabled-stylesheet';
+      }
+    }
+    const enableStylesheet = (stylesheets) => {
+      for (let i=0; i < stylesheets.length; i++) {
+        const stylesheet = stylesheets[i];
+        if(stylesheet.rel !== 'stylesheet') { // for Chrome, which will still FOUC without this check
+          stylesheet.rel = 'stylesheet';
+        }
+      }
+    }
+    const manageTransitions = (selector, allowTransitions) => {
+      const els = window.document.querySelectorAll(selector);
+      for (let i=0; i < els.length; i++) {
+        const el = els[i];
+        if (allowTransitions) {
+          el.classList.remove('notransition');
+        } else {
+          el.classList.add('notransition');
+        }
+      }
+    }
+    const isFileUrl = () => {
+      return window.location.protocol === 'file:';
+    }
+    const hasAlternateSentinel = () => {
+      let styleSentinel = getColorSchemeSentinel();
+      if (styleSentinel !== null) {
+        return styleSentinel === "alternate";
+      } else {
+        return false;
+      }
+    }
+    const setStyleSentinel = (alternate) => {
+      const value = alternate ? "alternate" : "default";
+      if (!isFileUrl()) {
+        window.localStorage.setItem("quarto-color-scheme", value);
+      } else {
+        localAlternateSentinel = value;
+      }
+    }
+    const getColorSchemeSentinel = () => {
+      if (!isFileUrl()) {
+        const storageValue = window.localStorage.getItem("quarto-color-scheme");
+        return storageValue != null ? storageValue : localAlternateSentinel;
+      } else {
+        return localAlternateSentinel;
+      }
+    }
+    const toggleGiscusIfUsed = (isAlternate, darkModeDefault) => {
+      const baseTheme = document.querySelector('#giscus-base-theme')?.value ?? 'light';
+      const alternateTheme = document.querySelector('#giscus-alt-theme')?.value ?? 'dark';
+      let newTheme = '';
+      if(authorPrefersDark) {
+        newTheme = isAlternate ? baseTheme : alternateTheme;
+      } else {
+        newTheme = isAlternate ? alternateTheme : baseTheme;
+      }
+      const changeGiscusTheme = () => {
+        // From: https://github.com/giscus/giscus/issues/336
+        const sendMessage = (message) => {
+          const iframe = document.querySelector('iframe.giscus-frame');
+          if (!iframe) return;
+          iframe.contentWindow.postMessage({ giscus: message }, 'https://giscus.app');
+        }
+        sendMessage({
+          setConfig: {
+            theme: newTheme
+          }
+        });
+      }
+      const isGiscussLoaded = window.document.querySelector('iframe.giscus-frame') !== null;
+      if (isGiscussLoaded) {
+        changeGiscusTheme();
+      }
+    };
+    const authorPrefersDark = false;
+    const darkModeDefault = authorPrefersDark;
+      document.querySelector('link#quarto-text-highlighting-styles.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+      document.querySelector('link#quarto-bootstrap.quarto-color-scheme-extra').rel = 'disabled-stylesheet';
+    let localAlternateSentinel = darkModeDefault ? 'alternate' : 'default';
+    // Dark / light mode switch
+    window.quartoToggleColorScheme = () => {
+      // Read the current dark / light value
+      let toAlternate = !hasAlternateSentinel();
+      toggleColorMode(toAlternate);
+      refreshSafariScrollbar();
+      setStyleSentinel(toAlternate);
+      toggleGiscusIfUsed(toAlternate, darkModeDefault);
+      window.dispatchEvent(new Event('resize'));
+    };
+    // Switch to dark mode if need be
+    if (hasAlternateSentinel()) {
+      toggleColorMode(true);
+    } else {
+      toggleColorMode(false);
+    }
+  </script>
+
+<div id="quarto-search-results"></div>
+  <header id="quarto-header" class="headroom fixed-top">
+    <nav class="navbar navbar-expand-lg " data-bs-theme="dark" aria-label="Site">
+      <div class="navbar-container container-fluid">
+      <div class="navbar-brand-container mx-auto">
+    <a class="navbar-brand" href="../index.html">
+    <span class="navbar-title">MFIIDD</span>
+    </a>
+  </div>
+          <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarCollapse" aria-controls="navbarCollapse" aria-expanded="false" aria-label="Toggle navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+  <span class="navbar-toggler-icon"></span>
+</button>
+          <div class="collapse navbar-collapse" id="navbarCollapse">
+            <ul class="navbar-nav navbar-nav-scroll me-auto">
+  <li class="nav-item">
+    <a class="nav-link" href="../getting-started.html"> 
+<span class="menu-text">Getting Started</span></a>
+  </li>  
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-sessions" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Sessions</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-sessions">    
+        <li>
+    <a class="dropdown-item" href="../sessions/introduction-and-course-overview.html">
+ <span class="dropdown-text">Introduction and course overview</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/introduction.html">
+ <span class="dropdown-text">Bayesian inference with mathematical models</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/mcmc.html">
+ <span class="dropdown-text">Markov chain Monte Carlo (MCMC) sampling</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/mcmc_diagnostics.html">
+ <span class="dropdown-text">MCMC diagnostics</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/model_checking.html">
+ <span class="dropdown-text">Model checking and validation</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/seitl.html">
+ <span class="dropdown-text">Structure and stochasticity</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/particle_filters.html">
+ <span class="dropdown-text">Particle filters</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/pmcmc.html">
+ <span class="dropdown-text">Particle MCMC and model comparison</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/observation_models.html">
+ <span class="dropdown-text">Observation models</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/abc.html">
+ <span class="dropdown-text">Approximate Bayesian computation</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/closing.html">
+ <span class="dropdown-text">Synthesis and next steps</span></a>
+  </li>  
+        <li><hr class="dropdown-divider"></li>
+        <li class="dropdown-header">Further topics</li>
+        <li>
+    <a class="dropdown-item" href="../sessions/variational_inference.html">
+ <span class="dropdown-text">Variational inference</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/neural_posterior_estimation.html">
+ <span class="dropdown-text">Neural posterior estimation</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/universal_differential_equations.html">
+ <span class="dropdown-text">Universal differential equations</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../sessions/julia_ecosystem.html">
+ <span class="dropdown-text">Beyond Turing</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item dropdown ">
+    <a class="nav-link dropdown-toggle" href="#" id="nav-menu-reference" role="link" data-bs-toggle="dropdown" aria-expanded="false">
+ <span class="menu-text">Reference</span>
+    </a>
+    <ul class="dropdown-menu" aria-labelledby="nav-menu-reference">    
+        <li>
+    <a class="dropdown-item" href="../reference/sessions.html">
+ <span class="dropdown-text">Session timetable</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../reference/structure.html">
+ <span class="dropdown-text">Course Structure</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../reference/further_reading.html">
+ <span class="dropdown-text">Further Reading</span></a>
+  </li>  
+        <li>
+    <a class="dropdown-item" href="../reference/help.html">
+ <span class="dropdown-text">Getting Help</span></a>
+  </li>  
+    </ul>
+  </li>
+  <li class="nav-item">
+    <a class="nav-link" href="../authors.html"> 
+<span class="menu-text">Authors</span></a>
+  </li>  
+</ul>
+            <ul class="navbar-nav navbar-nav-scroll ms-auto">
+  <li class="nav-item compact">
+    <a class="nav-link" href="https://github.com/mfiidd/mfiidd"> <i class="bi bi-github" role="img">
+</i> 
+<span class="menu-text"></span></a>
+  </li>  
+</ul>
+          </div> <!-- /navcollapse -->
+            <div class="quarto-navbar-tools">
+  <button type="button" role="switch" aria-checked="false" class="quarto-color-scheme-toggle quarto-navigation-tool  px-1" onclick="window.quartoToggleColorScheme(); return false;" title="Toggle dark mode" aria-label="Toggle dark mode"><i class="bi"></i></button>
+</div>
+            <div id="quarto-search" class="" title="Search"></div>
+      </div> <!-- /container-fluid -->
+    </nav>
+  <nav class="quarto-secondary-nav" aria-label="Toolbar">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../sessions/variational_inference.html">Further topics</a></li><li class="breadcrumb-item"><a href="../sessions/julia_ecosystem.html">Beyond Turing</a></li></ol></nav>
+        <a class="flex-grow-1" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
+</header>
+<!-- content -->
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
+<!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation docked overflow-auto" aria-label="Section">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/introduction-and-course-overview.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Introduction and course overview</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/introduction.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Bayesian inference with mathematical models</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/mcmc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Markov chain Monte Carlo (MCMC) sampling</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/mcmc_diagnostics.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">MCMC diagnostics</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/model_checking.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Model checking and validation</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/seitl.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Structure and stochasticity</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/particle_filters.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Particle filters</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/pmcmc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Particle MCMC and model comparison</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/observation_models.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Observation models</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/abc.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Approximate Bayesian computation</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/closing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Synthesis and next steps</span></a>
+  </div>
+</li>
+        <li class="sidebar-item sidebar-item-section">
+      <div class="sidebar-item-container"> 
+            <button type="button" class="sidebar-item-text sidebar-item-toggle sidebar-link text-start" data-bs-toggle="collapse" data-bs-target="#quarto-sidebar-section-1" aria-controls="quarto-sidebar-section-1" aria-expanded="true">
+ <span class="menu-text" id="quarto-sidebar-section-1-label">Further topics</span><i class="bi bi-chevron-right" aria-hidden="true"></i></button>
+      </div>
+      <ul id="quarto-sidebar-section-1" aria-labelledby="quarto-sidebar-section-1-label" class="collapse list-unstyled sidebar-section depth1 show">  
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/variational_inference.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Variational inference</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/neural_posterior_estimation.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Neural posterior estimation</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/universal_differential_equations.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Universal differential equations</span></a>
+  </div>
+</li>
+          <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../sessions/julia_ecosystem.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">Beyond Turing</span></a>
+  </div>
+</li>
+      </ul>
+  </li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
+<!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" aria-labelledby="toc-title" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction">Introduction</a></li>
+  <li><a href="#objectives" id="toc-objectives" class="nav-link" data-scroll-target="#objectives">Objectives</a></li>
+  <li><a href="#setup" id="toc-setup" class="nav-link" data-scroll-target="#setup">Setup</a>
+  <ul class="collapse">
+  <li><a href="#source-file" id="toc-source-file" class="nav-link" data-scroll-target="#source-file">Source file</a></li>
+  <li><a href="#load-libraries" id="toc-load-libraries" class="nav-link" data-scroll-target="#load-libraries">Load libraries</a></li>
+  </ul></li>
+  <li><a href="#the-log-density-is-all-you-need" id="toc-the-log-density-is-all-you-need" class="nav-link" data-scroll-target="#the-log-density-is-all-you-need">The log-density is all you need</a></li>
+  <li><a href="#from-manual-log-posterior-to-standard-interface" id="toc-from-manual-log-posterior-to-standard-interface" class="nav-link" data-scroll-target="#from-manual-log-posterior-to-standard-interface">From manual log-posterior to standard interface</a></li>
+  <li><a href="#sampling-with-dynamichmc.jl" id="toc-sampling-with-dynamichmc.jl" class="nav-link" data-scroll-target="#sampling-with-dynamichmc.jl">Sampling with DynamicHMC.jl</a></li>
+  <li><a href="#choosing-an-automatic-differentiation-backend" id="toc-choosing-an-automatic-differentiation-backend" class="nav-link" data-scroll-target="#choosing-an-automatic-differentiation-backend">Choosing an automatic differentiation backend</a></li>
+  <li><a href="#other-samplers" id="toc-other-samplers" class="nav-link" data-scroll-target="#other-samplers">Other samplers</a></li>
+  <li><a href="#working-with-the-results" id="toc-working-with-the-results" class="nav-link" data-scroll-target="#working-with-the-results">Working with the results</a></li>
+  <li><a href="#the-rest-of-the-stack" id="toc-the-rest-of-the-stack" class="nav-link" data-scroll-target="#the-rest-of-the-stack">The rest of the stack</a></li>
+  <li><a href="#when-to-reach-outside-turing" id="toc-when-to-reach-outside-turing" class="nav-link" data-scroll-target="#when-to-reach-outside-turing">When to reach outside Turing</a></li>
+  <li><a href="#learning-points" id="toc-learning-points" class="nav-link" data-scroll-target="#learning-points">Learning points</a></li>
+  <li><a href="#references" id="toc-references" class="nav-link" data-scroll-target="#references">References</a></li>
+  </ul>
+<div class="toc-actions"><ul><li><a href="https://github.com/mfiidd/mfiidd/blob/main/sessions/julia_ecosystem.qmd" class="toc-action"><i class="bi bi-github"></i>View source</a></li><li><a href="https://github.com/mfiidd/mfiidd/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></nav>
+    </div>
+<!-- main -->
+<main class="content" id="quarto-document-content" tabindex="-1">
+
+
+<header id="title-block-header" class="quarto-title-block default"><nav class="quarto-page-breadcrumbs quarto-title-breadcrumbs d-none d-lg-block" aria-label="Breadcrumbs"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../sessions/variational_inference.html">Further topics</a></li><li class="breadcrumb-item"><a href="../sessions/julia_ecosystem.html">Beyond Turing</a></li></ol></nav>
+<div class="quarto-title">
+<h1 class="title">Beyond Turing</h1>
+<p class="subtitle lead">The wider Julia ecosystem</p>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<div class="callout callout-style-simple callout-note">
+<div class="callout-body d-flex">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-body-container">
+<p><strong>Estimated time</strong>: 1-1.5 hours | <strong>Requires</strong>: MCMC</p>
+</div>
+</div>
+</div>
+<section id="introduction" class="level1">
+<h1>Introduction</h1>
+<p>Everything so far has gone through <a href="https://turinglang.org/">Turing.jl</a>, and for most work that is the right choice. But when you go back to your own models you will hit cases where Turing is not what you want: a sampler it does not implement, an automatic differentiation backend that falls over on your model, or a deployment where you would rather not carry the whole stack.</p>
+<p>Turing sits on top of a set of packages you can also use directly, and the interface between them is simpler than you might expect. It is a function that returns a log-density.</p>
+</section>
+<section id="objectives" class="level1">
+<h1>Objectives</h1>
+<p>In this session you will:</p>
+<ol type="1">
+<li>See that the log-density function is the common interface across the ecosystem</li>
+<li>Fit the SIR model with DynamicHMC, without Turing involved at all</li>
+<li>Understand how to choose an automatic differentiation backend</li>
+<li>Know which alternative samplers exist and when to reach for them</li>
+<li>Know what else is available for handling and checking results</li>
+</ol>
+</section>
+<section id="setup" class="level1">
+<h1>Setup</h1>
+<section id="source-file" class="level2">
+<h2 class="anchored" data-anchor-id="source-file">Source file</h2>
+<p>The source file of this session is located at <code>sessions/julia_ecosystem.qmd</code>.</p>
+</section>
+<section id="load-libraries" class="level2">
+<h2 class="anchored" data-anchor-id="load-libraries">Load libraries</h2>
+<div id="4" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb1"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DifferentialEquations</span> <span class="co">## for differential equations</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Distributions</span> <span class="co">## for probability distributions</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DataFrames</span> <span class="co">## for data frames</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">CSV</span> <span class="co">## for reading data</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Random</span> <span class="co">## for random numbers</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">Plots</span> <span class="co">## for plots</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">StatsPlots</span> <span class="co">## for statistical plots</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DrWatson</span> <span class="co">## for datadir()</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">MFIIDD</span> <span class="co">## the course package, which holds the SIR implementation</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+</section>
+</section>
+<section id="the-log-density-is-all-you-need" class="level1">
+<h1>The log-density is all you need</h1>
+<p>Turing’s <code>@model</code> macro and <code>~</code> syntax make Bayesian models concise and readable. Underneath, though, all Turing does is evaluate a log-density function: the same log-posterior you built by hand in <a href="../sessions/introduction.html">the first session</a>.</p>
+<p>The Julia ecosystem has a standard interface for such functions, <a href="https://github.com/tpapp/LogDensityProblems.jl">LogDensityProblems.jl</a>. Any function conforming to it can be sampled by a range of MCMC packages. Knowing the pattern means you are not locked in to a single framework.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Coming from R?
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-1" class="callout-1-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The same layering exists in R, though it is less visible. <code>rstan</code> and <code>cmdstanr</code> are interfaces to Stan, which compiles your model down to a log-density and a gradient; <a href="https://roualdes.github.io/bridgestan/">BridgeStan</a> exposes that log-density directly, which is the closest R equivalent to what this session does.</p>
+<p>Where Julia differs is that the layers are ordinary Julia packages rather than a separate compiled language, so you can mix and match them, and read the source when something goes wrong.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Important
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Almost everything in Bayesian computation reduces to two things: a function that returns <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>p</mi><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo><mo>+</mo><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>p</mi><mo stretchy="false" form="prefix">(</mo><mi>y</mi><mo>∣</mo><mi>θ</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\log p(\theta) + \log p(y \mid \theta)</annotation></semantics></math>, and a way to differentiate it. Frameworks differ in how pleasantly they let you write the first and how well they do the second.</p>
+</div>
+</div>
+</section>
+<section id="from-manual-log-posterior-to-standard-interface" class="level1">
+<h1>From manual log-posterior to standard interface</h1>
+<p>In the introduction, we wrote a function that simulates the SIR model and returns the log-likelihood. The equations themselves are <code>sir_ode!</code> from <a href="https://github.com/mfiidd/mfiidd/blob/main/src/sir_model.jl"><code>src/sir_model.jl</code></a>, which arrived with <code>using MFIIDD</code> above:</p>
+<div id="6" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co"># The synthetic epidemic from the introduction session</span></span>
+<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a>epi1 <span class="op">=</span> CSV.<span class="fu">read</span>(<span class="fu">datadir</span>(<span class="st">"epi1_synthetic.csv"</span>), DataFrame)</span>
+<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">simulate_and_loglik</span>(R_0, D_inf, data; init_state <span class="op">=</span> [<span class="fl">999.0</span>, <span class="fl">1.0</span>, <span class="fl">0.0</span>], tspan <span class="op">=</span> (<span class="fl">0.0</span>, <span class="fl">30.0</span>))</span>
+<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a>    prob <span class="op">=</span> <span class="fu">ODEProblem</span>(sir_ode!, init_state, tspan, [R_0, D_inf])</span>
+<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>    sol <span class="op">=</span> <span class="fu">solve</span>(prob, <span class="fu">Tsit5</span>(), saveat <span class="op">=</span> data.time)</span>
+<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>    I <span class="op">=</span> sol[<span class="fl">2</span>, <span class="op">:</span>]</span>
+<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>    loglik <span class="op">=</span> <span class="fu">sum</span>(<span class="fu">logpdf</span>.(<span class="fu">Poisson</span>.(<span class="fu">max</span>.(I, <span class="fl">1e-10</span>)), data.obs))</span>
+<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> (I <span class="op">=</span> I, loglik <span class="op">=</span> loglik)</span>
+<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<pre><code>simulate_and_loglik (generic function with 1 method)</code></pre>
+</div>
+</div>
+<p>To use this with <a href="https://github.com/tpapp/DynamicHMC.jl">DynamicHMC.jl</a>, we need a callable struct, which is an object that acts as a function. It takes a named tuple of parameters (provided by the transformation layer) and returns the log-posterior:</p>
+<div id="8" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb4-1"><a href="#cb4-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">LogDensityProblems</span>, <span class="bu">TransformVariables</span></span>
+<span id="cb4-2"><a href="#cb4-2" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">DynamicHMC</span>, <span class="bu">LogDensityProblemsAD</span>, <span class="bu">TransformedLogDensities</span></span>
+<span id="cb4-3"><a href="#cb4-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-4"><a href="#cb4-4" aria-hidden="true" tabindex="-1"></a><span class="kw">struct</span> SIRPosterior{T}</span>
+<span id="cb4-5"><a href="#cb4-5" aria-hidden="true" tabindex="-1"></a>    data<span class="op">::</span><span class="dt">T</span></span>
+<span id="cb4-6"><a href="#cb4-6" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span>
+<span id="cb4-7"><a href="#cb4-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-8"><a href="#cb4-8" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> (p<span class="op">::</span><span class="dt">SIRPosterior</span>)(θ)</span>
+<span id="cb4-9"><a href="#cb4-9" aria-hidden="true" tabindex="-1"></a>    R_0, D_inf <span class="op">=</span> θ.R_0, θ.D_inf</span>
+<span id="cb4-10"><a href="#cb4-10" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Priors</span></span>
+<span id="cb4-11"><a href="#cb4-11" aria-hidden="true" tabindex="-1"></a>    lp <span class="op">=</span> <span class="fu">logpdf</span>(<span class="fu">Uniform</span>(<span class="fl">1</span>, <span class="fl">20</span>), R_0) <span class="op">+</span> <span class="fu">logpdf</span>(<span class="fu">Uniform</span>(<span class="fl">1</span>, <span class="fl">14</span>), D_inf)</span>
+<span id="cb4-12"><a href="#cb4-12" aria-hidden="true" tabindex="-1"></a>    <span class="fu">isinf</span>(lp) <span class="op">&amp;&amp;</span> <span class="cf">return</span> lp  <span class="co"># Outside prior support</span></span>
+<span id="cb4-13"><a href="#cb4-13" aria-hidden="true" tabindex="-1"></a>    <span class="co"># Likelihood</span></span>
+<span id="cb4-14"><a href="#cb4-14" aria-hidden="true" tabindex="-1"></a>    result <span class="op">=</span> <span class="fu">simulate_and_loglik</span>(R_0, D_inf, p.data)</span>
+<span id="cb4-15"><a href="#cb4-15" aria-hidden="true" tabindex="-1"></a>    <span class="cf">return</span> lp <span class="op">+</span> result.loglik</span>
+<span id="cb4-16"><a href="#cb4-16" aria-hidden="true" tabindex="-1"></a><span class="kw">end</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-3-contents" aria-controls="callout-3" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Code explainer: callable structs
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-3" class="callout-3-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The <code>(p::SIRPosterior)(θ)</code> syntax makes <code>SIRPosterior</code> callable. Having created <code>posterior = SIRPosterior(data)</code>, you can write <code>posterior(θ)</code> just as if it were a function. This is how you attach data to a log-density without using a global variable.</p>
+<p><a href="https://github.com/tpapp/TransformedLogDensities.jl">TransformedLogDensities.jl</a> then wraps this callable with parameter transformations and automatically provides the <code>LogDensityProblems</code> interface that DynamicHMC expects.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Exercise: check the log-posterior by hand
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Before sampling anything, convince yourself the posterior does what you expect.</p>
+<ol type="1">
+<li>Create <code>posterior = SIRPosterior(epi1)</code> and evaluate it at <code>(R_0 = 2.5, D_inf = 2.0)</code>.</li>
+<li>Evaluate it again at <code>(R_0 = 15.0, D_inf = 2.0)</code>. Which is larger, and does that match the data?</li>
+<li>Now try <code>(R_0 = 0.5, D_inf = 2.0)</code>, which is outside the prior. What comes back, and which line of the function produced it?</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-5-contents" aria-controls="callout-5" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Solution
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-5" class="callout-5-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The value at <code>R_0 = 2.5</code> is much larger, because the data were generated with <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mn>0</mn></msub><mo>≈</mo><mn>2.5</mn></mrow><annotation encoding="application/x-tex">R_0 \approx 2.5</annotation></semantics></math> and an <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><msub><mi>R</mi><mn>0</mn></msub><annotation encoding="application/x-tex">R_0</annotation></semantics></math> of 15 produces an epidemic far too fast and too large to match.</p>
+<p>At <code>R_0 = 0.5</code> you get <code>-Inf</code>, from <code>logpdf(Uniform(1, 20), 0.5)</code>. The <code>isinf(lp) &amp;&amp; return lp</code> line then returns immediately rather than running the ODE solver. That guard matters: without it you would waste a solve on parameters the prior has already ruled out, and the solver might fail outright on nonsensical input.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="sampling-with-dynamichmc.jl" class="level1">
+<h1>Sampling with DynamicHMC.jl</h1>
+<p><a href="https://github.com/tpapp/DynamicHMC.jl">DynamicHMC.jl</a> is a standalone NUTS implementation. It uses <a href="https://github.com/tpapp/TransformVariables.jl">TransformVariables.jl</a> to map constrained parameters to unconstrained space, which NUTS requires:</p>
+<div id="10" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb5"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co"># Create the posterior</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a>posterior <span class="op">=</span> <span class="fu">SIRPosterior</span>(epi1)</span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"># Define parameter transformations (constrained → unconstrained)</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="co"># R_0 ∈ (1, 20), D_inf ∈ (1, 14)</span></span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>trans <span class="op">=</span> <span class="fu">as</span>((R_0 <span class="op">=</span> <span class="fu">as</span>(<span class="dt">Real</span>, <span class="fl">1.0</span>, <span class="fl">20.0</span>), D_inf <span class="op">=</span> <span class="fu">as</span>(<span class="dt">Real</span>, <span class="fl">1.0</span>, <span class="fl">14.0</span>)))</span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a><span class="co"># Wrap with transformations and automatic differentiation</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>transformed_posterior <span class="op">=</span> <span class="fu">TransformedLogDensity</span>(trans, posterior)</span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>∇posterior <span class="op">=</span> <span class="fu">ADgradient</span>(<span class="op">:</span>ForwardDiff, transformed_posterior)</span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a><span class="co"># Sample</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a><span class="bu">Random</span>.<span class="fu">seed!</span>(<span class="fl">42</span>)</span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>results <span class="op">=</span> <span class="fu">mcmc_with_warmup</span>(<span class="bu">Random</span>.<span class="fu">default_rng</span>(), ∇posterior, <span class="fl">2000</span>)</span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a><span class="co"># Extract samples (back in constrained space)</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>samples <span class="op">=</span> [TransformVariables.<span class="fu">transform</span>(trans, col) for col <span class="kw">in</span> <span class="fu">eachcol</span>(results.posterior_matrix)]</span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>R_0_samples <span class="op">=</span> [s.R_0 for s <span class="kw">in</span> samples]</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>D_inf_samples <span class="op">=</span> [s.D_inf for s <span class="kw">in</span> samples]</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"R_0: mean = </span><span class="sc">$</span>(<span class="fu">round</span>(<span class="fu">mean</span>(R_0_samples), digits<span class="op">=</span><span class="fl">2</span>))<span class="st">, std = </span><span class="sc">$</span>(<span class="fu">round</span>(<span class="fu">std</span>(R_0_samples), digits<span class="op">=</span><span class="fl">2</span>))<span class="st">"</span>)</span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a><span class="fu">println</span>(<span class="st">"D_inf: mean = </span><span class="sc">$</span>(<span class="fu">round</span>(<span class="fu">mean</span>(D_inf_samples), digits<span class="op">=</span><span class="fl">2</span>))<span class="st">, std = </span><span class="sc">$</span>(<span class="fu">round</span>(<span class="fu">std</span>(D_inf_samples), digits<span class="op">=</span><span class="fl">2</span>))<span class="st">"</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-stdout">
+<pre><code>R_0: mean = 2.32, std = 0.03
+D_inf: mean = 1.99, std = 0.03</code></pre>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-6-contents" aria-controls="callout-6" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Code explainer: why the transformation is needed
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-6" class="callout-6-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>NUTS follows gradients, so it needs to move through an unconstrained space. If it proposed <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><msub><mi>R</mi><mn>0</mn></msub><mo>=</mo><mi>−</mi><mn>3</mn></mrow><annotation encoding="application/x-tex">R_0 = -3</annotation></semantics></math>, the prior would return <code>-Inf</code>, the gradient would be meaningless, and the sampler would stall at the boundary.</p>
+<p><code>as(Real, 1.0, 20.0)</code> supplies a map from the whole real line onto <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mo stretchy="false" form="prefix">(</mo><mn>1</mn><mo>,</mo><mn>20</mn><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">(1, 20)</annotation></semantics></math>, so the sampler works in an unbounded space while your log-density only ever sees values inside the prior support. <code>TransformedLogDensity</code> also adds the log Jacobian of that map, without which you would be sampling a subtly different distribution.</p>
+<p>Turing does exactly this for you whenever you write <code>R_0 ~ Uniform(1, 20)</code>. Here you can see it happening.</p>
+</div>
+</div>
+</div>
+<div id="12" class="cell" data-execution_count="1">
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb7"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb7-1"><a href="#cb7-1" aria-hidden="true" tabindex="-1"></a>p1 <span class="op">=</span> <span class="fu">histogram</span>(R_0_samples, normalize<span class="op">=:</span>pdf, xlabel<span class="op">=</span><span class="st">"R_0"</span>, ylabel<span class="op">=</span><span class="st">"Density"</span>,</span>
+<span id="cb7-2"><a href="#cb7-2" aria-hidden="true" tabindex="-1"></a>               title<span class="op">=</span><span class="st">"R_0 posterior"</span>, label<span class="op">=</span><span class="st">"DynamicHMC"</span>, alpha<span class="op">=</span><span class="fl">0.7</span>)</span>
+<span id="cb7-3"><a href="#cb7-3" aria-hidden="true" tabindex="-1"></a>p2 <span class="op">=</span> <span class="fu">histogram</span>(D_inf_samples, normalize<span class="op">=:</span>pdf, xlabel<span class="op">=</span><span class="st">"D_inf"</span>, ylabel<span class="op">=</span><span class="st">"Density"</span>,</span>
+<span id="cb7-4"><a href="#cb7-4" aria-hidden="true" tabindex="-1"></a>               title<span class="op">=</span><span class="st">"D_inf posterior"</span>, label<span class="op">=</span><span class="st">"DynamicHMC"</span>, alpha<span class="op">=</span><span class="fl">0.7</span>)</span>
+<span id="cb7-5"><a href="#cb7-5" aria-hidden="true" tabindex="-1"></a><span class="fu">plot</span>(p1, p2, layout<span class="op">=</span>(<span class="fl">1</span>, <span class="fl">2</span>), size<span class="op">=</span>(<span class="fl">800</span>, <span class="fl">350</span>))</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="cell-output cell-output-display" data-execution_count="1">
+<img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAABgAAAAKgCAIAAADS3yHBAAAABmJLR0QA/wD/AP+gvaeTAAAgAElEQVR4nOzdZ1xT59sH8DuEvUFAQARFrCKKojiLgru1KiLiqLgHdVStWqV1VNuqYGvdVUGs1OJEtFpHFURxKwgIIioooGxERlghyXlenKfnc/5JCCsQiL/vi34OJ/e5z5VIzeV17sGhKIoAAAAAAAAAAIDyUlF0AAAAAAAAAAAA0LRQAAIAAAAAAAAAUHIoAAEAAAAAAAAAKDlVRQcAAAAtQlJSUmRkJH08derUNm3aKDYeAACABuDxeMHBwfTxoEGDnJycmu3WAoEgMTHx5cuXRUVFzMkJEyaYmZk1WwzQYO/evfv777/p4zFjxnTs2FGx8QA0BRSAAFqW1NRUdtLApqampq+vb2pqqqOj08xRMRISEi5cuJCRkZGbm2tgYGBlZeXq6jp8+HAul6uokEBe7ty5s3TpUvp48ODBKAABAIBsmZmZOTk5Ul8yNDTU09PT09PT0tJq5qgKCwuZrzN/f//mKQAJBAI/P7+9e/fm5eWJvdSrVy8UgFqFFy9eML85YWFhKACBUkIBCKBlWbVqFfPwoSYdO3bs16/f9OnTP//8c1XVZvq/+MmTJz4+PtHR0WLnt27damFh8csvv0yfPr15Iml10tLSRCIRIURXVxcpIAAAKI29e/f6+/vLbqOtrd2zZ8/evXv36dNn1KhR7dq1a57YmpNIJJowYcKlS5cUHUgLlZmZWVVVRQjR0NBQyl8AgFYEBSCA1ufNmzdv3rw5deqUo6Pj0aNHm+HRVmBg4NKlS/l8vtRXs7Ozvb29w8PDg4KCVFSwspi4Xr16FRcXE0KmTp164sQJRYcDAADQfMrLy+/fv3///n1CiIqKytChQ1evXv3ZZ58pOi55CggIYKo/Ojo6rq6uNjY2+vr69BkLCwvFhdYijBs3LjY2lhDSr1+/hw8fKjocgI8aCkAArdjTp09dXFyuX78+aNCgprvL5cuXFy1aJBQK6R+tra2nTJlibW1dUFBw/fr1e/fu0eePHj1qZmZW65NAAAAA+DiJRKKIiIiIiIjPP/88KChIaSojhw4dog/atm37+PHj9u3bKzYeAICaoAAE0HJdunRp4MCB7DPFxcWPHz8OCgr6999/6TPl5eVffvnlixcvNDQ0miKGwsLC6dOnM9Wf5cuX//LLL2pqavSPmzZtCg0NnTFjRmVlJSFk+/btI0eOHDFiRFNEAk2NnlRIH5ubmys2GAAAaF127949Y8YM9pnS0tLi4uJXr149fPjwxo0b7FnkV65c6dOnz7Vr17p37y73SNq1a5eRkUEfGxoayr1/MSUlJU+fPqWPp02bhupP6+Xi4sL85piYmCg2GIAmggIQQMulp6dnZGTEPmNkZNShQwcvL689e/YsX76cPpmenn706FEfH5+miMHf359ZlHratGm7du0SazBp0qSysrLZs2fTP37//ffDhw/ncDhNEQw0KR0dHQWuLw4AAK2atra2ZNJCCOnRo8fEiRMJIY8fP968eTMzVSo7O3vkyJHR0dFyXxSGy+U2ZxXm7du39Ep/hBAsG9yqaWhooH4HSg+rdQC0SsuWLfPw8GB+vHjxYlPcpbS0dN++ffSxtrb27t27pTabNWuWi4sLffz48eOIiIimCAYAAABar759+168eHHnzp3McoE5OTmzZs1SbFSNV1payhw3w4AjAIDGwAgggNZq9uzZ586do48fP37cFLe4cuVKeXk5fTx58mRTU9OaWi5atOjOnTv0cVhYmNxngeXl5T1+/DgrK6uioqJdu3Z9+/a1traubycFBQUPHz7My8srLCw0MTExNzcfNGiQnp5e3Xuorq5OSEhITEwsLS3l8Xj6+vq6urodO3a0t7dvuk3Tq6qqHj58+Pbt24KCAjU1NXNz8969e3fo0KHBHSYlJb169SozM1MgENjb248cObIxXT1//jwnJ0coFJqamtrZ2fXu3ZvL5TasN5FIFB0dnZ6enp2draam1r9//969ezc4NgAAaGk4HM6KFSt4PN6GDRvoMxEREf/888/YsWMVGxhNIBA8ePAgLS0tLy/P2NjYzs5uwIABtW63ykyTb1LFxcUPHjzIzs4uKioyNzd3cnLq0qVLfTspLS29d+9eTk5OQUGBsbGxqanpgAED6jXXSSgUJicnx8fHFxcXl5SU6Orq6urqWltbd+nSxdLSsr7x1P2mMTExqampBQUFHA7HzMysR48e9vb2De7wzZs3iYmJ2dnZ5eXl7du39/T0bExX8fHxubm5FRUVJiYmNjY2/fv3V1dXb3CHT58+ff369bt37yiKcnR0dHV1bXBXANJRANCSuLu7M/97RkVFyWj56tUrpqWKiopA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ck6f/GL5mh+27NG3ckK46csF8202m75lAQAAABil9jWAXnrppWeeeebc8bvvvnv79u2DBw+2Wq3VqdO5c+d58+adNRgdHa1DRADwC4/b6TGHliZcE32Nns3r05v+b113idPppAEEAAAABI3a1wCKi4uLi4s7a3Dfvn07duwQkWHDhlWzTkhISNOmTXUOBwB+F9K4VeNef9axYN6edSIlOhYE4B92u33atGmLFy8+cOCAx+OJjY3t1q3bI4880qxZM6OjAQAA49W+BlCVpk2bpmla27ZtO3bsaHQWAAAAfzt16lSvXr127twpIjabLTw8/ODBg5s2bfroo49mzZrVv39/owMCAACDBcMuYC6Xa9asWSLyl7/85ZKe6PF4srOzi4qKaiYXAACAnzz++OM7d+6sV6/et99+W1ZWlpube/jw4T59+tjt9qFDh546dcrogAAAwGDB0ABaunRpVlaW1WodPHhw9Z+1devW6Ojo+Pj4yMjIhg0bPvLII0ePHq25kAAAADXE4XAsXLhQRF5//fXbb79dURQRSUpKmjdvXnR0dHFx8ZIlS4zOCAAADBYMt4BNnTpVRO6+++5z1wa6AIfD0bBhw+Tk5F9//fXEiRMfffTR559/vmTJEr02AsvKypoyZUqVh2655ZbmzZvr8ioAAADFxcUOh0NEOnXqVHk8IiKidevWa9euzc3NNSgaAAAIFLW+AXTq1Klvv/1WRB566KFqPiU5OXn+/Pl9+/YNDQ31jqxatWrYsGH79++/66679u/fX6dOHV8inTx5UkQyMzNHjBhR5YSbbrrpyy+/9OUlaiO73e5wOOx2u9FBjJGTk+NwOtxud3l5uY5lPR63pmlOp0vHso5yh6aJpmn6RnV73JomLpeeUT2OchFNdI/qdmuauD06v1mapun/VXW5NdE8ekf1uD0Ol+P06dMlJSwFrRun01lcXOxyuYwOckUIDw/38T/ltU5sbGxcXFxOTs7hw4evvfbainGPx3P48GERadGihXHpAABAQKj1DaCZM2c6nc7ExMRbb721mk9p3bp169atK49069btu+++a9269cmTJ2fPnv3www/7Eql+/foikpSUNGjQoCon9O3bt169er68RG1UVlbmcDiioqKMDmKMoqIii8WimkxWq1XHsqqqKopiMZt1LOu0WhRFFEWpgahi1jWqRzwiiugd1aSa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yFdeIWjHjh3GhgSuWIpqMofW8f1/JmuI0Z8KAPjP/98GvnHjxn/7299+/fXX5cuXDxgwwHtXrXeFoF69erVq1er111/3XgsNAABwhfBeEHT8+PH58+f37NnTO1hQUDBlypR27dp5twwrLS01NiQAAMBFqWd9XHFB0P79+59//vkGDRp4xzMzM8eMGZOYmDhs2LCff/7Z7zkBAAAMU3FB0Pbt20eOHBkdHe0d914QlJiYOHr06MOHDxsbEgAA4ALObgBVSE5OfvHFFz/44IP69etXDJaWlk6bNq1t27Z9+/bdtGmTXxICAAAEirZt27755puvv/565TWA8vLy3n777ebNm6elpR04cMDAeAAAAOdTdQPo6NGj48ePb9KkyT333HPq1CnvYFJSUr169URE07QlS5bccMMN//rXv/yXFAAAwFDeLVO9CwCVlJR4B1u0aBERESEiTqdz9uzZ7dq1W7RokaExAQAAqvA/DSC3271o0aK+ffsmJydPmDDh2LFjIqKq6u23375o0aKDBw8eO3Zs7ty5nTt39k5+6qmn9u7da0xwAAAAv7Db7bNnz7755ptbt2797rvvepdEtFqtgwYN+vHHHzMzM7Oysj788MOrr75aREpLS4cOHZqfn290agAAgP/xWwPoyJEjL7zwwlVXXZWamrpkyRK32y0i9erV+9vf/rZ///5vv/22X79+JpPJarUOHjz4p59+evfdd0XE5XLNnDnTyPgAAAA1Zvfu3U888USjRo3S0tJWrVrlHWzSpMkrr7xy5MiRzz777OabbxaROnXqpKen79q1a9SoUSKSl5e3cOFCI3MDAACcw7xo0aIpU6YsW7bM2/Txuummm9LT0/v372+z2ap82qhRo2bMmLF161ZudAcAAEHGbrcvWLBgypQpq1evrhhUVbV3797p6el9+vRR1SpuojebzW+++easWbPy8vI4QQIAAIHGnJqaWvFBRETE/fffn56e3rZt24s+8+qrr966dWtxcXFNxgMAAPAfp9P5zDPPzJw588yZMxWD8fHxDz300PDhw5OTky/8dIvF0qRJk7y8PE6QAABAoDF7/69ly5ZDhgwZPnx4TExMdZ9pNtdYKgAAAAOUlZW99957FR9ed911w4cPT0tLCw0NrWYFTpAAAEBgMt93333p6eldu3a91Gd+/PHH//rXvywWS03EAgAAMEpE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JiK5ubmrV68uKioSkcTExPHjx581c968eSLSokWLhg0b+j0mAADApVHHjRvXrFkzs9kcHR195513rlu3rnXr1pVn5OTkzJkzR0RuvPFGloIGAADBLT4+ft26dY899lhiYqKqqvXr13/wwQfXrl1br169ytO2b9++cuVKEbnllluMCQoAAHApzBMmTJgwYcIFZoSFhe3cuVNEIiMj/ZUKAADAMHFxce+///77779/gTlNmjQ5cOCAiNStW9dfuQAAAC6f+aIzwsLCvDtiAAAAwCsqKioqKsroFAAAANWlGh0AAAAAAAAANYsGEAAAAAAAQJAzi0h+fv769ev37t1bWFhYUlJygdkjR45s3Lixv7IBAAAY5tSpU+vXrz948GBhYWFZWdkFZo4fPz4kJMRvwQAAAC6D+aGHHvrss8/sdnt1Zvfv358GEAAACG6//vrrk08+mZGR4Xa7qzP/ueeeowEEAAACnHn69OlGZwAAAAgUO3fu7N69e15entFBAAAA9GQWEavVetddd3Xs2LFRo0ZWq/UCs1NSUvwVDAAAwN80TRs6dKi3+xMREdG/f/9rr702ISHBbL7QxqlhYWH+CggAAHCZzPXq1Vu+fHm7du2MTgIAAGCwrVu3bt68WURatGixYsUK7nwHAABBQx03bhzdHwAAABHZsmWL98F7771H9wcAAAQTtXv37kZnAAAACAhFRUXeB5wgAQCAIGO2WCxGZwAAAAgICQkJIqIoislkMjrLZVq8ePGsWbN27dpVVFRUv3799u3b33XXXX369DE6FwAAMJh57969LVq0MDoGAACA8Tp37qwoiqZp+/bta926tdFxLk1paenAgQMzMjIqRo4ePbpp06YtW7bQAAIAAOq0adOMzgAAABAQmjVr1qtXLxGZPn260VkujaZp/fv3z8jISEpKmj17dm5ursvlOnLkyPz582+77Taj0wEAAOOp33zzzbvvvmt0DAAAgIDwySef1K1b99133124cKHRWS7BtGnTli5dGh8fv2bNmvvvvz82NtZkMiUmJg4YMOCVV14xOh0AADCe2rVr1yeffLJfv34ZGRmnT592u91GRwIAADBMUlLS6tWrU1JS7r777iFDhvzwww85OTlGh7oITdP++c9/isgLL7zA5mUAAKBK5tWrV4tIRkZG5TvGz2fjxo2dOnWq+VQAAAAGKCwsjIqK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YGBg06ZNrzXI8ePH77zzTnv+18vL66GHHkpLS7ta5f79+9v3G82bN//HP/5hs9mcXpQ6rKCgYNu2bW+88cb48eNlyuCGG2641iBHjhy5/fbb7b3KBg0azJgxIzMzs0S1pKSkq3Upp02bptMC1T2qqm7atGn69OmOmQIPD4+JEydeuHCh8nEKCgrmzp1rT725ublNnjw5OTm5zMp79+7t2bOn/ePatm27Zs0anRaoTrJard9///20adP8/f0d18LkyZOjoqIqHycvL++ZZ57x8fGREdzd3e+9996UlJQS1Y4ePXq1bWHevHm6LlldEhUV9cYbb/Tq1cuxI92hQ4ePPvqokjtqs9n8888/L1myZPLkye3atZNfaW5u7tXq5+bmzp4929vb277G77///qsdQaoJCSBUbO/evfZz+8GDB0+cONG+nbRv3/5qO3pHCxYskPVbtWo1evToMWPG2HOrkydPLrGBffrpp3J7IAFUBf369ZOni926dRs/fvywYcPsV2OWL19emQiPPfaYECIoKKh///733HPPnXfeab+jZPHixSUqJyYm3nDDDUKINm3azJ49e/r06bIfMHr06NKpPZTQrVs3IYTBYOjZs+f48eOHDBkiLwIoivLpp59WJsLUqVPlGcWAAQMmTpx4xx132C8jrFixokRleWUvICCABNC1Wr16tfxWGzduPGzYsAkTJnTt2lWW9OnTp5zDfIUBhRD/+te/Sld4+umnZTfunnvueeaZZ+RPxdfX99SpU3osEFBPHTx4UPwvd3f3a4rw66+/yn1p27ZtH3744WnTprVs2VIIERISUvqS2JEjR2TlHj16PPPMMxMmTHB3dxdCzJ8/X79lqnvsvUo7Hx+fa4qwe/dueUmyXbt2jzzyyH333de8eXMhRGho6JUrVxxrJiQkyKMqCSBHV65ckd+8p6dnv379Jk2a1K9fP/nj9PPzO3r0aGWCmM3mIUOGyLODBx988Mknn2zVqpVcKampqSUq//jjj/JK4W233fbMM8+MHDlSplAr2TV1SampqXIteHl53XbbbZMmTbr11lvldaaAgICTJ09WJkhxcfGgQYPkWx5++OFZs2bJPVLHjh1L7JF+//13IYTRaCQB5Gj27NlyLbRp02b06NGjRo2S5zVCiIcffrgyEf744w9RSk5OTpmVCwsLb7vtNiFEw4YNH3nkkSee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7waD4d133y1z4nDHOTiaNWs2f/78559/nnuFqsBisaxcuVJcZQ9Wprlz56ampv773/8uZ4rW6OhoIYSfn1+JmfjEnyc8bFZATZF379tPzxzJUynHzfNqh0hfX19vb2+TyRQVFVVi6hlURjlrQT7wVXonmZub6zjhZocOHRYuXPjggw9WZzPrJNmx7969uxwMqBzyUHW1HqC9ghAiOztb5ndKV7Zn8aKiopo0aeJU012IXAt9+vRx/NGWqfJrwe78+fOdOnWy/7dnz56LFy+u/NlBPREXFydvYat8B68yyllfsrD0+qomJIBQRf/85z9/+eUXX1/fRYsWVeHtNptt5syZcri4ErePCiEMBkPfvn07dOjg5eUVExNz+PDhX3/9dcCAAZs3b678WTGkjIyMJ598Ugjx9NNPO6Zvynf48OHBgwfb/9upU6e9e/c6log/r8I1bty49NtlYYXPBqKE5OTkOXPmCCEWLFhQZvqmTHv37h07dqz9v926ddu8ebPjvVp2LVu27NOnT/PmzdPS0k6cOJGYmLhgwYJDhw6tX7++zPuQUY7XXnvt/PnzMolWmfrbtm1bu3bt1KlTy+9PyM2qzK6w3KxkBQDXnxwVIjw8/I8//rBPBSiE2LNnT1ZWlhAiOztblthstoKCAnH1Q6TJZGJbrhq5Fk6ePBkVFeWYp9ixY4fsddjXgl3Hjh1DQ0ObNWuWkJBw7Nix6Ojohx566OzZs++88871bHkt9+uvv37wwQeKoixdurTCypU/VNm7gqW3hYYNGxqNRlVV2Rbsdu/e/fHHHyuKUpkfZxU6DN27dw8JCQkMDIyLizt69OiZM2fGjRu3fPnyZ599Vo/muwKr1TpjxozCwsLBgwfrmxqrPR08EkCoih07dsybN09RlH/961/t27evQoT58+dv27atUaNGa9euLXHmOWTIkPj4eMeb7hITE6dOnfr7778/9NBD0dHR/v7+zi5AvWEymSZOnBgbG3vTTTctWbKk8m8MDAwcNmyYECIjI+PixYuRkZGPPfbYmjVrHNMKZrNZCFH6vlMhhBzygAEOrklubu6ECRMuX748aNCgV199tfJvbNKkiVxZaWlpkZGR586dmzFjxrp163r37u1Ybffu3f369bNvbqqqvvfee3/5y182btz46aefPvHEEzoui8v78ssv//73v7u7u69Zs6bME7wScnJynnzyyYCAgPfff7/8msXFxUIIOeZ6CXJbM5vNNpuNhB1w/d11110hISEXL1588MEHN23aJK/PR0dHP/XUU7KC3H6FEHJgUXGVbVkeIu2VcU3uvvvu9u3bx8TEPPDAA99//72cevzixYvy8on43y82MDDw5MmTjndaFRUVzZ8//8MPP1y6dOndd9995513Xuf2104RERFTpkyxWq3z58+XYzOXT/YAyzlU2XuA9tVRurLBYPD29s7Ly2NbkMLDw++9915VVV9++eWhQ4dWWL/ya0EI0bFjx4iIiM6dO9tLcnNzZ86cuWHDhhdeeGH48OFdunTRYRnqOE3TnnrqqV9++aVZs2Zff/111Z5xuZpy1td1Pm+iB4lrtnfv3kmTJlkslrfffvuBBx6oQoRXXnnl/fff9/Hx+eGHH0rfZdquXbsSj1y2atVq8+bNvr6+GRkZmzZtqnrT6xmz2TxlypQDBw6EhIT8+OOPpZ84LUfPnj137dq1a9eukydPJiQkzJkzJyYmZujQoZcuXbLXkbNKXblypfTb5bXQMnNDKJPJZBo3btzRo0d79uy5ZcuWq406XKZ+/frJlXX69Om4uLjHHnvswoULgwcPLjF2Xf/+/R2zBkajccGCBTNmzBBCyEeZUEkbN258/PHHFUX58ssvZeqtQvPmzUtMTHz33XcrfKRfblalr2CLP7e1Bg0akP0BaoTRaPz2228bN258/Pjxjh079unTp3v37l26dImLi5ODetovUHl6esrttMxtWR4iyzwNQIXc3d2//fbbwMDAw4cPd+jQoW/fvt26dQsNDU1KSpL3VzpeJvTx8SnxnJ2Xl9cHH3wwaNAgwbHvT9HR0UOHDs3IyHjggQfkI/8VqvBQZe8BypplVrZYLPl/3FbhAAAXGklEQVT5+YJtQQghRGRk5PDhw7Oysh5++OFyBgp0VPm1IIRo0qSJY/ZHCOHv77927dqQkBBVVT/77DOnWu8q/vKXv6xatSogIGD79u2tW7fWN3g56+s6nzfRicS1OXjw4Lhx4woLCxctWvTiiy9WIcLixYsXL17s7e29bdu2AQMGVPJdTZs2lXPGlzm2H0qzWCyTJ0/evn17hw4d9u7dW/nniUpr1KjRihUr7rzzzsLCwvfee8+xXPy5zypBFsoKqFBhYeG4ceP27dsXGhq6e/fuwMDAKocKCgpatWrVzTffnJubKydeLd99990nhDh16pSqqlX+0Hpl8+bN06ZNU1X1448/LjFR19UcOXLk888/v/HGGwcPHhzjQF4LysjIiImJkUNuiT9vA2azAmqn3r17nzhx4oknnmjevPnJkydjY2PvvvvuQ4cOybuh7ZevFEWRe/Iyt2V5blaZmwdRpptvvvn48eMzZ84MCgo6ceJEfHz8mDFjjhw5Iu/JqnDcVkVR5LGPMfWFEHFxcUOHDk1OTp40adIXX3xRyQsMle8BBgYGytsoSlfOysqSN8qxLcTExAwZMuTy5cv33XffZ599VskbT+SXnJmZWfqlSnYY3N3dJ02aJNgWhBBCvPTSS0uXLvX399+5c2efPn10j1/O+pIHhevWweMRMFyDw4cPjx49uqCg4KWXXlq4cGEVIrz77ruvvPKKl5fXli1b7rjjjmt6r9wq5LUClM9qtU6bNm3r1q1t2rTZs2ePLoPYDx48+Jdffjl79qy9pHPnzvv27bOfuDqSg+eXuNSAMhUXF0+aNGnPnj0hISG7d+8uc3C4a6Ioyh133HH06FHHlXU1crNSVbWwsLDEXMUobdu2bffee6/Val2xYsXjjz9eyXclJSVpmnb69Okyh9V89dVXX3311f79+//222/iz63GZDJduXKlRCpQDnrKZgXUrODg4E8++aRE4dy5c8WfM+9InTt3DgsLK32ITEtLk8lftmVntGvXbtWqVSUKjxw5Iv53LVwNXUopMTFx6NChcXFx48aNW7duXYlp2sshf732WcNKxBQOP29vb+/g4OC4uLjSlWWJwWBwHJa4HoqPjx86dGhiYuKkSZNWr15d+Xk55JdcZj+88h0GtgXp9ddff/vtt319fbdt2yYHGtOdLutLF9wBhMo6derUqFGjcnNzn3vuubfeeqsKEVasWDF//nwPD48NGzZU8rkJRxcvXhR/zvGJcqiq+vDDD2/cuLFVq1Z79uyRM7I7z2q1CiEcLw31799fCHHw4EF5AccuIiIiLS3NYDD069dPl492YRaLZerUqTt27GjTps3PP//cokULXcLKlVWZK0hys/L19SX7U6Fdu3ZNnjzZbDYvWbLkmWeeqfwbmzZtOqws8jvv0qXLsGHD7FMcdunSReZ9Dh48WCLOgQMHhBCVv3ESwPURFxf322+/KYoiHwST7IfIEpXlhtysWbMOHTpcz0a6vKioqMOHDxsMhnvuuafCynQphRCpqanDhw+Pjo4ePnz4d999d03PnssRIePj4+Pi4hzLVVUNCwsTf/7+HStfbVu48cYb6/OIAYmJiUOGDImNjR05cuTatWsrn4MTf37J0dHRJXIKVqv1999/F/+7Fq6GbUEI8e677y5atKhBgwY//PDDwIEDq+lT5OqIiIhIT093LDebzYcPHxaVW1/60IBKOHXqlLw/c86cOeXXNJvN4eHh4eHhJpPJsXzVqlWKori7u2/ZsqUKDdizZ488m925c2cV3l5/qKoqZzZt1qzZ+fPny6+cmJgYHh4eHx9fYdiCggJ5fWbBggX2woyMDPk467Zt2xwrywuhd9xxR5WWoB6xWq1yCrzg4OCYmJjyK8fFxYWHhycmJlYYNicnRw6K+frrr5dfs7CwUN7jOnbs2Gtod720f/9+2UNdvHhx+TVNJpPcB8pRYMvRvXt3IcS//vWvEuVyYKbRo0c7FkZERBiNRkVRzpw5U4X2Ayhh3759Qgh3d/erVYiKigoPD09NTS0/jqqqMuNQYpuVHXo3N7cSu3d5Aezpp592pvEuY9euXUIIHx+fq1WIjIwMDw9PS0srP47Vah09erQQYuLEiRV+aHp6uhyObd68edfcYleRmprarVs3IcSwYcNK9NhLi4iICA8Pl09s2fXt21cI8de//tWxcOPGjUIIPz+/vLy8EoWBgYGZmZn2QovFIg+CS5Ys0WOB6qSUlBQ5n+Dw4cMLCwvLr/zHH3+Eh4dfuXLFsbBHjx5CiNdee82xcN26dUKIhg0bVrhmo6Oj5bWo9957r2qL4ALk6BYeHh4lTmdKy8jICA8Pv3DhwtUqhIeHywRLTk5OmRXkPT5vvvmmY+FXX30lhGjSpElRUVEV2l8FJIBQsYiICDll3U033fTzzz/vKiU/P99eOTY2Vv70f/vtN3vhV199JdM3s2fPLv32AwcO2GumpqYOGjToq6++iouLs1gsmqYlJSWtWLHCz89PCHHbbbfZbLbruex1jnwsxWg0fvDBB6W/6rNnzzpWnjZtWomT//j4+LvvvnvDhg2xsbHy+8/JydmyZYs8zHt7e1+6dMkxghwHqlWrVidPntQ0zWazff31125uboqi7N2793oscF0mxyDw8PBYuXJl6ZX1xx9/OFaWU1FOmzbNXnL+/Pnx48dv2rQpPj7earVqmpadnb1hwwbZGwgICEhOTrZXnjNnzl/+8pcTJ07IPllBQcG+ffvkpQY3N7fff//9ei10nRQWFiaHqBwxYkTpNbVr1y65sUjySS4hRFxcXPlhr5YAunjxoqenp+wiyMhxcXE33nijEGLSpEm6Lx1Qr+zbt09utrLT7+bmdrVDpNyXvvTSS46F69ev/+qrry5fviz/e/LkybFjx8qT2xLHR03TRo0aJftOCQkJmqaZzebXXntNCNGgQYMK9w+u7ddff5XfuRxy2MvLy74Wzp0751hTni8tXLjQsXDdunVff/11SkqK/O/x48flxFWNGzeWX7XdxIkTFy9efP78eXkmnJ2dvXXrVhnTz8+vROX6IycnRx6AWrRosWXLltIHNfsvXJL3pX744YeOhT/88IPsw3z77bey5MiRI82bNy99/UlVVTkU94gRIzIyMjRNM5lMcu7RoKCgq50qu7ysrCz5U2zVqtXWrVtLrwX7L1ySV6FWrVrlWPj9998LITw9Pb///ntZEhYWJgcTKJFZGzx48PLlyyMjI2WWISMjY926dXKMiJYtW+bm5lbz4tZSH374oeyzvfDCC6VXQVhYmGPld955Rwhxww03lAgSFhYm63/66acymn2zOnHihGPNb775Rh4CNm/eLEsOHDgg77F49913q3VJHZEAQsW+/vrr8u8jCw8Pt1cuMwEkEw1X06ZNG3vN1NRUe7mbm5vjvAC9e/d2PKFFmeStH1fzwAMPOFYuMwFkr2w0Gh0fC2rUqFHp26+KiorkRJWKooSEhMgnmBRFqfAuCWiaFhAQUM7Kmj17tmPl0gmgc+fOOW4sjndQN23adN++fY5vnzp1qv1VmU6VGjRo8PXXX1+nBa6zlixZUs6aEkI4XpFzPgGkadqaNWvkfeCNGjUKDQ2Vf3fv3t3x8imAKijnSYf777/fsWaZCaC//e1v9p2nfW7Nli1bHjt2rPRnpaamhoSECCHc3d1DQ0PlWBvyQfjqXchar5y5DmbMmOFYs8wE0IIFC0qvBfu1KEeOU4A5zg7WuHHjPXv2VPdi1loVDhG4evVqx/plJoA0TXvppZdk/RtuuKFTp07yWu+YMWMcL4pIkZGRsovo5eUVGhoq14Wvr2+Jvkq9cuzYsfLXwnfffedYv8wEkKZp8+bNs28C9qEGJ0yYIC8N2slr+UIIRVEc+4GtW7cuveHUHzKDfzXdunVzrHy1BJC8ma5MI0aMKFF5zpw59m/e/iDw1KlTVVWt3kV1wCDQqFibNm2mTJlSToUSM27K+xocx7K99dZb5aAkZXKs2bBhw48//vjgwYOnTp1KT08vKCho1arVjTfeOGnSpOnTp3t4eDi1JPXAmDFjyhxeXrrlllsc/9u/f3/tz5t4pebNm2/atGnXrl1Hjx5NTk7Oy8tr3rx5165d77rrLjndRomAnp6eP/3000cffbR69eqoqCgvL6+RI0fOnTtXXotD+SZMmGAyma72aokJCO644w5fX1/Hx4M7dOiwYcOGXbt2HTt27PLly/n5+S1atAgNDR05cuRjjz1Wons9d+7c4ODgw4cPx8fHZ2ZmNm7cuF27dnfeeefs2bPbtWun+6K5mC5dupS/D3QcOiEoKEjuAysc1GD48OFdu3YtcxyQ6dOnh4SELF26NCwsLDExsWvXrpMmTVqwYAFz5QJOGjt2bE5OTpkvlRj4c9SoUd26dZM339ndc889mZmZv/32W3JysqIo3bt3Hz9+/Jw5c8pM6Ddt2vTYsWPvvPPOv//974SEBD8/v/vuu+/FF1/s3bu3jktUF40fP76goKDMl+wDokljxozp3bu3TMbZTZkyJScnR46xbTAYevToMWHChDlz5jie1kpvvvnmTz/9dOTIkeTk5Ozs7KZNm3bq1GnEiBFPPvmk81Mu1F0BAQHlH9RKDB85adKk/Pz80kM1v/XWW/369fvnP/959uzZjIyMW2655eGHH541a1bpqcQ6dux4+vTpt956a9u2bYmJiYGBgZMmTXr55ZfLnBuhnggMDCx/LZSYhnzKlClFRUWl+wzLli0bMGDAhx9+KMff6Nev34wZM2bOnFliLXzwwQd79+49fvx4SkpKbm6u7N6PGTNm5syZjudx9c2AAQPsSeTSSqyCrl273nfffaUnrRsxYkRoaGiZEUocQYQQK1asuP322z/66KNz584VFBT079//0UcfffTRRys59ZsuFO1/R28FAAAAAACAi2EWMAAAAAAAABdHAggAAAAAAMDFkQACAAAAAABwcSSAAAAAAAAAXBwJIAAAAAAAABdHAggAAAAAAMDFkQACAAAAAABwcSSAAAAAAAAAXBwJIAAAAAAAABdHAggAAAAAAMDFkQACAAAAAABwcSSAAAAAAAAAXBwJIAAAAAAAABdHAggA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">
+</div>
+</div>
+<p>Same data, same log-posterior, same NUTS algorithm, and no Turing involved.</p>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Exercise: compare against Turing
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Fit the same model with Turing’s <code>NUTS()</code> as you did in the <a href="../sessions/mcmc.html">MCMC session</a>, and compare the posterior means and standard deviations against the DynamicHMC results above.</p>
+<p>They should agree to within Monte Carlo error. If they do not, which of the two would you suspect first, and how would you check?</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-8-contents" aria-controls="callout-8" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Solution
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-8" class="callout-8-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>They should agree: both are sampling the same posterior with the same algorithm, so any difference beyond Monte Carlo error points to a specification difference rather than a sampler difference.</p>
+<p>The first thing to check is the priors. It is easy to write <code>Uniform(1, 20)</code> in one place and <code>truncated(Normal(2.5, 1.5), lower=1)</code> in the other and then conclude, wrongly, that the samplers disagree. Compare the log-density at a fixed <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mi>θ</mi><annotation encoding="application/x-tex">\theta</annotation></semantics></math> under both implementations. If those differ, the problem is in the model.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="choosing-an-automatic-differentiation-backend" class="level1">
+<h1>Choosing an automatic differentiation backend</h1>
+<p>Gradient-based samplers need <math display="inline" xmlns="http://www.w3.org/1998/Math/MathML"><semantics><mrow><mi>∇</mi><mrow><mi mathvariant="normal">log</mi><mo>⁡</mo></mrow><mi>p</mi><mo stretchy="false" form="prefix">(</mo><mi>θ</mi><mo>∣</mo><mi>y</mi><mo stretchy="false" form="postfix">)</mo></mrow><annotation encoding="application/x-tex">\nabla \log p(\theta \mid y)</annotation></semantics></math>. You almost never write that by hand: an automatic differentiation package derives it from your code. Which package you use matters more than you might expect, because they fail in different ways.</p>
+<table class="caption-top table">
+<colgroup>
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+<col style="width: 25%">
+</colgroup>
+<thead>
+<tr class="header">
+<th>Backend</th>
+<th>Mode</th>
+<th>Suits</th>
+<th>Watch out for</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><strong>ForwardDiff</strong></td>
+<td>forward</td>
+<td>few parameters, roughly under 50</td>
+<td>cost scales with number of parameters</td>
+</tr>
+<tr class="even">
+<td><strong>Zygote</strong></td>
+<td>reverse</td>
+<td>many parameters</td>
+<td>breaks on mutating code (<code>du[1] = ...</code>)</td>
+</tr>
+<tr class="odd">
+<td><strong>Enzyme</strong></td>
+<td>reverse</td>
+<td>performance-critical work</td>
+<td>fast, but error messages are hard going</td>
+</tr>
+<tr class="even">
+<td><strong>Mooncake</strong></td>
+<td>reverse</td>
+<td>a modern reverse-mode option</td>
+<td>newer, still maturing</td>
+</tr>
+</tbody>
+</table>
+<p>The rule of thumb is about dimension. Forward mode costs roughly one extra evaluation per parameter, so it is excellent for a handful of parameters and hopeless for a neural network. Reverse mode costs roughly a constant multiple of one evaluation regardless of dimension, which is why machine learning uses it throughout.</p>
+<p>You select a backend through <a href="https://github.com/SciML/ADTypes.jl">ADTypes.jl</a>, which every part of the ecosystem now understands:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb8"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb8-1"><a href="#cb8-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">ADTypes</span></span>
+<span id="cb8-2"><a href="#cb8-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb8-3"><a href="#cb8-3" aria-hidden="true" tabindex="-1"></a><span class="fu">sample</span>(model, <span class="fu">NUTS</span>(; adtype <span class="op">=</span> <span class="fu">AutoForwardDiff</span>()), <span class="fl">1000</span>)   <span class="co"># the default</span></span>
+<span id="cb8-4"><a href="#cb8-4" aria-hidden="true" tabindex="-1"></a><span class="fu">sample</span>(model, <span class="fu">NUTS</span>(; adtype <span class="op">=</span> <span class="fu">AutoZygote</span>()), <span class="fl">1000</span>)        <span class="co"># reverse mode</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<div class="callout callout-style-default callout-warning callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+Warning
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>This is not hypothetical. The <a href="../sessions/universal_differential_equations.html">universal differential equations</a> session trains a neural network inside an ODE with ForwardDiff, and gets away with it only because the network is deliberately tiny: 33 parameters, chosen partly so that forward mode stays affordable. Widen the network and forward mode becomes the bottleneck, because each parameter costs another pass through the model.</p>
+<p>If a gradient-based sampler or optimiser slows to a crawl, or stops working altogether, after you change your model, the AD backend is one of the first things to suspect.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Exercise: which backend would you pick?
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>For each of these, decide whether you would start with forward or reverse mode:</p>
+<ol type="1">
+<li>The SIR model from this session, with two parameters.</li>
+<li>The SEIT4L model, with six parameters.</li>
+<li>A model with a time-varying transmission rate given a separate value for each of 100 weeks.</li>
+<li>A neural network embedded in an ODE, with a few hundred weights.</li>
+</ol>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-11-contents" aria-controls="callout-11" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Solution
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-11" class="callout-11-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>1 and 2 are firmly forward-mode territory: with two or six parameters ForwardDiff is simple and fast, and this is why it is Turing’s default.</p>
+<p>3 is the interesting case at 100 parameters. Forward mode will work but is starting to cost; reverse mode is likely faster. This is the region where it is worth measuring rather than guessing.</p>
+<p>4 needs reverse mode. Forward mode costs roughly one extra pass through the model per parameter, so a few hundred parameters means a few hundred passes for every gradient, where reverse mode needs a constant number. The UDE session stays on the forward side of that line by keeping its network to 33 parameters, which is the same trade-off seen from the other direction.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="other-samplers" class="level1">
+<h1>Other samplers</h1>
+<p>Once your model implements the LogDensityProblems interface, a range of samplers becomes available:</p>
+<table class="caption-top table">
+<thead>
+<tr class="header">
+<th>Package</th>
+<th>What it offers</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><a href="https://github.com/tpapp/DynamicHMC.jl">DynamicHMC.jl</a></td>
+<td>NUTS, with a warmup that copes well with awkward posteriors</td>
+</tr>
+<tr class="even">
+<td><a href="https://github.com/TuringLang/AdvancedHMC.jl">AdvancedHMC.jl</a></td>
+<td>flexible HMC variants; the engine inside Turing</td>
+</tr>
+<tr class="odd">
+<td><a href="https://github.com/TuringLang/AdvancedMH.jl">AdvancedMH.jl</a></td>
+<td>Metropolis-Hastings and RAM, as used in the <a href="../sessions/pmcmc.html">PMCMC session</a></td>
+</tr>
+<tr class="even">
+<td><a href="https://github.com/mlcolab/Pathfinder.jl">Pathfinder.jl</a></td>
+<td>fast variational approximation, useful for initialising MCMC</td>
+</tr>
+<tr class="odd">
+<td><a href="https://github.com/JaimeRZP/MicroCanonicalHMC.jl">MicroCanonicalHMC.jl</a></td>
+<td>microcanonical Langevin sampler</td>
+</tr>
+</tbody>
+</table>
+<p>You do not have to leave Turing to use several of these. A compatible sampler can be wrapped for use with a Turing model, which is how the <a href="../sessions/pmcmc.html">PMCMC session</a> uses robust adaptive Metropolis:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb9"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb9-1"><a href="#cb9-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">AdvancedMH</span></span>
+<span id="cb9-2"><a href="#cb9-2" aria-hidden="true" tabindex="-1"></a><span class="fu">sample</span>(model, <span class="fu">externalsampler</span>(AdvancedMH.<span class="fu">RobustAdaptiveMetropolis</span>()), <span class="fl">5000</span>;</span>
+<span id="cb9-3"><a href="#cb9-3" aria-hidden="true" tabindex="-1"></a>       num_warmup <span class="op">=</span> <span class="fl">5000</span>, check_model <span class="op">=</span> <span class="cn">false</span>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p><code>num_warmup</code> matters here: an adaptive sampler needs warmup iterations to adapt in, and <code>externalsampler</code> passes them through to the wrapped sampler.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-12-contents" aria-controls="callout-12" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Pathfinder, and why initialisation matters
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-12" class="callout-12-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>Pathfinder finds an approximate posterior quickly by following the optimisation path towards the mode. It is rarely accurate enough to report on its own, but it is very good at producing starting points for MCMC, which matters most for the slow, badly mixing chains you met in the <a href="../sessions/pmcmc.html">PMCMC session</a>, where burn-in is expensive.</p>
+</div>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Exercise: swap the sampler
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The point of the interface is that the sampler is now a swappable part. Keep <code>∇posterior</code> exactly as it is and sample it with AdvancedHMC instead of DynamicHMC:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb10"><pre class="sourceCode julia code-with-copy"><code class="sourceCode julia"><span id="cb10-1"><a href="#cb10-1" aria-hidden="true" tabindex="-1"></a><span class="im">using</span> <span class="bu">AdvancedHMC</span></span>
+<span id="cb10-2"><a href="#cb10-2" aria-hidden="true" tabindex="-1"></a>n_samples, n_adapts <span class="op">=</span> <span class="fl">2000</span>, <span class="fl">1000</span></span>
+<span id="cb10-3"><a href="#cb10-3" aria-hidden="true" tabindex="-1"></a>initial_θ <span class="op">=</span> [<span class="fl">0.0</span>, <span class="fl">0.0</span>]  <span class="co"># unconstrained space, so zeros are a fine start</span></span>
+<span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>samples, stats <span class="op">=</span> <span class="fu">sample</span>(</span>
+<span id="cb10-5"><a href="#cb10-5" aria-hidden="true" tabindex="-1"></a>    AdvancedHMC.<span class="fu">NUTS</span>(<span class="fl">0.8</span>), ∇posterior, initial_θ, n_samples, n_adapts</span>
+<span id="cb10-6"><a href="#cb10-6" aria-hidden="true" tabindex="-1"></a>)</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>You will need to transform the samples back with <code>TransformVariables.transform</code> as above before you can compare them. Do the posterior means match?</p>
+<p>Then think about what you had to change to swap samplers, and what you did not.</p>
+</div>
+</div>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-14-contents" aria-controls="callout-14" aria-expanded="false" aria-label="Toggle callout">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Solution
+</div>
+<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
+</div>
+<div id="callout-14" class="callout-14-contents callout-collapse collapse">
+<div class="callout-body-container callout-body">
+<p>The means should match to within Monte Carlo error, because both packages implement NUTS against the same log-density and gradient.</p>
+<p>What changed was the sampler call. What did not change: the model, the priors, the transformation, the AD backend, or the gradient. That is the whole point of the interface. It also means that if two samplers disagree by more than Monte Carlo error, the thing they share is not the suspect, so look at the one part you altered.</p>
+<p>The exact API differs between packages (argument order, how warmup is specified, what comes back), so expect to read the documentation each time. The interface standardises the model, and it does not standardise the sampler.</p>
+</div>
+</div>
+</div>
+</section>
+<section id="working-with-the-results" class="level1">
+<h1>Working with the results</h1>
+<p>Whatever produced your samples, you still have to check and summarise them.</p>
+<ul>
+<li><a href="https://juliabayes.org/FlexiChains.jl/stable/">FlexiChains.jl</a> is what Turing returns by default, and what this course uses: R̂, effective sample size, MCSE and trace plots, as in the <a href="../sessions/mcmc_diagnostics.html">diagnostics session</a>. It keeps a vector-valued variable whole instead of flattening it into one column per element.</li>
+<li><a href="https://julia.arviz.org/">ArviZ.jl</a> is a Julia interface to the ArviZ ecosystem, and is worth knowing if you also work in Python or want its diagnostic plots.</li>
+<li><a href="https://github.com/sethaxen/PosteriorDB.jl">PosteriorDB</a> provides reference posteriors, which are useful for checking that an implementation is correct.</li>
+</ul>
+<p>Note that a chain from DynamicHMC is a plain matrix, not the <code>FlexiChains</code> object the rest of the course works with, so you either convert it or work with the matrix directly.</p>
+</section>
+<section id="the-rest-of-the-stack" class="level1">
+<h1>The rest of the stack</h1>
+<p>The mechanistic side of these models has its own ecosystem, most of which you have already been using without necessarily noticing:</p>
+<ul>
+<li><a href="https://docs.sciml.ai/DiffEqDocs/stable/">DifferentialEquations.jl</a> for the ODE solving throughout the course</li>
+<li><a href="https://docs.sciml.ai/SciMLSensitivity/stable/">SciMLSensitivity.jl</a> for differentiating through a solver, which is what makes gradient-based fitting of ODE models possible</li>
+<li><a href="https://docs.sciml.ai/JumpProcesses/stable/">JumpProcesses.jl</a> for stochastic simulation of the kind we hand-coded in the <a href="../sessions/seitl.html">Structure and stochasticity</a> session</li>
+</ul>
+</section>
+<section id="when-to-reach-outside-turing" class="level1">
+<h1>When to reach outside Turing</h1>
+<p>Most of the time, use Turing. The <code>@model</code> syntax is clearer and quicker to write, and the diagnostics tooling comes with it.</p>
+<p>There are three situations where it is worth dropping down a layer. If you hit a Turing problem you cannot resolve, working with the log-density directly strips away everything that might be causing it, which often tells you where the fault actually lies. If you want a sampler Turing does not implement, LogDensityProblems is the way in. And if you are deploying something, a minimal stack of your model plus an AD backend plus a sampler is less to maintain than the whole framework.</p>
+</section>
+<section id="learning-points" class="level1">
+<h1>Learning points</h1>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Tip</span>Learning points
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<ul>
+<li>Underneath any Bayesian framework is a log-density function and a way to differentiate it</li>
+<li>LogDensityProblems.jl is the standard interface, and implementing it opens up the ecosystem’s samplers</li>
+<li>The choice of AD backend is a real modelling decision: forward mode for few parameters, reverse mode for many</li>
+<li>Stepping outside Turing costs you convenience and the diagnostics tooling, so do it when you have a reason rather than by default</li>
+</ul>
+</div>
+</div>
+</section>
+<section id="references" class="level1">
+<h1>References</h1>
+<ul>
+<li><a href="https://www.tamaspapp.eu/LogDensityProblems.jl/stable/">LogDensityProblems.jl documentation</a></li>
+<li><a href="https://www.tamaspapp.eu/DynamicHMC.jl/stable/">DynamicHMC.jl documentation</a></li>
+<li><a href="https://www.tamaspapp.eu/TransformVariables.jl/stable/">TransformVariables.jl documentation</a></li>
+<li><a href="https://github.com/SciML/ADTypes.jl">ADTypes.jl</a>, the common interface for choosing an AD backend</li>
+<li><a href="https://turinglang.org/docs/usage/automatic-differentiation/">Turing.jl automatic differentiation guide</a></li>
+<li><a href="https://docs.sciml.ai/">SciML documentation</a>, the differential equation and sensitivity stack</li>
+</ul>
+
+
+</section>
+
+<script data-goatcounter="https://mfiidd.goatcounter.com/count" async="" src="//gc.zgo.at/count.js"></script></main> <!-- /main -->
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    // Ensure there is a toggle, if there isn't float one in the top right
+    if (window.document.querySelector('.quarto-color-scheme-toggle') === null) {
+      const toggle = window.document.createElement('button');
+      toggle.type = "button";
+      toggle.setAttribute("role", "switch");
+      toggle.setAttribute("aria-checked", "false");
+      toggle.classList.add('top-right');
+      toggle.classList.add('quarto-color-scheme-toggle');
+      toggle.setAttribute("aria-label", "Toggle dark mode");
+      toggle.onclick = function() { try { window.quartoToggleColorScheme(); } catch {} return false; };
+      const i = window.document.createElement("i");
+      i.classList.add('bi');
+      toggle.appendChild(i);
+      // Put the toggle in a landmark of its own, so that landmark navigation
+      // can reach it.
+      //
+      // The container is always a fresh direct child of body, and the toggle is
+      // never moved into page furniture that the theme or the author controls.
+      // The toggle is positioned against the page, so any ancestor that
+      // establishes a containing block captures it: a positioned element or a
+      // grid for position: absolute, and transform, filter, will-change or
+      // contain for position: fixed. A direct child of body has none of these
+      // to inherit, and the shift when one appears is silent and visual.
+      //
+      // ARIA says a document should have at most one banner, and axe reports a
+      // duplicate whether or not the banners carry distinct labels. So use a
+      // header when the page has no banner yet, and a named region otherwise.
+      //
+      // A header is a banner wherever it sits, unless it is inside sectioning
+      // content, so this cannot just look at the children of body: a custom
+      // page layout wraps the title block header in a plain div. An explicit
+      // role="banner" always counts.
+      const sectioning = 'article, aside, main, nav, section, [role="article"], [role="complementary"], [role="main"], [role="navigation"], [role="region"]';
+      const hasBanner = Array.from(
+        window.document.querySelectorAll('header:not([role]), [role="banner"]')
+      ).some(function(el) {
+        return el.hasAttribute("role") || el.closest(sectioning) === null;
+      });
+      const container = window.document.createElement(hasBanner ? "div" : "header");
+      if (hasBanner) {
+        container.setAttribute("role", "region");
+        container.setAttribute("aria-label", "Toggle dark mode");
+      }
+      container.classList.add('quarto-color-scheme-toggle-container');
+      container.appendChild(toggle);
+      window.document.body.appendChild(container);
+    }
+    setColorSchemeToggle(hasAlternateSentinel())
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp("https:\/\/mfiidd\.github\.io\/mfiidd\/");
+      const newWindowLabel = "(opens in a new tab)";
+      const newWindowNoteId = "quarto-ext-newwindow-label";
+      // Links reference one hidden label through aria-describedby, so the
+      // announcement never changes their accessible name.
+      var describeNewWindow = (link) => {
+        if (!window.document.getElementById(newWindowNoteId)) {
+          var newWindowNote = window.document.createElement("span");
+          newWindowNote.id = newWindowNoteId;
+          newWindowNote.hidden = true;
+          newWindowNote.textContent = newWindowLabel;
+          window.document.body.appendChild(newWindowNote);
+        }
+        var describedBy = (link.getAttribute("aria-describedby") || "").split(/\s+/).filter(Boolean);
+        if (!describedBy.includes(newWindowNoteId)) {
+          describedBy.push(newWindowNoteId);
+          link.setAttribute("aria-describedby", describedBy.join(" "));
+        }
+      }
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+      window.quartoDecorateExternalLinks = function (root) {
+     var links = (root || window.document).querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+            // target, if specified
+            link.setAttribute("target", "_blank");
+            if (link.getAttribute("rel") === null) {
+              link.setAttribute("rel", "noopener");
+            }
+            describeNewWindow(link);
+          if (!link.classList.contains('no-external-icon')) {
+            // default icon
+            link.classList.add("external");
+          }
+        }
+      }
+      };
+      window.quartoDecorateExternalLinks(window.document);
+    // Esc closes the popup (WCAG 1.4.13) and focus leaving both trigger and
+    // popup closes it (WCAG 2.4.11); tippy handles neither for interactive popups.
+    const hideOnEscAndFocusOut = {
+      name: 'hideOnEscAndFocusOut',
+      defaultValue: true,
+      fn(instance) {
+        const dismiss = () => {
+          // A show scheduled by the trigger delay would otherwise reopen it
+          instance.clearDelayTimeouts();
+          instance.hide();
+        };
+        const onKeyDown = (event) => {
+          if (event.key !== 'Escape') {
+            return;
+          }
+          // Keep Esc from also reaching page handlers (e.g. reveal.js overview),
+          // except an open reveal.js slide menu, which Esc should close too.
+          // The menu handles keys only when its keyboard option is on.
+          const menuHandlesEsc = window.Reveal?.getPlugin?.('menu')?.isOpen() &&
+            window.Reveal.getConfig().menu?.keyboard !== false;
+          if (!menuHandlesEsc) {
+            event.stopPropagation();
+          }
+          if (instance.popper.contains(window.document.activeElement)) {
+            // Disabled while refocusing so the focus trigger does not reopen it
+            instance.disable();
+            instance.reference.focus();
+            instance.enable();
+          }
+          dismiss();
+        };
+        const onFocusOut = (event) => {
+          const target = event.relatedTarget;
+          if (target && !instance.reference.contains(target) &&
+              !instance.popper.contains(target)) {
+            dismiss();
+          }
+        };
+        // On the trigger too: a click trigger (code-annotations: select) has no
+        // blur handling. Attached for the instance's lifetime so leaving the
+        // trigger also cancels a show still pending on the trigger delay.
+        instance.reference.addEventListener('focusout', onFocusOut);
+        return {
+          onShow() {
+            window.document.addEventListener('keydown', onKeyDown, true);
+            instance.popper.addEventListener('focusout', onFocusOut);
+          },
+          onHide() {
+            window.document.removeEventListener('keydown', onKeyDown, true);
+            instance.popper.removeEventListener('focusout', onFocusOut);
+          },
+          onDestroy() {
+            instance.reference.removeEventListener('focusout', onFocusOut);
+          },
+        };
+      },
+    };
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+        plugins: [hideOnEscAndFocusOut],
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          // Each band is positioned against its own containing block, which is
+          // not the offsetParent of the lines, so place it from client rects.
+          const placeBand = (band, firstEl, lastEl, codeBlock) => {
+            const container = band.offsetParent;
+            if (container === null) {
+              return;
+            }
+            const containerRect = container.getBoundingClientRect();
+            // Reveal.js scales slides with a transform, so convert client
+            // pixels back to the CSS pixels of the container.
+            const scale = containerRect.height / container.offsetHeight || 1;
+            const firstRect = firstEl.getBoundingClientRect();
+            const lastRect = lastEl.getBoundingClientRect();
+            const top = (firstRect.top - containerRect.top) / scale - container.clientTop + container.scrollTop;
+            const height = (lastRect.bottom - firstRect.top) / scale;
+            band.style.top = top - 2 + "px";
+            band.style.height = height + 4 + "px";
+            if (codeBlock) {
+              // Without the copy button wrapper, the containing block is wider
+              // than the code block, so span the code block explicitly.
+              const blockRect = codeBlock.getBoundingClientRect();
+              band.style.left = (blockRect.left - containerRect.left) / scale - container.clientLeft + container.scrollLeft + "px";
+              band.style.width = blockRect.width / scale + "px";
+            }
+          };
+          if (lineIds.length > 0) {
+            const el = window.document.getElementById(lineIds[0]);
+            const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+            const parent = el.parentElement.parentElement;
+            // cook up a div (if necessary) and position it
+            let div = window.document.getElementById("code-annotation-line-highlight");
+            if (div === null) {
+              div = window.document.createElement("div");
+              div.setAttribute("id", "code-annotation-line-highlight");
+              div.style.position = 'absolute';
+              parent.appendChild(div);
+            }
+            placeBand(div, el, lastEl, parent.closest("div.sourceCode") || parent);
+            let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+            if (gutterDiv === null) {
+              gutterDiv = window.document.createElement("div");
+              gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+              gutterDiv.style.position = 'absolute';
+              const codeCell = window.document.getElementById(targetCell);
+              const gutter = codeCell.querySelector('.code-annotation-gutter');
+              gutter.appendChild(gutterDiv);
+            }
+            placeBand(gutterDiv, el, lastEl);
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script>
+  <script type="application/javascript">
+  window.quartoScrollableRegionsLabels = {"code":"Scrollable code","output":"Scrollable output"};
+  </script>
+</div> <!-- /content -->
+
+
+
+
+<footer class="footer"><div class="nav-footer"><div class="nav-footer-center"><div class="toc-actions d-sm-block d-md-none"><ul><li><a href="https://github.com/mfiidd/mfiidd/blob/main/sessions/julia_ecosystem.qmd" class="toc-action"><i class="bi bi-github"></i>View source</a></li><li><a href="https://github.com/mfiidd/mfiidd/issues/new" class="toc-action"><i class="bi empty"></i>Report an issue</a></li></ul></div></div></div></footer></body></html>
