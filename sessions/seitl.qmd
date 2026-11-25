@@ -168,9 +168,6 @@ $$
 
 where $\beta=R_0/D_\mathrm{inf}$, $\epsilon=1/D_\mathrm{lat}$, $\nu = 1/D_\mathrm{inf}$, $\tau=1/D_\mathrm{imm}$ and $N = S + E + I + L + T$ is constant.
 
-It can be shown that there is an analogy between the deterministic equations and the algorithm that performs stochastic simulations of the model.
-In that sense, the deterministic equations are a description of the stochastic model, too.
-
 In order to fit the SEITL model to the Tristan da Cunha dataset we need to add one state variable and one parameter to the model:
 
 * The dataset represents daily incidence counts: we need to create a $6^\mathrm{th}$ state variable - called $\mathrm{Inc}$ - to track the daily number of new cases. Assuming that new cases are reported when they become symptomatic and infectious, we have the following equation for the new state variable:
