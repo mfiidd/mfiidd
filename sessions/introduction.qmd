@@ -465,8 +465,6 @@ plot!(p)
 The informed priors are not just narrower — they are also better behaved, avoiding the hard boundaries of the uniforms.
 Truncating the Normal at zero keeps $R_0$ positive, and the Gamma is naturally supported on the positive reals.
 
-Priors determine what kinds of epidemics our model considers plausible before seeing data.
-
 ::: {.callout-tip title="Exercise: Experiment with priors"}
 Try modifying the priors and re-running the prior predictive simulation above. For example:
 
