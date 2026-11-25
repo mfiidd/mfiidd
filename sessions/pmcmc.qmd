@@ -504,9 +504,6 @@ approximation earns its keep in populations of hundreds of thousands, not
 hundreds.
 :::
 
-For the Tristan da Cunha outbreak with only 284 individuals, demographic stochasticity plays a significant role. The stochastic model typically shows wider posteriors because it accounts for an additional source of variability — the randomness of individual infection events — that the deterministic model ignores. The deterministic model is much faster to fit and useful for initial exploration, but for small populations the stochastic model gives more honest uncertainty estimates.
-
-
 # Model comparison: SEITL vs SEIT4L
 
 In the [Structure and stochasticity](seitl.qmd) session, we introduced two model variants that both explain the two-wave pattern through temporary immunity:
