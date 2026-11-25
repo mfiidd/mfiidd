@@ -338,7 +338,7 @@ Rule of thumb: $\hat{R} < 1.1$ as a minimum, ideally $\hat{R} < 1.01$.
 :::
 
 ::: {.cite}
-Rank-normalised R̂ and ESS: @vehtari2021
+Rank-normalised R̂ and ESS: [@vehtari2021](https://doi.org/10.1214/20-BA1221)
 :::
 
 ## Effective sample size {.smaller}
@@ -372,7 +372,7 @@ The sum is [truncated]{.alert} where the estimates go to noise, in grey. Both
 panels are 4000 draws.
 
 ::: {.cite}
-@geyer1992
+[@geyer1992](https://doi.org/10.1214/ss/1177011137)
 :::
 
 ## How accurate is the reported estimate? {.smaller}

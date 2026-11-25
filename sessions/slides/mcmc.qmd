@@ -241,8 +241,8 @@ Worse, the shape you need is the shape of the thing you have not sampled yet.
 ::::
 
 ::: {.cite}
-Classical adaptive Metropolis: @haario2001. Robust adaptive Metropolis (RAM), which we
-use in the practical: @vihola2012.
+Classical adaptive Metropolis: [@haario2001](https://doi.org/10.2307/3318737).
+Robust adaptive Metropolis (RAM), which we use in the practical: [@vihola2012](https://doi.org/10.1007/s11222-011-9269-5).
 :::
 
 # Using gradients
@@ -276,7 +276,7 @@ reach for. Fall back to RAM or MH for discrete parameters, or a stochastic
 simulator that breaks differentiation, as the particle filter will later.
 
 ::: {.cite}
-@hoffman2014; see @betancourt2017 for the intuition.
+[@hoffman2014](https://jmlr.org/papers/v15/hoffman14a.html); see [@betancourt2017](https://arxiv.org/abs/1701.02434) for the intuition.
 :::
 
 ## {{< fa laptop-code >}} Your Turn {background-color="#447099" transition="fade-in"}

@@ -108,7 +108,12 @@ The likelihood we need is $P(\text{data}|\theta)$, which marginalises over all p
 
 $$P(\text{data}|\theta) = \int P(\text{data}|\text{trajectory}) \times P(\text{trajectory}|\theta) \, d(\text{trajectory})$$
 
-This integral is intractable - we can't enumerate all possible trajectories. Particle filters give us a Monte Carlo approximation.
+This integral is intractable - we can't enumerate all possible trajectories.
+
+Particle filters solve it with the *Monte Carlo method*: instead of integrating analytically, approximate the integral by drawing random trajectories from $P(\text{trajectory}|\theta)$ and averaging $P(\text{data}|\text{trajectory})$ over them.
+Simulating a trajectory from the model already draws from that distribution, so the more trajectories simulated, the closer the average gets to the integral above.
+A single such average wastes nearly all of its simulations once there is more than one observation to match, because most independently simulated trajectories fit the data badly.
+The three steps below - propagate, weight, resample - keep the average accurate across many observations by concentrating particles where the data say the trajectory is likely to be.
 
 # Load data and define SEIT4L dynamics
 
