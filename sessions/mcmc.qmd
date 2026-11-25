@@ -20,7 +20,6 @@ This session introduces Markov Chain Monte Carlo (MCMC), the algorithmic solutio
 Rather than exhaustively searching parameter space, MCMC intelligently explores it by taking random walks that spend more time in high-probability regions.
 
 You'll build understanding by walking through a simple MCMC implementation, then see how modern tools like [Turing.jl](https://turinglang.org/stable/) automate everything with state-of-the-art methods.
-By the end, you'll understand both what MCMC does under the hood and how to use it effectively in practice.
 
 # Objectives
 
@@ -303,7 +302,6 @@ When you call `randn()` in Julia or `rnorm()` in R, the computer uses transforma
 2. **Inverse CDF method**: Transform uniform → normal via inverse cumulative distribution function
 3. **Ziggurat algorithm**: Fast, more complex method (what Julia actually uses)
 
-Even "easy" distributions require clever tricks.
 For complex posteriors with correlations, ODEs, and constraints, no such formula exists, and we need a method like MCMC.
 :::
 
@@ -694,7 +692,7 @@ p2 = plot(chain_ram[:R_0], title="Adaptive MH (RAM): R_0", xlabel="Iteration", y
 plot(p1, p2, layout=(1, 2), size=(800, 300))
 ```
 
-Notice how the adaptive sampler explores the parameter space more efficiently.
+The adaptive panel explores freely, while the standard Metropolis-Hastings panel beside it gets stuck at single values for long stretches.
 
 ## NUTS: a gradient-based upgrade
 
