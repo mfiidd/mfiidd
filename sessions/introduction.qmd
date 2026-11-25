@@ -947,8 +947,6 @@ seq(1.5, 4.0, by = 0.2)
 ```
 :::
 
-Is this the result you expected?
-
 Apart from finding the best parameters we can also use our results to visualise the whole posterior surface.
 
 ```{julia}
