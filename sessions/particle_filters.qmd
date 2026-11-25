@@ -264,8 +264,6 @@ end
 plot!(p)
 ```
 
-Particles predicting values closer to the observation get higher weights.
-
 ::: {.callout-tip collapse="true"}
 ## Code explainer
 
