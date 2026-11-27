@@ -652,7 +652,6 @@ Each of the two hundred paths comes from its own filter run at its own posterior
 
 # Amortisation in action: thinning the surveillance
 
-Here is the payoff.
 We never retrain — we just condition on a different mask.
 
 ```{julia}
